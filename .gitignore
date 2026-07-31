@@ -1,0 +1,59 @@
+# Gradle
+.gradle/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Kotlin
+.kotlin/
+
+# IDE - IntelliJ / Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+captures/
+.navigation/
+
+# IDE - VS Code / Fleet
+.vscode/
+.fleet/
+
+# Android
+local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# iOS / Xcode
+*.xcworkspace
+xcuserdata/
+*.xcuserstate
+DerivedData/
+Pods/
+.build/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Kotlin/Native
+.konan/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs and temp
+*.log
+*.tmp
+*.swp
+*~
