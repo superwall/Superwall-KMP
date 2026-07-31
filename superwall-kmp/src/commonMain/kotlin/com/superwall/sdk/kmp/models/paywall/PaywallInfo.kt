@@ -20,7 +20,7 @@ public data class PaywallInfo(
     /** The product IDs that this paywall is displaying, in `[Primary, Secondary, Tertiary]` order. */
     val productIds: List<String>? = null,
     /** The products associated with the paywall. */
-    val products: List<Product>? = null,
+    val products: List<PaywallProduct>? = null,
     /** The URL where this paywall is hosted. */
     val url: String? = null,
     /** The name of the placement that triggered this paywall. `null` if not triggered by a placement. */

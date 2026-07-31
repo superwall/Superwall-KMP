@@ -569,6 +569,18 @@ Binary-compat validator; Dokka docs; README (Android one-liner + R8/startup note
 
 ## 10. Open questions / decisions needed from the team
 
+> **Decisions recorded 2026-07-31 (ian@superwall.com):**
+> - **#1 (Android customerInfo): MOOT** — superwall-android has native `getCustomerInfo()`/`customerInfo: StateFlow`/`customerInfoDidChange`; all wired for real. The Flutter host's stub was a Flutter-layer gap, not a native one.
+> - **#2 (bridge distribution): SPM binary target**, SPM-only for v1 (repo-root `Package.swift` → release XCFramework).
+> - **#4 (version mismatch at configure): hard log warning**, no throw.
+> - **#5 (Product naming): renamed to `PaywallProduct`** (Δ33).
+> - **#6 (`consume()` on iOS): echo token + logged warning** (Flutter parity).
+> - **#7 (SuperwallKit pin): exact version** per release, resolved transitively via the bridge manifest.
+> - **#9 (sample app): one Compose Multiplatform demo.**
+> - **#10 (API review): Deltas ledger bulk-approved** — all 33 rows, see `docs/MODELS.md`.
+> - **#11 (minSdk): 26**, aligned with superwall-android.
+> Remaining open: #3 (bridge surface review ownership), #8 (purchase-controller platform ergonomics timing), #12 (Xcode/reproducibility policy — decide before the first tagged release).
+
 1. **Android `getCustomerInfo` semantics** — default in this plan is the Flutter-parity synthesized stub + logged warning; Proposal 2 argued for throwing `SuperwallError.NotSupportedOnPlatform` as more honest. Product call needed before Phase 5; real fix is upstream superwall-android support — is that schedulable? (Decide together with the related `customerInfoFlow`/delegate-hook gaps from the Phase 2 audit, §4.)
 2. **Bridge distribution mechanics** — SPM **binary target** in the repo-root `Package.swift` pointing at the release XCFramework (this plan's default: consumers never need our Swift sources or build settings) vs. a **source package** (simpler release pipeline — no asset upload — but consumers compile our Swift with their Xcode, and dSYM/build-setting drift becomes their problem). Also: is CocoaPods support a v1 requirement or SPM-only? Decide before Phase 1 ends (it shapes the release automation).
 3. **Bridge surface ownership & review** — the `@objc` bridge header is now a second API contract we maintain (internal, but drift-sensitive: the klib is compiled against it). Who reviews `docs/bridge-surface.md` changes, and do bridge-only changes (no Kotlin surface change) get their own version line or stay lockstep with superwall-kmp versions (this plan's default: strict lockstep, one tag releases both)?

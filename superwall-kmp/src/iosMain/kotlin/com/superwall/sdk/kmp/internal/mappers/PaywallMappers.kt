@@ -42,7 +42,7 @@ import com.superwall.sdk.kmp.models.paywall.LocalNotification
 import com.superwall.sdk.kmp.models.paywall.LocalNotificationType
 import com.superwall.sdk.kmp.models.paywall.PaywallCloseReason
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
-import com.superwall.sdk.kmp.models.paywall.Product
+import com.superwall.sdk.kmp.models.paywall.PaywallProduct
 import com.superwall.sdk.kmp.models.paywall.Survey
 import com.superwall.sdk.kmp.models.paywall.SurveyOption
 import com.superwall.sdk.kmp.models.paywall.SurveyShowCondition
@@ -86,8 +86,8 @@ internal fun SWBConfirmedAssignment.toModel(): ConfirmedAssignment =
 // Paywall info family.
 // ---------------------------------------------------------------------------
 
-internal fun SWBProduct.toModel(): Product =
-    Product(
+internal fun SWBProduct.toModel(): PaywallProduct =
+    PaywallProduct(
         id = id,
         name = name,
         entitlements = entitlements.mapNotNull { (it as? SWBEntitlement)?.toModel() }.toSet(),

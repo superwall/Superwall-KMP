@@ -7,7 +7,7 @@ import com.superwall.sdk.kmp.models.paywall.LocalNotification
 import com.superwall.sdk.kmp.models.paywall.LocalNotificationType
 import com.superwall.sdk.kmp.models.paywall.PaywallCloseReason
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
-import com.superwall.sdk.kmp.models.paywall.Product
+import com.superwall.sdk.kmp.models.paywall.PaywallProduct
 import com.superwall.sdk.kmp.models.paywall.Survey
 import com.superwall.sdk.kmp.models.paywall.SurveyOption
 import com.superwall.sdk.kmp.models.paywall.SurveyShowCondition
@@ -72,10 +72,10 @@ internal fun NativePaywallInfo.toKmp(): PaywallInfo =
         state = sanitizeParams(state)?.ifEmpty { null },
     )
 
-// ---- Product -------------------------------------------------------------------
+// ---- PaywallProduct -------------------------------------------------------------------
 
-internal fun NativeProductItem.toKmp(): Product =
-    Product(
+internal fun NativeProductItem.toKmp(): PaywallProduct =
+    PaywallProduct(
         id = fullProductId,
         name = name,
         entitlements = entitlements.map { it.toKmp() }.toSet(),
