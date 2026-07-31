@@ -1,7 +1,7 @@
 package com.superwall.sdk.kmp.internal
 
 /**
- * iOS actual for the bridge factory. Returns `IosSuperwallBridge` (a thin
- * forwarder to the `SuperwallKMPBridge` Swift facade) once it lands.
+ * iOS actual for the bridge factory: a thin forwarder to the
+ * `SuperwallKMPBridge` Swift facade (plan §5).
  */
-internal actual fun createSuperwallBridge(): SuperwallBridge = TODO("IosSuperwallBridge lands in the next stage")
+internal actual fun createSuperwallBridge(): SuperwallBridge = IosSuperwallBridge()

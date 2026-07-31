@@ -1,0 +1,7 @@
+# Cinterop definition for the self-authored @objc Swift bridge (plan §5.2).
+# Kotlin/Native parses the generated SuperwallKMPBridge-Swift.h out of the
+# prebuilt SuperwallKMPBridge.xcframework; the -F framework search path for the
+# correct per-target slice is injected via compilerOpts in build.gradle.kts.
+language = Objective-C
+modules = SuperwallKMPBridge
+package = com.superwall.sdk.kmp.internal.ios.interop

@@ -405,8 +405,10 @@ public final class SWBSuperwallBridge: NSObject {
     purchaseController: SWBPurchaseController?,
     completion: ((SWBConfigurationStatus, NSError?) -> Void)?
   ) {
+    // A repeat configure is a native-level no-op; never clobber the forwarder
+    // the first configure handed to SuperwallKit.
     let controller: PurchaseController?
-    if let purchaseController = purchaseController {
+    if let purchaseController = purchaseController, !Superwall.isInitialized {
       let forwarder = BridgePurchaseControllerForwarder(bridgeController: purchaseController)
       self.purchaseControllerForwarder = forwarder
       controller = forwarder
