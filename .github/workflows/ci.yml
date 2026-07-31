@@ -74,11 +74,19 @@ jobs:
             echo "bridge/Package.swift not present yet (lands with Phase 1) - skipping"
           fi
 
-      - name: Run bridge tests
+      # `swift test` builds for macOS, where the iOS-only SuperwallKit (UIKit)
+      # cannot compile — bridge tests must run on an iOS Simulator.
+      - name: Run bridge tests (iOS Simulator)
         working-directory: bridge
         run: |
           if [ -f Package.swift ]; then
-            swift test
+            DEVICE="$(xcrun simctl list devices available | grep -oE 'iPhone [0-9a-zA-Z ]+' | head -1 | sed 's/ *$//')"
+            echo "Using simulator: ${DEVICE}"
+            xcodebuild test \
+              -workspace . \
+              -scheme SuperwallKMPBridge \
+              -destination "platform=iOS Simulator,name=${DEVICE}" \
+              CODE_SIGNING_ALLOWED=NO
           else
             echo "bridge/Package.swift not present yet (lands with Phase 1) - skipping"
           fi
