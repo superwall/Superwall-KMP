@@ -6,17 +6,15 @@ plugins {
     alias(libs.plugins.vanniktech.mavenPublish)
 }
 
-group = "io.github.kotlin"
-version = "1.0.0"
+group = "com.superwall.sdk"
+version = "0.1.0"
 
 kotlin {
-    jvm()
     androidLibrary {
-        namespace = "org.jetbrains.kotlinx.multiplatform.library.template"
+        namespace = "com.superwall.sdk.kmp"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 
-        withJava() // enable java compilation support
         withHostTestBuilder {}.configure {}
         withDeviceTestBuilder {
             sourceSetTreeName = "test"
@@ -28,7 +26,7 @@ kotlin {
     }
     iosArm64()
     iosSimulatorArm64()
-    linuxX64()
+    iosX64()
 
     sourceSets {
         commonMain.dependencies {
@@ -46,31 +44,31 @@ mavenPublishing {
 
     signAllPublications()
 
-    coordinates(group.toString(), "library", version.toString())
+    coordinates(group.toString(), "superwall-kmp", version.toString())
 
     pom {
-        name = "My library"
-        description = "A library."
-        inceptionYear = "2024"
-        url = "https://github.com/kotlin/multiplatform-library-template/"
+        name = "Superwall KMP"
+        description = "Kotlin Multiplatform SDK for Superwall, wrapping the native Android and iOS SuperwallKit SDKs."
+        inceptionYear = "2026"
+        url = "https://github.com/superwall/Superwall-KMP"
         licenses {
             license {
-                name = "XXX"
-                url = "YYY"
-                distribution = "ZZZ"
+                name = "The Apache License, Version 2.0"
+                url = "https://www.apache.org/licenses/LICENSE-2.0.txt"
+                distribution = "repo"
             }
         }
         developers {
             developer {
-                id = "XXX"
-                name = "YYY"
-                url = "ZZZ"
+                id = "superwall"
+                name = "Superwall"
+                url = "https://superwall.com"
             }
         }
         scm {
-            url = "XXX"
-            connection = "YYY"
-            developerConnection = "ZZZ"
+            url = "https://github.com/superwall/Superwall-KMP"
+            connection = "scm:git:git://github.com/superwall/Superwall-KMP.git"
+            developerConnection = "scm:git:ssh://git@github.com/superwall/Superwall-KMP.git"
         }
     }
 }
