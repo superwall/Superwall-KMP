@@ -98,6 +98,14 @@ kotlin {
             implementation(libs.superwall.android)
             implementation(libs.androidx.startup)
             implementation(libs.kotlinx.coroutines.android)
+            // superwall-android's POM declares these as runtime scope, so they are
+            // on consumers' runtime classpath transitively but NOT on our compile
+            // classpath. The native API surface we adapt against exposes them
+            // (PurchaseController.purchase takes a billing ProductDetails; the
+            // redemption models carry kotlinx.serialization JsonElement), so pin
+            // them compileOnly at the exact versions superwall-android 2.7.11 uses.
+            compileOnly(libs.android.billing)
+            compileOnly(libs.kotlinx.serialization.json)
         }
     }
 }
