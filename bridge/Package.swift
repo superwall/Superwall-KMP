@@ -13,6 +13,10 @@ let package = Package(
   products: [
     .library(
       name: "SuperwallKMPBridge",
+      // Dynamic so `xcodebuild archive` installs a real .framework into the
+      // archive's Products/Library/Frameworks (static/automatic products
+      // install nothing there, breaking the XCFramework build).
+      type: .dynamic,
       targets: ["SuperwallKMPBridge"]
     )
   ],
