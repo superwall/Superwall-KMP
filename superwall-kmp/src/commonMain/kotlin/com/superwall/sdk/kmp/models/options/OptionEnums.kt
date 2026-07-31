@@ -174,3 +174,20 @@ public enum class DeviceTier {
     /** Device info could not be evaluated. */
     UNKNOWN,
 }
+
+/**
+ * Controls which events are sent to the Superwall servers.
+ */
+public enum class EventTrackingBehavior {
+    /** All events are tracked. This is the default. */
+    ALL,
+
+    /**
+     * Only internal Superwall events are tracked; user-initiated tracking
+     * calls, trigger-fire events, and user-attribute updates are suppressed.
+     */
+    SUPERWALL_ONLY,
+
+    /** No events are sent to the Superwall servers. */
+    NONE,
+}

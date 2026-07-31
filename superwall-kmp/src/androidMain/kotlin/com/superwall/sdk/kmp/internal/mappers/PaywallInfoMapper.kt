@@ -29,7 +29,7 @@ import com.superwall.sdk.paywall.presentation.PaywallInfo as NativePaywallInfo
  * Maps the native [NativePaywallInfo] to the common [PaywallInfo]. Port of the
  * Flutter host's `PaywallInfoMapper.toPPaywallInfo` (utils/OptionsMapper.kt)
  * with the date convention changed to [kotlin.time.Instant] (plan §3.4):
- * superwall-android 2.7.11 renders its load-time fields as **strings**
+ * superwall-android 2.8.0 renders its load-time fields as **strings**
  * (`DateFormatterUtil`, pattern `yyyy-MM-dd'T'HH:mm:ss.SSS` in the device's
  * default zone, empty string when absent), so [parseNativePaywallDate] parses
  * them leniently and degrades to `null` rather than crashing.

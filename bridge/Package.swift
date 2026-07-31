@@ -19,7 +19,7 @@ let package = Package(
   dependencies: [
     // Exact pin — consumers must not be able to drift SuperwallKit independently
     // of the bridge (plan §5.2, Open Question #7).
-    .package(url: "https://github.com/superwall/Superwall-iOS", exact: "4.16.2")
+    .package(url: "https://github.com/superwall/Superwall-iOS", exact: "4.16.1")
   ],
   targets: [
     .target(

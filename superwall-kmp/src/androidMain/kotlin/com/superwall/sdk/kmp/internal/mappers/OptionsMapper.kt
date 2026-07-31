@@ -1,6 +1,7 @@
 package com.superwall.sdk.kmp.internal.mappers
 
 import com.superwall.sdk.kmp.models.options.DeviceTier
+import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.Logging
@@ -11,6 +12,7 @@ import com.superwall.sdk.kmp.models.options.TestModeBehavior
 import com.superwall.sdk.kmp.models.options.TransactionBackgroundView
 import java.util.EnumSet
 import com.superwall.sdk.analytics.Tier as NativeTier
+import com.superwall.sdk.config.options.EventTrackingBehavior as NativeEventTrackingBehavior
 import com.superwall.sdk.config.options.PaywallOptions as NativePaywallOptions
 import com.superwall.sdk.config.options.SuperwallOptions as NativeSuperwallOptions
 import com.superwall.sdk.logger.LogLevel as NativeLogLevel
@@ -28,7 +30,7 @@ import com.superwall.sdk.store.testmode.TestModeBehavior as NativeTestModeBehavi
  * - iOS-only options (`shouldBypassAppTransactionCheck`, `maxConfigRetryCount`,
  *   `shouldShowWebRestorationAlert`, `shouldShowWebPurchaseConfirmationAlert`,
  *   `transactionBackgroundView` semantics aside) are documented no-ops here
- *   because superwall-android 2.7.11 has no equivalent fields.
+ *   because superwall-android 2.8.0 has no equivalent fields.
  *
  * `PaywallOptions.onBackPressed` is deliberately NOT wired here: the bridge
  * installs an `OnBackPressedAdapter` on the returned native options so the
@@ -44,7 +46,15 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
                 NativeSuperwallOptions.NetworkEnvironment.ReleaseCandidate()
             NetworkEnvironment.DEVELOPER -> NativeSuperwallOptions.NetworkEnvironment.Developer()
         }
+    // Native 2.8.0 derives isExternalDataCollectionEnabled FROM
+    // eventTrackingBehavior (the boolean setter rewrites the behavior), so
+    // order and precedence matter: apply the deprecated boolean first, then
+    // let a non-default typed behavior win. ALL is the common default and is
+    // indistinguishable from "unset", so it never overrides the boolean.
     native.isExternalDataCollectionEnabled = isExternalDataCollectionEnabled
+    if (eventTrackingBehavior != EventTrackingBehavior.ALL) {
+        native.eventTrackingBehavior = eventTrackingBehavior.toNative()
+    }
     native.localeIdentifier = localeIdentifier
     native.isGameControllerEnabled = isGameControllerEnabled
     native.enableExperimentalDeviceVariables = enableExperimentalDeviceVariables
@@ -99,6 +109,20 @@ internal fun Logging.toNative(): NativeSuperwallOptions.Logging {
 }
 
 // ---- TestModeBehavior -------------------------------------------------------
+
+internal fun EventTrackingBehavior.toNative(): NativeEventTrackingBehavior =
+    when (this) {
+        EventTrackingBehavior.ALL -> NativeEventTrackingBehavior.ALL
+        EventTrackingBehavior.SUPERWALL_ONLY -> NativeEventTrackingBehavior.SUPERWALL_ONLY
+        EventTrackingBehavior.NONE -> NativeEventTrackingBehavior.NONE
+    }
+
+internal fun NativeEventTrackingBehavior.toKmp(): EventTrackingBehavior =
+    when (this) {
+        NativeEventTrackingBehavior.ALL -> EventTrackingBehavior.ALL
+        NativeEventTrackingBehavior.SUPERWALL_ONLY -> EventTrackingBehavior.SUPERWALL_ONLY
+        NativeEventTrackingBehavior.NONE -> EventTrackingBehavior.NONE
+    }
 
 internal fun TestModeBehavior.toNative(): NativeTestModeBehavior =
     when (this) {
@@ -204,7 +228,7 @@ internal fun LogScope.toNative(): NativeLogScope =
 
 /**
  * Maps a native [NativeLogScope] to the common [LogScope], or `null` when the
- * native scope has no common counterpart (superwall-android 2.7.11 carries
+ * native scope has no common counterpart (superwall-android 2.8.0 carries
  * `webEntitlements`, `customerInfo`, `jsEvaluator`, `paywallTransactions`,
  * `nativePurchaseController`, `deepLinks`, which the 22-value common enum
  * lacks). Callers apply the documented degrade rule ([LogScope.ALL] +

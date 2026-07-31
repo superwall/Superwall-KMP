@@ -44,6 +44,9 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBNetworkEnvironmentReleaseCa
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBRestoreFailedOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBSuperwallOptions
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTrackingBehaviorAll
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTrackingBehaviorNone
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTrackingBehaviorSuperwallOnly
 import com.superwall.sdk.kmp.internal.ios.interop.SWBTestModeBehaviorAlways
 import com.superwall.sdk.kmp.internal.ios.interop.SWBTestModeBehaviorAutomatic
 import com.superwall.sdk.kmp.internal.ios.interop.SWBTestModeBehaviorNever
@@ -51,6 +54,7 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBTestModeBehaviorWhenEnabled
 import com.superwall.sdk.kmp.internal.ios.interop.SWBTransactionBackgroundViewNone
 import com.superwall.sdk.kmp.internal.ios.interop.SWBTransactionBackgroundViewSpinner
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.NetworkEnvironment
@@ -74,6 +78,12 @@ internal fun SuperwallOptions.toSWB(): SWBSuperwallOptions {
     options.paywalls = paywalls.toSWB()
     options.networkEnvironment = NSNumber(long = networkEnvironment.toSWBRaw())
     options.isExternalDataCollectionEnabled = NSNumber(bool = isExternalDataCollectionEnabled)
+    // ALL is the common default and indistinguishable from "unset"; leaving
+    // the SWB field nil lets the deprecated boolean keep its effect (the
+    // native setter derives one from the other — same rule as androidMain).
+    if (eventTrackingBehavior != EventTrackingBehavior.ALL) {
+        options.eventTrackingBehavior = NSNumber(long = eventTrackingBehavior.toSWBRaw())
+    }
     options.localeIdentifier = localeIdentifier
     options.isGameControllerEnabled = NSNumber(bool = isGameControllerEnabled)
     options.enableExperimentalDeviceVariables = NSNumber(bool = enableExperimentalDeviceVariables)
@@ -123,6 +133,13 @@ private fun NetworkEnvironment.toSWBRaw(): Long =
         NetworkEnvironment.DEVELOPER -> SWBNetworkEnvironmentDeveloper
     }
 
+private fun EventTrackingBehavior.toSWBRaw(): Long =
+    when (this) {
+        EventTrackingBehavior.ALL -> SWBEventTrackingBehaviorAll
+        EventTrackingBehavior.SUPERWALL_ONLY -> SWBEventTrackingBehaviorSuperwallOnly
+        EventTrackingBehavior.NONE -> SWBEventTrackingBehaviorNone
+    }
+
 private fun TestModeBehavior.toSWBRaw(): Long =
     when (this) {
         TestModeBehavior.AUTOMATIC -> SWBTestModeBehaviorAutomatic
@@ -165,7 +182,7 @@ internal fun logLevelFromSWB(level: SWBLogLevel): LogLevel =
     }
 
 /**
- * Maps a common [LogScope] to the SWB raw value. The bridge's two 4.16.2-only
+ * Maps a common [LogScope] to the SWB raw value. The bridge's two 4.16.x-only
  * scopes (`analytics`, `webEntitlements`) have no common counterpart and only
  * appear in the read direction ([logScopeFromRawName]).
  */
@@ -208,7 +225,7 @@ internal fun logLevelFromRawName(raw: String): LogLevel? {
 /**
  * Maps the raw native scope string delivered by `handleLog` (camelCase, e.g.
  * `"paywallPresentation"`) to a common [LogScope], or `null` when unmappable
- * (including the 4.16.2-only `analytics`/`webEntitlements` scopes) — the
+ * (including the 4.16.x-only `analytics`/`webEntitlements` scopes) — the
  * caller falls back to [LogScope.ALL] and preserves `info["rawScope"]`.
  */
 internal fun logScopeFromRawName(raw: String): LogScope? {

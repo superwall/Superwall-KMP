@@ -18,6 +18,8 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeBrazeAl
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeClevertapId
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeCustomerioId
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeFbAnonId
+import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeFirebaseInstallationId
+import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeSingularDeviceId
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeFirebaseAppInstanceId
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeIterableCampaignId
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeIterableTemplateId
@@ -86,8 +88,8 @@ internal fun productStoreFromSWB(value: SWBProductStore): ProductStore =
         SWBProductStorePaddle -> ProductStore.PADDLE
         SWBProductStorePlayStore -> ProductStore.PLAY_STORE
         SWBProductStoreSuperwall -> ProductStore.SUPERWALL
-        // The common ProductStore has no CUSTOM case; degrade to OTHER.
-        SWBProductStoreOther, SWBProductStoreCustom -> ProductStore.OTHER
+        SWBProductStoreCustom -> ProductStore.CUSTOM
+        SWBProductStoreOther -> ProductStore.OTHER
         else -> ProductStore.OTHER
     }
 
@@ -98,6 +100,7 @@ internal fun productStoreToSWB(store: ProductStore): SWBProductStore =
         ProductStore.PADDLE -> SWBProductStorePaddle
         ProductStore.PLAY_STORE -> SWBProductStorePlayStore
         ProductStore.SUPERWALL -> SWBProductStoreSuperwall
+        ProductStore.CUSTOM -> SWBProductStoreCustom
         ProductStore.OTHER -> SWBProductStoreOther
     }
 
@@ -265,12 +268,15 @@ internal fun SWBNonSubscriptionTransaction.toModel(): NonSubscriptionTransaction
 // ---------------------------------------------------------------------------
 
 /**
- * Maps a common [IntegrationAttribute] to the SWB raw value. The bridge's two
- * 4.16.2-only attributes (`firebaseInstallationId`, `singularDeviceId`) have
- * no common counterpart and are unreachable from this direction.
+ * Maps a common [IntegrationAttribute] to the SWB raw value. Every common
+ * value has a SuperwallKit counterpart on iOS (including
+ * `FIREBASE_INSTALLATION_ID` and `SINGULAR_DEVICE_ID`, which are Android-gaps
+ * in the other direction).
  */
 internal fun integrationAttributeToSWB(attribute: IntegrationAttribute): SWBIntegrationAttribute =
     when (attribute) {
+        IntegrationAttribute.FIREBASE_INSTALLATION_ID -> SWBIntegrationAttributeFirebaseInstallationId
+        IntegrationAttribute.SINGULAR_DEVICE_ID -> SWBIntegrationAttributeSingularDeviceId
         IntegrationAttribute.ADJUST_ID -> SWBIntegrationAttributeAdjustId
         IntegrationAttribute.AMPLITUDE_DEVICE_ID -> SWBIntegrationAttributeAmplitudeDeviceId
         IntegrationAttribute.AMPLITUDE_USER_ID -> SWBIntegrationAttributeAmplitudeUserId
@@ -297,8 +303,7 @@ internal fun integrationAttributeToSWB(attribute: IntegrationAttribute): SWBInte
 /**
  * Maps a wire name from `getIntegrationAttributes()` (native camelCase or
  * snake_case) back to the common enum. Returns `null` for names without a
- * common counterpart (e.g. the 4.16.2-only `firebaseInstallationId` /
- * `singularDeviceId`) — the caller skips them (degrade, never crash).
+ * common counterpart — the caller skips them (degrade, never crash).
  */
 internal fun integrationAttributeFromWireName(name: String): IntegrationAttribute? {
     val normalized = name.normalizedEnumKey()

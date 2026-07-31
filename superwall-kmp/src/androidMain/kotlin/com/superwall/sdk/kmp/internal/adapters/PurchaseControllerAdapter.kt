@@ -1,7 +1,6 @@
 package com.superwall.sdk.kmp.internal.adapters
 
 import android.app.Activity
-import com.android.billingclient.api.ProductDetails
 import com.superwall.sdk.kmp.PurchaseController
 import com.superwall.sdk.kmp.internal.mappers.toNative
 import com.superwall.sdk.kmp.models.results.PurchaseResult
@@ -12,9 +11,10 @@ import kotlinx.coroutines.withContext
 import com.superwall.sdk.delegate.PurchaseResult as NativePurchaseResult
 import com.superwall.sdk.delegate.RestorationResult as NativeRestorationResult
 import com.superwall.sdk.delegate.subscription_controller.PurchaseController as NativePurchaseController
+import com.superwall.sdk.store.abstractions.product.StoreProduct as NativeStoreProduct
 
 /**
- * Adapts the user's common [PurchaseController] to superwall-android 2.7.11's
+ * Adapts the user's common [PurchaseController] to superwall-android 2.8.0's
  * [NativePurchaseController].
  *
  * Both sides are suspend functions, so — unlike the Flutter host's
@@ -35,9 +35,17 @@ internal class PurchaseControllerAdapter(
     private val controller: PurchaseController,
     private val log: (message: String, error: Throwable?) -> Unit,
 ) : NativePurchaseController {
+    /**
+     * Overrides superwall-android 2.8.0's primary entry point (the
+     * `StoreProduct` overload). Its interface default fails for custom-store
+     * products and routes Play products to the deprecated `ProductDetails`
+     * overload — overriding here instead means BOTH Play and custom products
+     * reach the user's [PurchaseController.purchaseFromGooglePlay], which is
+     * productId-based and store-agnostic.
+     */
     override suspend fun purchase(
         activity: Activity,
-        productDetails: ProductDetails,
+        product: NativeStoreProduct,
         basePlanId: String?,
         offerId: String?,
     ): NativePurchaseResult {
@@ -45,7 +53,7 @@ internal class PurchaseControllerAdapter(
             try {
                 withContext(Dispatchers.Main.immediate) {
                     controller.purchaseFromGooglePlay(
-                        productId = productDetails.productId,
+                        productId = product.productIdentifier,
                         basePlanId = basePlanId,
                         offerId = offerId,
                     )

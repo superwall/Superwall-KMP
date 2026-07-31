@@ -37,7 +37,7 @@ Two steps:
    https://github.com/superwall/Superwall-KMP
    ```
 
-   In Xcode: File → Add Package Dependencies… → paste the URL → add the `SuperwallKMPBridge` product to your app target. The package pins SuperwallKit iOS (exact `4.16.2`) transitively — do not add SuperwallKit separately.
+   In Xcode: File → Add Package Dependencies… → paste the URL → add the `SuperwallKMPBridge` product to your app target. The package pins SuperwallKit iOS (exact `4.16.1`) transitively — do not add SuperwallKit separately.
 
    The Kotlin side compiles against the bridge's ObjC headers only (compile-only cinterop); your app supplies the binary by linking the SPM package. If it is missing you'll get a link error at app build time, not at runtime.
 
@@ -108,7 +108,7 @@ The public `Superwall` facade (`superwall-kmp/src/commonMain/.../Superwall.kt`) 
 See `docs/` for the details:
 
 - [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) — full architecture, API design, phased plan
-- [`docs/bridge-surface.md`](docs/bridge-surface.md) — the iOS bridge API map: Kotlin bridge member → `@objc` bridge API → SuperwallKit call, the `SWBEventEnvelope` design, and the SuperwallKit 4.16.2 deltas
+- [`docs/bridge-surface.md`](docs/bridge-surface.md) — the iOS bridge API map: Kotlin bridge member → `@objc` bridge API → SuperwallKit call, the `SWBEventEnvelope` design, and the SuperwallKit 4.16.1 deltas
 
 ## License
 

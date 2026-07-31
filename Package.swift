@@ -37,7 +37,7 @@ let package = Package(
         // Exact pin — MUST stay in lockstep with bridge/Package.swift so the
         // binary artifact and the transitively-resolved SuperwallKit can never
         // drift apart (plan §5.2 "Version pins, two layers").
-        .package(url: "https://github.com/superwall/Superwall-iOS", exact: "4.16.2")
+        .package(url: "https://github.com/superwall/Superwall-iOS", exact: "4.16.1")
     ],
     targets: [
         // The prebuilt @objc bridge, attached to each GitHub release.

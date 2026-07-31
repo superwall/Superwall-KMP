@@ -43,6 +43,14 @@ public enum SWBTestModeBehavior: Int {
   case always = 3
 }
 
+/// Mirror of SuperwallKit.EventTrackingBehavior.
+@objc(SWBEventTrackingBehavior)
+public enum SWBEventTrackingBehavior: Int {
+  case all = 0
+  case superwallOnly = 1
+  case none = 2
+}
+
 /// Mirror of PaywallOptions.TransactionBackgroundView.
 @objc(SWBTransactionBackgroundView)
 public enum SWBTransactionBackgroundView: Int {
@@ -50,7 +58,7 @@ public enum SWBTransactionBackgroundView: Int {
   case none = 1
 }
 
-/// Mirror of SuperwallKit.LogScope (all 24 cases in 4.16.2).
+/// Mirror of SuperwallKit.LogScope (all 24 cases in 4.16.1).
 @objc(SWBLogScope)
 public enum SWBLogScope: Int {
   case localizationManager = 0
@@ -160,6 +168,8 @@ public final class SWBSuperwallOptions: NSObject {
   /// Wraps SWBNetworkEnvironment.rawValue.
   @objc public var networkEnvironment: NSNumber?
   @objc public var isExternalDataCollectionEnabled: NSNumber?
+  /// Wraps SWBEventTrackingBehavior.rawValue.
+  @objc public var eventTrackingBehavior: NSNumber?
   @objc public var localeIdentifier: String?
   @objc public var isGameControllerEnabled: NSNumber?
   /// Wired for real (dead in the Flutter public layer; plan §3.4).
@@ -238,6 +248,19 @@ public final class SWBSuperwallOptions: NSObject {
     }
     if let value = isExternalDataCollectionEnabled {
       options.isExternalDataCollectionEnabled = value.boolValue
+    }
+    // Applied AFTER the deprecated boolean: SuperwallKit derives the boolean
+    // from eventTrackingBehavior, so the typed field (when set) must win.
+    if let value = eventTrackingBehavior,
+      let behavior = SWBEventTrackingBehavior(rawValue: value.intValue) {
+      switch behavior {
+      case .all:
+        options.eventTrackingBehavior = .all
+      case .superwallOnly:
+        options.eventTrackingBehavior = .superwallOnly
+      case .none:
+        options.eventTrackingBehavior = .none
+      }
     }
     options.localeIdentifier = localeIdentifier
     if let value = isGameControllerEnabled {

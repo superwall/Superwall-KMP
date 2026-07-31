@@ -19,6 +19,9 @@ public enum class ProductStore {
     /** Superwall. */
     SUPERWALL,
 
+    /** A custom store integration. */
+    CUSTOM,
+
     /** Any other store. */
     OTHER,
 }

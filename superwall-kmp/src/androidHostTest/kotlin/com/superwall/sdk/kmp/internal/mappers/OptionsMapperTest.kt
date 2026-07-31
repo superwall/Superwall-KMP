@@ -8,6 +8,7 @@ import com.superwall.sdk.kmp.models.options.NetworkEnvironment
 import com.superwall.sdk.kmp.models.options.PaywallOptions
 import com.superwall.sdk.kmp.models.options.RestoreFailed
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
+import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.TestModeBehavior
 import com.superwall.sdk.kmp.models.options.TransactionBackgroundView
 import kotlin.test.Test
@@ -19,6 +20,7 @@ import com.superwall.sdk.config.options.PaywallOptions as NativePaywallOptions
 import com.superwall.sdk.config.options.SuperwallOptions as NativeSuperwallOptions
 import com.superwall.sdk.logger.LogLevel as NativeLogLevel
 import com.superwall.sdk.logger.LogScope as NativeLogScope
+import com.superwall.sdk.config.options.EventTrackingBehavior as NativeEventTrackingBehavior
 import com.superwall.sdk.store.testmode.TestModeBehavior as NativeTestModeBehavior
 
 /**
@@ -157,6 +159,25 @@ class OptionsMapperTest {
         // The mapper only assigns scopes when non-empty; the native default (all) survives.
         val native = Logging(scopes = emptySet()).toNative()
         assertEquals(setOf(NativeLogScope.all), native.scopes.toSet())
+    }
+
+    // ---- EventTrackingBehavior ---------------------------------------------------
+
+    @Test
+    fun eventTrackingBehavior_roundTripsExhaustivelyInBothDirections() {
+        for (common in EventTrackingBehavior.entries) {
+            assertEquals(common, common.toNative().toKmp())
+        }
+        for (native in NativeEventTrackingBehavior.entries) {
+            assertEquals(native, native.toKmp().toNative())
+        }
+    }
+
+    @Test
+    fun eventTrackingBehavior_mapsIntoNativeOptions() {
+        val native =
+            SuperwallOptions(eventTrackingBehavior = EventTrackingBehavior.SUPERWALL_ONLY).toNative()
+        assertEquals(NativeEventTrackingBehavior.SUPERWALL_ONLY, native.eventTrackingBehavior)
     }
 
     // ---- TestModeBehavior ------------------------------------------------------

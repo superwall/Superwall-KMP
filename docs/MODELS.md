@@ -189,3 +189,15 @@ One row per deliberate deviation from the Pigeon contract. Category: rename / ty
 - §3.5 lists `Entitlement` at 13 fields and `StoreProduct` at 41 fields; the written models match (verified).
 - `EventType` = 73 values and `IntegrationAttribute` = 21 values as written — matches both plan and Pigeon.
 - No other divergence between the plan's §3.5 catalog and the written `models/` tree was found.
+
+### Native-version-bump additions (superwall-android 2.8.0 / SuperwallKit iOS 4.16.1)
+
+Additions beyond the Pigeon contract picked up when the wrapper moved to the latest native SDKs. Same governance as above.
+
+| # | Pigeon shape | KMP shape | Category | Rationale | Sign-off |
+|---|---|---|---|---|---|
+| Δ28 | — (absent) | `SuperwallOptions.eventTrackingBehavior: EventTrackingBehavior` (ALL / SUPERWALL_ONLY / NONE) | add | New option on both natives; typed replacement for the deprecated `isExternalDataCollectionEnabled`. Precedence rule: the typed field wins when non-default; `ALL` (the default) never overrides the boolean, since the natives derive one from the other | PENDING |
+| Δ29 | — (absent) | `IntegrationAttribute.SINGULAR_DEVICE_ID` | add | Present on both natives (Android 2.8.0 `AttributionProvider`, iOS `IntegrationAttribute`) | PENDING |
+| Δ30 | — (absent) | `IntegrationAttribute.FIREBASE_INSTALLATION_ID` | add | iOS-only (`@platform` KDoc); Android skips it with a logged warning | PENDING |
+| Δ31 | — (absent) | `ProductStore.CUSTOM` | add | Present on both natives; previously degraded to `OTHER` on iOS and was unmappable on Android | PENDING |
+| Δ32 | `purchase(activity, ProductDetails, …)` (Flutter host path) | Android adapter overrides 2.8.0's primary `purchase(activity, StoreProduct, …)` overload | add (behavior) | The `ProductDetails` overload is deprecated in 2.8.0 and its replacement's default implementation fails for custom-store products; overriding the new entry point routes Play AND custom products to the user's productId-based `purchaseFromGooglePlay` | PENDING |

@@ -33,6 +33,17 @@ public enum class IntegrationAttribute {
     /** The Firebase instance identifier. */
     FIREBASE_APP_INSTANCE_ID,
 
+    /**
+     * The Firebase installation identifier (FID).
+     *
+     * @platform iOS-only: superwall-android has no counterpart; setting it on
+     * Android is skipped with a logged warning.
+     */
+    FIREBASE_INSTALLATION_ID,
+
+    /** The Singular Device ID (SDID). */
+    SINGULAR_DEVICE_ID,
+
     /** The Iterable identifier for the user. */
     ITERABLE_USER_ID,
 

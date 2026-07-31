@@ -383,7 +383,7 @@ internal fun NativeSuperwallEventInfo.toKmp(): SuperwallEventInfo {
                 params = params,
             )
         // TestModeModalOpen/Close, the SDK-internal events (ErrorThrown,
-        // ExpressionResult) and any case newer than superwall-android 2.7.11:
+        // ExpressionResult) and any case newer than superwall-android 2.8.0:
         // Flutter-host fallback shape.
         else ->
             SuperwallEventInfo(

@@ -20,7 +20,7 @@ import com.superwall.sdk.models.internal.RedemptionResult as NativeRedemptionRes
 import com.superwall.sdk.paywall.presentation.PaywallInfo as NativePaywallInfo
 
 /**
- * The always-installed native delegate: implements superwall-android 2.7.11's
+ * The always-installed native delegate: implements superwall-android 2.8.0's
  * [NativeSuperwallDelegate] in full and forwards every hook — payloads mapped
  * to common model types — to the common [BridgeListener] (the
  * `DelegateMultiplexer`) on `Dispatchers.Main.immediate` via the bridge's
@@ -32,7 +32,7 @@ import com.superwall.sdk.paywall.presentation.PaywallInfo as NativePaywallInfo
  * ## Delegate-hook audit (plan §4)
  *
  * Verified against `/home/user/refs/superwall-android-src/com/superwall/sdk/
- * delegate/SuperwallDelegate.kt` (superwall-android 2.7.11):
+ * delegate/SuperwallDelegate.kt` (superwall-android 2.8.0):
  *
  * - `customerInfoDidChange(from, to)` — **present natively**; wired below.
  *   It also feeds `Superwall.customerInfoFlow` through the multiplexer, so the
@@ -163,7 +163,7 @@ internal class DelegateAdapter(
         onMain { listener.customerInfoDidChange(from.toKmp(), to.toKmp()) }
     }
 
-    // NOTE (platform gap): superwall-android 2.7.11's SuperwallDelegate has no
+    // NOTE (platform gap): superwall-android 2.8.0's SuperwallDelegate has no
     // handleSuperwallDeepLink hook, so BridgeListener.handleSuperwallDeepLink
     // is never invoked from this adapter. See the class KDoc.
 

@@ -128,7 +128,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
      * Calls the static
      * `NativeSuperwall.configure(applicationContext, apiKey,
      * purchaseController, options, activityProvider, completion)`
-     * (verified signature: superwall-android 2.7.11 `Superwall.kt:526`).
+     * (verified signature: superwall-android 2.8.0 `Superwall.kt:526`).
      *
      * The `Application` comes from [ApplicationContextHolder]; when neither
      * the androidx.startup initializer nor `Superwall.androidSetup` ran, this
@@ -293,6 +293,14 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         val merged = currentNativeIntegrationAttributes().toMutableMap()
         for ((attribute, value) in attributes) {
             val native = attribute.toNativeAttributionProvider()
+            if (native == null) {
+                logError(
+                    "Integration attribute ${attribute.name} is not supported by " +
+                        "superwall-android and was skipped.",
+                    error = null,
+                )
+                continue
+            }
             if (value == null) merged.remove(native) else merged[native] = value
         }
         NativeSuperwall.instance.setIntegrationAttributes(merged)
@@ -336,7 +344,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     /**
      * Calls the REAL native `Entitlements.byProductIds(Set<String>)` —
-     * verified present in superwall-android 2.7.11 (`store/Entitlements.kt:213`).
+     * verified present in superwall-android 2.8.0 (`store/Entitlements.kt:213`).
      * The Flutter host's local-filter stub ("Android SDK doesn't have
      * byProductIds yet") is obsolete against this SDK version.
      */
@@ -356,7 +364,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     /**
      * Returns the REAL native `Superwall.getCustomerInfo()` — verified present
-     * in superwall-android 2.7.11 (`Superwall.kt:245`, a synchronous StateFlow
+     * in superwall-android 2.8.0 (`Superwall.kt:245`, a synchronous StateFlow
      * read). The Flutter host's synthesized minimal stub is obsolete against
      * this SDK version.
      */
@@ -528,14 +536,18 @@ private fun Map<String, Any?>?.toNonNullParams(): Map<String, Any>? {
 // ---- IntegrationAttribute <-> AttributionProvider ----------------------------
 
 /**
- * Maps the common 21-value [IntegrationAttribute] to the native
- * [NativeAttributionProvider]. Every common value has a native counterpart in
- * superwall-android 2.7.11 (the native enum's extra values — META, AMPLITUDE,
- * MIXPANEL, GOOGLE_ADS, GOOGLE_APP_SET, CUSTOM — have no common counterpart
- * and surface only through [toKmpIntegrationAttribute] as `null`).
+ * Maps the common [IntegrationAttribute] to the native
+ * [NativeAttributionProvider], or `null` for the iOS-only
+ * [IntegrationAttribute.FIREBASE_INSTALLATION_ID] (superwall-android 2.8.0
+ * has no counterpart — the caller skips it with a logged warning; the native
+ * enum's extra values — META, AMPLITUDE, MIXPANEL, GOOGLE_ADS, GOOGLE_APP_SET,
+ * CUSTOM — have no common counterpart and surface only through
+ * [toKmpIntegrationAttribute] as `null`).
  */
-private fun IntegrationAttribute.toNativeAttributionProvider(): NativeAttributionProvider =
+private fun IntegrationAttribute.toNativeAttributionProvider(): NativeAttributionProvider? =
     when (this) {
+        IntegrationAttribute.FIREBASE_INSTALLATION_ID -> null
+        IntegrationAttribute.SINGULAR_DEVICE_ID -> NativeAttributionProvider.SINGULAR_DEVICE_ID
         IntegrationAttribute.ADJUST_ID -> NativeAttributionProvider.ADJUST_ID
         IntegrationAttribute.AMPLITUDE_DEVICE_ID -> NativeAttributionProvider.AMPLITUDE_DEVICE_ID
         IntegrationAttribute.AMPLITUDE_USER_ID -> NativeAttributionProvider.AMPLITUDE_USER_ID
@@ -566,6 +578,7 @@ private fun IntegrationAttribute.toNativeAttributionProvider(): NativeAttributio
  */
 private fun NativeAttributionProvider.toKmpIntegrationAttribute(): IntegrationAttribute? =
     when (this) {
+        NativeAttributionProvider.SINGULAR_DEVICE_ID -> IntegrationAttribute.SINGULAR_DEVICE_ID
         NativeAttributionProvider.ADJUST_ID -> IntegrationAttribute.ADJUST_ID
         NativeAttributionProvider.AMPLITUDE_DEVICE_ID -> IntegrationAttribute.AMPLITUDE_DEVICE_ID
         NativeAttributionProvider.AMPLITUDE_USER_ID -> IntegrationAttribute.AMPLITUDE_USER_ID

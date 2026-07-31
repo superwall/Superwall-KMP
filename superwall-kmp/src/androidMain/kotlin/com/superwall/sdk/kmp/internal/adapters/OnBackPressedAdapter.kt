@@ -7,7 +7,7 @@ import com.superwall.sdk.paywall.presentation.PaywallInfo as NativePaywallInfo
 
 /**
  * Adapts the common `PaywallOptions.onBackPressed` closure onto
- * superwall-android 2.7.11's native hook
+ * superwall-android 2.8.0's native hook
  * (`com.superwall.sdk.config.options.PaywallOptions.onBackPressed:
  * ((PaywallInfo?) -> Boolean)?` — verified present at PaywallOptions.kt:153).
  *

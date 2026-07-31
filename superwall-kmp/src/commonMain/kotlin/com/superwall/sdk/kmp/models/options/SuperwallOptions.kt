@@ -19,6 +19,12 @@ public data class SuperwallOptions(
      * to the Superwall servers. Defaults to `true`.
      */
     val isExternalDataCollectionEnabled: Boolean = true,
+    /**
+     * Controls which events are sent to the Superwall servers. Defaults to
+     * [EventTrackingBehavior.ALL]. [EventTrackingBehavior.SUPERWALL_ONLY] is
+     * the typed replacement for `isExternalDataCollectionEnabled = false`.
+     */
+    val eventTrackingBehavior: EventTrackingBehavior = EventTrackingBehavior.ALL,
     /** Sets the device locale identifier to use when evaluating rules. */
     val localeIdentifier: String? = null,
     /**

@@ -4,7 +4,7 @@
 `internal interface SuperwallBridge`
 (`superwall-kmp/src/commonMain/kotlin/com/superwall/sdk/kmp/internal/SuperwallBridge.kt`),
 the self-authored `@objc` Swift bridge **SuperwallKMPBridge**
-(`bridge/Sources/SuperwallKMPBridge/`), and the underlying **SuperwallKit iOS 4.16.2** calls.
+(`bridge/Sources/SuperwallKMPBridge/`), and the underlying **SuperwallKit iOS 4.16.1** calls.
 
 The Swift facade is `@objc(SWBSuperwallBridge)` (singleton `+sharedBridge`,
 `SuperwallKMPBridge.swift`). All bridge types use the `SWB` ObjC prefix; payload classes are
@@ -90,7 +90,7 @@ permissionName            paywallIdentifier         paywallCount
 attributionMatch (SWBAttributionMatchInfo)          pageViewData (SWBPageViewData)
 ```
 
-## SuperwallKit 4.16.2 deltas (vs the Flutter host / plan §3.4 assumptions)
+## SuperwallKit 4.16.1 deltas (vs the Flutter host / plan §3.4 assumptions)
 
 Found by the bridge author while verifying every referenced symbol against the 4.16.2
 sources (all absorbed into the bridge and the enums above):

@@ -96,7 +96,7 @@ import platform.Foundation.NSNumber
 
 /**
  * Maps the typed `SWBEventEnvelope` — the Swift bridge's destructuring of all
- * 80 SuperwallKit 4.16.2 event cases — into the common [SuperwallEventInfo].
+ * 80 SuperwallKit 4.16.1 event cases — into the common [SuperwallEventInfo].
  *
  * The envelope is flat and sparse, so the payload copy is uniform; only the
  * event-type discriminator needs a mapping. Two fidelity notes:
@@ -235,7 +235,7 @@ internal fun eventTypeFromSWB(value: SWBEventType): EventType? =
         SWBEventTypePermissionDenied -> EventType.PERMISSION_DENIED
         SWBEventTypePaywallPreloadStart -> EventType.PAYWALL_PRELOAD_START
         SWBEventTypePaywallPreloadComplete -> EventType.PAYWALL_PRELOAD_COMPLETE
-        // No common EventType counterpart (4.16.2-only cases + forward-compat
+        // No common EventType counterpart (4.16.x-only cases + forward-compat
         // unknown): fall through to the CUSTOM_PLACEMENT gap handling.
         else -> null
     }

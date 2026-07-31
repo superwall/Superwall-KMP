@@ -22,7 +22,7 @@ import SuperwallKit
 
 // MARK: - Event type
 
-/// One value per SuperwallKit.SuperwallEvent case (SuperwallKit 4.16.2: 80 cases),
+/// One value per SuperwallKit.SuperwallEvent case (SuperwallKit 4.16.1: 80 cases),
 /// plus `.unknown` for forward compatibility with future SDK cases
 /// (degrade-never-crash; the raw case description lands in `SWBEventEnvelope.name`).
 @objc(SWBEventType)
