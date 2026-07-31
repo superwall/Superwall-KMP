@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux (common + Android + host tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle (with cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Compile common metadata
+        run: ./gradlew :superwall-kmp:compileCommonMainKotlinMetadata
+
+      - name: Build (Android compile + host tests)
+        run: ./gradlew :superwall-kmp:build
+
+  macos:
+    name: macOS (bridge + iOS targets)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle (with cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            bridge/.build
+            ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('bridge/Package.swift', 'bridge/Package.resolved') }}
+          restore-keys: |
+            spm-${{ runner.os }}-
+
+      - name: Build bridge XCFramework
+        run: |
+          if [ -f bridge/Package.swift ]; then
+            bash bridge/scripts/build-xcframework.sh
+          else
+            echo "bridge/Package.swift not present yet (lands with Phase 1) - skipping"
+          fi
+
+      - name: Run bridge tests
+        working-directory: bridge
+        run: |
+          if [ -f Package.swift ]; then
+            swift test
+          else
+            echo "bridge/Package.swift not present yet (lands with Phase 1) - skipping"
+          fi
+
+      # cinterop wiring against the bridge XCFramework lands with the iosMain phase;
+      # until then these tasks compile stub actuals only.
+      - name: Compile iOS targets
+        continue-on-error: false
+        run: |
+          ./gradlew \
+            :superwall-kmp:compileKotlinIosArm64 \
+            :superwall-kmp:compileKotlinIosX64 \
+            :superwall-kmp:compileKotlinIosSimulatorArm64
+
+      - name: Run iOS simulator tests
+        continue-on-error: false
+        run: ./gradlew :superwall-kmp:iosSimulatorArm64Test
