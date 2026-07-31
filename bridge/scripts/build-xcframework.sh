@@ -30,14 +30,19 @@ archive() {
     -archivePath "${BUILD_DIR}/archives/${name}" \
     -derivedDataPath "${BUILD_DIR}/derived/${name}" \
     SKIP_INSTALL=NO \
+    INSTALL_PATH="/Library/Frameworks" \
     BUILD_LIBRARY_FOR_DISTRIBUTION=NO
 
-  local fw="${BUILD_DIR}/archives/${name}.xcarchive/Products/Library/Frameworks/${SCHEME}.framework"
-  if [[ ! -d "${fw}" ]]; then
-    echo "ERROR: no framework at ${fw}. Archive contents:" >&2
-    find "${BUILD_DIR}/archives/${name}.xcarchive" -maxdepth 4 >&2
+  # SPM products default INSTALL_PATH to /usr/local/lib, so locate the
+  # framework wherever this Xcode put it rather than hardcoding.
+  local fw
+  fw="$(find "${BUILD_DIR}/archives/${name}.xcarchive/Products" -name "${SCHEME}.framework" -type d -print -quit)"
+  if [[ -z "${fw}" ]]; then
+    echo "ERROR: no ${SCHEME}.framework anywhere in the ${name} archive. Contents:" >&2
+    find "${BUILD_DIR}/archives/${name}.xcarchive" -maxdepth 6 >&2
     exit 70
   fi
+  FOUND_FW="${fw}"
 
   # Inject the generated ObjC interface header + a modulemap so the framework
   # is consumable by Kotlin cinterop (and plain ObjC importers).
@@ -82,11 +87,15 @@ EOF
 }
 
 archive "generic/platform=iOS" "ios" "Release-iphoneos"
+FW_IOS="${FOUND_FW}"
 archive "generic/platform=iOS Simulator" "ios-simulator" "Release-iphonesimulator"
+FW_SIM="${FOUND_FW}"
 
+# Direct -framework <path> form: the -archive form only finds frameworks
+# under Products/Library/Frameworks, which SPM archives don't guarantee.
 xcodebuild -create-xcframework \
-  -archive "${BUILD_DIR}/archives/ios.xcarchive" -framework "${SCHEME}.framework" \
-  -archive "${BUILD_DIR}/archives/ios-simulator.xcarchive" -framework "${SCHEME}.framework" \
+  -framework "${FW_IOS}" \
+  -framework "${FW_SIM}" \
   -output "${XCFRAMEWORK}"
 
 echo "Built ${XCFRAMEWORK}"
