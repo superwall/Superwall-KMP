@@ -10,6 +10,8 @@ group = "com.superwall.sdk"
 version = "0.1.0"
 
 kotlin {
+    explicitApi()
+
     androidLibrary {
         namespace = "com.superwall.sdk.kmp"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -28,13 +30,24 @@ kotlin {
     iosSimulatorArm64()
     iosX64()
 
+    compilerOptions {
+        optIn.add("kotlin.time.ExperimentalTime")
+    }
+
     sourceSets {
         commonMain.dependencies {
-            //put your multiplatform dependencies here
+            api(libs.kotlinx.coroutines.core)
         }
 
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+        }
+
+        androidMain.dependencies {
+            implementation(libs.superwall.android)
+            implementation(libs.androidx.startup)
+            implementation(libs.kotlinx.coroutines.android)
         }
     }
 }

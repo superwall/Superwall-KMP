@@ -6,4 +6,4 @@ package com.superwall.sdk.kmp
  * The public API mirrors the native SuperwallKit SDKs and forwards calls to
  * the platform implementations (SuperwallKit for Android and iOS).
  */
-object Superwall
+public object Superwall

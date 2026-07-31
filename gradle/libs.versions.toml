@@ -1,12 +1,20 @@
 [versions]
 agp = "9.0.1"
 kotlin = "2.3.10"
-android-minSdk = "24"
+android-minSdk = "26"
 android-compileSdk = "36"
 vanniktechMavenPublish = "0.36.0"
+kotlinx-coroutines = "1.10.2"
+superwall-android = "2.7.11"
+androidx-startup = "1.2.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+superwall-android = { module = "com.superwall.sdk:superwall-android", version.ref = "superwall-android" }
+androidx-startup = { module = "androidx.startup:startup-runtime", version.ref = "androidx-startup" }
 
 [plugins]
 android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
