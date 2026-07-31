@@ -80,6 +80,16 @@ kotlin {
                 "SuperwallKMPBridge",
             )
         }
+
+        // The klib is compile-only (consumers link the framework), but OUR
+        // test executables are themselves consumers: they must link the
+        // dynamic framework and find it at runtime (@rpath) on the simulator.
+        val sliceDir = bridgeFrameworkDir.resolve(slice).absolutePath
+        target.binaries.configureEach {
+            if (this is org.jetbrains.kotlin.gradle.plugin.mpp.TestExecutable) {
+                linkerOpts("-F$sliceDir", "-framework", "SuperwallKMPBridge", "-rpath", sliceDir)
+            }
+        }
     }
 
     compilerOptions {
