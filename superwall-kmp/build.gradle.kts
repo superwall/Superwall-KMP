@@ -73,6 +73,8 @@ kotlin {
         target.compilations.getByName("main").cinterops.create("SuperwallKMPBridge") {
             definitionFile.set(layout.projectDirectory.file("nativeInterop/cinterop/SuperwallKMPBridge.def"))
             compilerOpts(
+                // `modules =` in the .def requires Clang modules enabled.
+                "-fmodules",
                 "-F${bridgeFrameworkDir.resolve(slice).absolutePath}",
                 "-framework",
                 "SuperwallKMPBridge",
