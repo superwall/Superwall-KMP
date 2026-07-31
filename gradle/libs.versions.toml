@@ -10,6 +10,13 @@ androidx-startup = "1.2.0"
 # Compile-only pins matching superwall-android 2.8.0's own (runtime-scoped) deps:
 android-billing = "9.1.0"
 kotlinx-serialization = "1.7.2"
+# Sample app only (not used by the published :superwall-kmp module):
+# Compose Multiplatform 1.11.1 — latest stable on Maven Central; requires KGP >= 2.2.0
+# (verified in the plugin's own check) and its runtime klibs are built with Kotlin 2.2.20,
+# which the Kotlin 2.3.10 compiler consumes fine (newer compilers read older klibs).
+# The Compose *compiler* comes from org.jetbrains.kotlin.plugin.compose at the Kotlin version.
+composeMultiplatform = "1.11.1"
+androidx-activityCompose = "1.12.4"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -20,8 +27,12 @@ superwall-android = { module = "com.superwall.sdk:superwall-android", version.re
 androidx-startup = { module = "androidx.startup:startup-runtime", version.ref = "androidx-startup" }
 android-billing = { module = "com.android.billingclient:billing", version.ref = "android-billing" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activityCompose" }
 
 [plugins]
 android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+android-application = { id = "com.android.application", version.ref = "agp" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
+composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 vanniktech-mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "vanniktechMavenPublish" }

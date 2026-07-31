@@ -28,6 +28,8 @@ local.properties
 *.dex
 
 # iOS / Xcode
+# sample/iosApp's project is generated from project.yml (xcodegen generate)
+sample/iosApp/*.xcodeproj
 *.xcworkspace
 xcuserdata/
 *.xcuserstate

@@ -1,0 +1,76 @@
+# =============================================================================
+# xcodegen manifest for the iOS side of the Compose Multiplatform sample.
+# (Superwall-iOS's own CI uses xcodegen; same tool here.)
+#
+# Generate the Xcode project with:
+#   cd sample/iosApp && xcodegen generate && open SuperwallKMPSample.xcodeproj
+#
+# Two-piece linking, mirroring exactly what the README tells real consumers:
+#   1. The Kotlin side — the STATIC "SampleShared" framework — is built by the
+#      pre-build Gradle script phase (:sample:shared:embedAndSignAppleFrameworkForXcode)
+#      and found via FRAMEWORK_SEARCH_PATHS. The first build also builds
+#      bridge/build/SuperwallKMPBridge.xcframework (the superwall-kmp cinterop
+#      auto-wires bridge/scripts/build-xcframework.sh), so it needs network +
+#      Xcode command line tools and takes a while.
+#   2. The SuperwallKMPBridge binary the klib was compiled against comes from a
+#      LOCAL SPM package on ../../bridge (built from source). Real consumers
+#      would use the repo-root Package.swift binary target instead, but its
+#      url/checksum are PLACEHOLDERS until the first release publishes an
+#      XCFramework artifact — so the sample links the source package. SPM pins
+#      SuperwallKit (exact 4.16.1) transitively through the bridge manifest;
+#      do not add SuperwallKit separately.
+# =============================================================================
+name: SuperwallKMPSample
+
+options:
+  bundleIdPrefix: com.superwall.sdk.kmp
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+packages:
+  SuperwallKMPBridge:
+    path: ../../bridge
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+
+targets:
+  SampleApp:
+    type: application
+    platform: iOS
+    sources:
+      - SampleApp
+    dependencies:
+      - package: SuperwallKMPBridge
+        product: SuperwallKMPBridge
+    preBuildScripts:
+      - name: Build SampleShared Kotlin framework
+        # embedAndSignAppleFrameworkForXcode reads Xcode's CONFIGURATION /
+        # SDK_NAME / ARCHS env vars, builds the matching framework slice, and
+        # syncs it into sample/shared/build/xcode-frameworks/... (static
+        # framework: nothing to embed or sign). Requires a JDK on PATH or
+        # JAVA_HOME exported for the Xcode build environment.
+        script: |
+          cd "$SRCROOT/../.."
+          ./gradlew :sample:shared:embedAndSignAppleFrameworkForXcode
+        basedOnDependencyAnalysis: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.superwall.sdk.kmp.sample
+        FRAMEWORK_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
+        OTHER_LDFLAGS: "$(inherited) -framework SampleShared"
+        # The Gradle pre-build script writes outside the Xcode sandbox.
+        ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+        # Simulator debugging convenience on Apple-silicon Macs.
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+    info:
+      path: SampleApp/Info.plist
+      properties:
+        CFBundleDisplayName: Superwall KMP Sample
+        UILaunchScreen: {}
+        # Recommended by Compose Multiplatform for high-refresh-rate displays.
+        CADisableMinimumFrameDurationOnPhone: true
