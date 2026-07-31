@@ -29,58 +29,58 @@ import com.superwall.sdk.kmp.models.redemption.RedemptionResult
 import com.superwall.sdk.kmp.models.redemption.StoreIdentifiers
 
 internal fun SWBOwnership.toModel(): Ownership =
-    when (ownership) {
-        SWBOwnershipCaseAppUser -> Ownership.AppUser(appUserId ?: "")
-        else -> Ownership.Device(deviceId ?: "")
+    when (ownership()) {
+        SWBOwnershipCaseAppUser -> Ownership.AppUser(appUserId() ?: "")
+        else -> Ownership.Device(deviceId() ?: "")
     }
 
 internal fun SWBStoreIdentifiers.toModel(): StoreIdentifiers =
-    when (store) {
+    when (store()) {
         SWBStoreIdentifiersCaseStripe ->
             StoreIdentifiers.Stripe(
-                customerId = customerId ?: "",
-                subscriptionIds = subscriptionIds.mapNotNull { it as? String },
+                customerId = customerId() ?: "",
+                subscriptionIds = subscriptionIds().mapNotNull { it as? String },
             )
         SWBStoreIdentifiersCasePaddle ->
             StoreIdentifiers.Paddle(
-                customerId = customerId ?: "",
-                subscriptionIds = subscriptionIds.mapNotNull { it as? String },
+                customerId = customerId() ?: "",
+                subscriptionIds = subscriptionIds().mapNotNull { it as? String },
             )
         else ->
             StoreIdentifiers.Unknown(
-                store = unknownStore ?: "unknown",
-                additionalInfo = NSAnySanitizer.fromMapOrNull(additionalInfo) ?: emptyMap(),
+                store = unknownStore() ?: "unknown",
+                additionalInfo = NSAnySanitizer.fromMapOrNull(additionalInfo()) ?: emptyMap(),
             )
     }
 
 internal fun SWBPurchaserInfo.toModel(): PurchaserInfo =
     PurchaserInfo(
-        appUserId = appUserId,
-        email = email,
-        storeIdentifiers = storeIdentifiers.toModel(),
+        appUserId = appUserId(),
+        email = email(),
+        storeIdentifiers = storeIdentifiers().toModel(),
     )
 
 internal fun SWBRedemptionPaywallInfo.toModel(): RedemptionPaywallInfo =
     RedemptionPaywallInfo(
-        identifier = identifier,
-        placementName = placementName,
-        placementParams = NSAnySanitizer.fromMap(placementParams),
-        variantId = variantId,
-        experimentId = experimentId,
+        identifier = identifier(),
+        placementName = placementName(),
+        placementParams = NSAnySanitizer.fromMap(placementParams()),
+        variantId = variantId(),
+        experimentId = experimentId(),
     )
 
 internal fun SWBRedemptionInfo.toModel(): RedemptionInfo =
     RedemptionInfo(
-        ownership = ownership.toModel(),
-        purchaserInfo = purchaserInfo.toModel(),
-        paywallInfo = paywallInfo?.toModel(),
-        entitlements = entitlements.mapNotNull { (it as? SWBEntitlement)?.toModel() }.toSet(),
+        ownership = ownership().toModel(),
+        purchaserInfo = purchaserInfo().toModel(),
+        paywallInfo = paywallInfo()?.toModel(),
+        entitlements = entitlements().mapNotNull { (it as? SWBEntitlement)?.toModel() }.toSet(),
     )
 
-internal fun SWBErrorInfo.toModel(): ErrorInfo = ErrorInfo(message = message)
+internal fun SWBErrorInfo.toModel(): ErrorInfo = ErrorInfo(message = message())
 
 internal fun SWBExpiredCodeInfo.toModel(): ExpiredCodeInfo =
-    ExpiredCodeInfo(resent = resent, obfuscatedEmail = obfuscatedEmail)
+    ExpiredCodeInfo(resent = resent(), obfuscatedEmail = obfuscatedEmail())
 
 /**
  * Maps the SWB redemption envelope back into the sealed common result. A
@@ -89,22 +89,22 @@ internal fun SWBExpiredCodeInfo.toModel(): ExpiredCodeInfo =
  * (plan §7).
  */
 internal fun SWBRedemptionResult.toModel(): RedemptionResult =
-    when (result) {
+    when (result()) {
         SWBRedemptionResultCaseSuccess ->
-            redemptionInfo?.let { RedemptionResult.Success(code = code, redemptionInfo = it.toModel()) }
-                ?: RedemptionResult.Error(code, ErrorInfo("Missing redemption info payload"))
+            redemptionInfo()?.let { RedemptionResult.Success(code = code(), redemptionInfo = it.toModel()) }
+                ?: RedemptionResult.Error(code(), ErrorInfo("Missing redemption info payload"))
         SWBRedemptionResultCaseError ->
             RedemptionResult.Error(
-                code = code,
-                error = errorInfo?.toModel() ?: ErrorInfo("Unknown redemption error"),
+                code = code(),
+                error = errorInfo()?.toModel() ?: ErrorInfo("Unknown redemption error"),
             )
         SWBRedemptionResultCaseExpiredCode ->
             RedemptionResult.ExpiredCode(
-                code = code,
-                info = expiredCodeInfo?.toModel() ?: ExpiredCodeInfo(resent = false),
+                code = code(),
+                info = expiredCodeInfo()?.toModel() ?: ExpiredCodeInfo(resent = false),
             )
         SWBRedemptionResultCaseExpiredSubscription ->
-            redemptionInfo?.let { RedemptionResult.ExpiredSubscription(code = code, redemptionInfo = it.toModel()) }
-                ?: RedemptionResult.Error(code, ErrorInfo("Missing redemption info payload"))
-        else -> RedemptionResult.InvalidCode(code = code)
+            redemptionInfo()?.let { RedemptionResult.ExpiredSubscription(code = code(), redemptionInfo = it.toModel()) }
+                ?: RedemptionResult.Error(code(), ErrorInfo("Missing redemption info payload"))
+        else -> RedemptionResult.InvalidCode(code = code())
     }

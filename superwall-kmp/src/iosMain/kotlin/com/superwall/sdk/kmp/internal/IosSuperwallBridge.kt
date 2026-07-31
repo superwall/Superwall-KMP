@@ -64,7 +64,7 @@ import platform.Foundation.NSNumber
  */
 internal class IosSuperwallBridge : SuperwallBridge {
     private val swb: SWBSuperwallBridge
-        get() = SWBSuperwallBridge.sharedBridge
+        get() = SWBSuperwallBridge.sharedBridge()
 
     /** One internal supervisor scope per bridge (plan §6.3). */
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -148,17 +148,17 @@ internal class IosSuperwallBridge : SuperwallBridge {
     private fun installPendingDelegate() {
         val adapter = delegateAdapter ?: return
         if (delegateInstalled) return
-        if (!swb.isInitialized) return
+        if (!swb.isInitialized()) return
         swb.setDelegate(adapter)
         delegateInstalled = true
     }
 
-    override fun isConfigured(): Boolean = swb.isConfigured
+    override fun isConfigured(): Boolean = swb.isConfigured()
 
-    override fun isInitialized(): Boolean = swb.isInitialized
+    override fun isInitialized(): Boolean = swb.isInitialized()
 
     override fun getConfigurationStatus(): ConfigurationStatus =
-        when (swb.configurationStatus) {
+        when (swb.configurationStatus()) {
             SWBConfigurationStatusConfigured -> ConfigurationStatus.CONFIGURED
             SWBConfigurationStatusFailed -> ConfigurationStatus.FAILED
             else -> ConfigurationStatus.PENDING
@@ -171,26 +171,30 @@ internal class IosSuperwallBridge : SuperwallBridge {
         // lifetime of the bridge; delivery thread is irrelevant to the
         // thread-safe flow mutations.
         subscriptionStatusObservation = swb.observeSubscriptionStatus { status ->
-            holder.subscriptionStatus.value = status.toModel()
+            // The cinterop block signature is nullable although the Swift side
+            // never emits nil; degrade an unexpected nil to Unknown (plan §7).
+            holder.subscriptionStatus.value = status?.toModel() ?: SubscriptionStatus.Unknown
         }
         customerInfoObservation = swb.observeCustomerInfo { customerInfo ->
-            holder.customerInfo.tryEmit(customerInfo.toModel())
+            // Nullable-only-in-the-binding: skip an unexpected nil emission
+            // rather than fabricating an empty customer info (plan §7).
+            customerInfo?.let { holder.customerInfo.tryEmit(it.toModel()) }
         }
     }
 
     // ---- Logging -----------------------------------------------------------
 
-    override fun getLogLevel(): LogLevel = logLevelFromSWB(swb.logLevel)
+    override fun getLogLevel(): LogLevel = logLevelFromSWB(swb.logLevel())
 
     override fun setLogLevel(level: LogLevel) {
-        swb.logLevel = logLevelToSWB(level)
+        swb.setLogLevel(logLevelToSWB(level))
     }
 
     // ---- Identity / attributes ----------------------------------------------
 
-    override fun getUserId(): String = swb.userId
+    override fun getUserId(): String = swb.userId()
 
-    override fun isLoggedIn(): Boolean = swb.isLoggedIn
+    override fun isLoggedIn(): Boolean = swb.isLoggedIn()
 
     override fun identify(
         userId: String,
@@ -235,14 +239,16 @@ internal class IosSuperwallBridge : SuperwallBridge {
     }
 
     override suspend fun getDeviceAttributes(): Map<String, Any?> {
-        val attributes = awaitCompletion<Map<Any?, *>> { swb.getDeviceAttributes(it) }
-        return NSAnySanitizer.fromMap(attributes)
+        // The cinterop block signature is nullable although the Swift side
+        // never passes nil; degrade an unexpected nil to no attributes.
+        val attributes = awaitCompletion<Map<Any?, *>?> { swb.getDeviceAttributes(it) }
+        return attributes?.let(NSAnySanitizer::fromMap) ?: emptyMap()
     }
 
-    override fun getLocaleIdentifier(): String? = swb.localeIdentifier
+    override fun getLocaleIdentifier(): String? = swb.localeIdentifier()
 
     override fun setLocaleIdentifier(localeIdentifier: String?) {
-        swb.localeIdentifier = localeIdentifier
+        swb.setLocaleIdentifier(localeIdentifier)
     }
 
     // ---- Entitlements / subscription ----------------------------------------
@@ -259,15 +265,28 @@ internal class IosSuperwallBridge : SuperwallBridge {
     }
 
     override suspend fun getCustomerInfo(): CustomerInfo =
-        awaitCompletion<SWBCustomerInfo> { swb.getCustomerInfo(it) }.toModel()
+        // The cinterop block signature is nullable although the Swift side
+        // never passes nil; degrade an unexpected nil to an empty customer
+        // info rather than crashing (plan §7).
+        awaitCompletion<SWBCustomerInfo?> { swb.getCustomerInfo(it) }?.toModel()
+            ?: CustomerInfo(
+                subscriptions = emptyList(),
+                nonSubscriptions = emptyList(),
+                entitlements = emptyList(),
+                userId = "",
+            )
 
     override suspend fun confirmAllAssignments(): Set<ConfirmedAssignment> =
-        awaitCompletion<List<*>> { swb.confirmAllAssignments(it) }
+        // Nullable-only-in-the-binding: an unexpected nil reads as no assignments.
+        awaitCompletion<List<*>?> { swb.confirmAllAssignments(it) }
+            .orEmpty()
             .mapNotNull { (it as? SWBConfirmedAssignment)?.toModel() }
             .toSet()
 
     override suspend fun restorePurchases(): RestorationResult =
-        awaitCompletion<SWBRestorationResult> { swb.restorePurchases(it) }.toModel()
+        // Nullable-only-in-the-binding: an unexpected nil reads as a failure.
+        awaitCompletion<SWBRestorationResult?> { swb.restorePurchases(it) }?.toModel()
+            ?: RestorationResult.Failed("Superwall restore completed without a result.")
 
     // ---- Presentation --------------------------------------------------------
 
@@ -313,21 +332,23 @@ internal class IosSuperwallBridge : SuperwallBridge {
         placement: String,
         params: Map<String, Any?>?,
     ): PresentationResult =
-        awaitCompletion<SWBPresentationResult> { completion ->
+        // Nullable-only-in-the-binding: an unexpected nil degrades to
+        // PaywallNotAvailable, matching the mapper's own unknown-case fallback.
+        awaitCompletion<SWBPresentationResult?> { completion ->
             swb.getPresentationResultWithPlacement(
                 placement,
                 params?.let(NSAnySanitizer::toNSParams),
                 completion,
             )
-        }.toModel()
+        }?.toModel() ?: PresentationResult.PaywallNotAvailable
 
     override suspend fun dismiss() {
         awaitVoidCompletion { swb.dismiss(it) }
     }
 
-    override fun isPaywallPresented(): Boolean = swb.isPaywallPresented
+    override fun isPaywallPresented(): Boolean = swb.isPaywallPresented()
 
-    override fun getLatestPaywallInfo(): PaywallInfo? = swb.latestPaywallInfo?.toModel()
+    override fun getLatestPaywallInfo(): PaywallInfo? = swb.latestPaywallInfo()?.toModel()
 
     override fun preloadAllPaywalls() {
         swb.preloadAllPaywalls()
@@ -346,7 +367,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
     // ---- Products / misc ------------------------------------------------------
 
     override fun getOverrideProductsByName(): Map<String, String>? =
-        swb.overrideProductsByName?.entries?.mapNotNull { (key, value) ->
+        swb.overrideProductsByName()?.entries?.mapNotNull { (key, value) ->
             val name = key as? String ?: return@mapNotNull null
             val productId = value as? String ?: return@mapNotNull null
             name to productId
@@ -354,7 +375,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
 
     override fun setOverrideProductsByName(overrideProducts: Map<String, String>?) {
         @Suppress("UNCHECKED_CAST")
-        swb.overrideProductsByName = overrideProducts as Map<Any?, *>?
+        swb.setOverrideProductsByName(overrideProducts as Map<Any?, *>?)
     }
 
     override fun setInterfaceStyle(style: InterfaceStyle?) {
@@ -368,8 +389,11 @@ internal class IosSuperwallBridge : SuperwallBridge {
     }
 
     override suspend fun consume(purchaseToken: String): String =
-        // Documented iOS no-op in the bridge: echoes the token back.
-        awaitCompletion { swb.consumeWithPurchaseToken(purchaseToken, it) }
+        // Documented iOS no-op in the bridge: echoes the token back. The
+        // cinterop block signature is nullable although the Swift side never
+        // passes nil; an unexpected nil echoes the input token directly.
+        awaitCompletion<String?> { swb.consumeWithPurchaseToken(purchaseToken, it) }
+            ?: purchaseToken
 
     // ---- Internals ------------------------------------------------------------
 

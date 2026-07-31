@@ -3,12 +3,13 @@
 package com.superwall.sdk.kmp.internal.mappers
 
 import com.superwall.sdk.kmp.internal.interop.NSAnySanitizer
+import com.superwall.sdk.kmp.internal.interop.SWB_PAYWALL_PRESENTATION_REQUEST_STATUS_NO_PRESENTATION
+import com.superwall.sdk.kmp.internal.interop.SWB_PAYWALL_PRESENTATION_REQUEST_STATUS_PRESENTATION
+import com.superwall.sdk.kmp.internal.interop.SWB_PAYWALL_PRESENTATION_REQUEST_STATUS_TIMEOUT
 import com.superwall.sdk.kmp.internal.ios.interop.SWBCustomCallback
 import com.superwall.sdk.kmp.internal.ios.interop.SWBCustomCallbackResult
 import com.superwall.sdk.kmp.internal.ios.interop.SWBCustomCallbackResultStatusFailure
 import com.superwall.sdk.kmp.internal.ios.interop.SWBCustomCallbackResultStatusSuccess
-import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallPresentationRequestStatusNoPresentation
-import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallPresentationRequestStatusPresentation
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallPresentationRequestStatusReason
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallPresentationRequestStatusReasonCaseDebuggerPresented
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallPresentationRequestStatusReasonCaseHoldout
@@ -19,7 +20,6 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallPresentationRequestS
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallPresentationRequestStatusReasonCasePaywallAlreadyPresented
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallPresentationRequestStatusReasonCasePlacementNotFound
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallPresentationRequestStatusReasonCaseSubscriptionStatusTimeout
-import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallPresentationRequestStatusTimeout
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallResult
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallResultCaseDeclined
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallResultCasePurchased
@@ -69,45 +69,45 @@ import platform.Foundation.NSNumber
 // ---------------------------------------------------------------------------
 
 internal fun SWBTriggerResult.toModel(): TriggerResult =
-    when (result) {
+    when (result()) {
         SWBTriggerResultCasePlacementNotFound -> TriggerResult.PlacementNotFound
         SWBTriggerResultCaseNoAudienceMatch -> TriggerResult.NoAudienceMatch
-        SWBTriggerResultCasePaywall -> TriggerResult.Paywall(experiment.toModelOrEmpty())
-        SWBTriggerResultCaseHoldout -> TriggerResult.Holdout(experiment.toModelOrEmpty(holdout = true))
-        SWBTriggerResultCaseError -> TriggerResult.Error(error ?: "Unknown trigger error")
-        else -> TriggerResult.Error("Unknown trigger result case: $result")
+        SWBTriggerResultCasePaywall -> TriggerResult.Paywall(experiment().toModelOrEmpty())
+        SWBTriggerResultCaseHoldout -> TriggerResult.Holdout(experiment().toModelOrEmpty(holdout = true))
+        SWBTriggerResultCaseError -> TriggerResult.Error(error() ?: "Unknown trigger error")
+        else -> TriggerResult.Error("Unknown trigger result case: ${result()}")
     }
 
 internal fun SWBPresentationResult.toModel(): PresentationResult =
-    when (result) {
+    when (result()) {
         SWBPresentationResultCasePlacementNotFound -> PresentationResult.PlacementNotFound
         SWBPresentationResultCaseNoAudienceMatch -> PresentationResult.NoAudienceMatch
-        SWBPresentationResultCasePaywall -> PresentationResult.Paywall(experiment.toModelOrEmpty())
-        SWBPresentationResultCaseHoldout -> PresentationResult.Holdout(experiment.toModelOrEmpty(holdout = true))
+        SWBPresentationResultCasePaywall -> PresentationResult.Paywall(experiment().toModelOrEmpty())
+        SWBPresentationResultCaseHoldout -> PresentationResult.Holdout(experiment().toModelOrEmpty(holdout = true))
         SWBPresentationResultCasePaywallNotAvailable -> PresentationResult.PaywallNotAvailable
         else -> PresentationResult.PaywallNotAvailable
     }
 
 internal fun SWBPaywallResult.toModel(): PaywallResult =
-    when (result) {
-        SWBPaywallResultCasePurchased -> PaywallResult.Purchased(productId ?: "")
+    when (result()) {
+        SWBPaywallResultCasePurchased -> PaywallResult.Purchased(productId() ?: "")
         SWBPaywallResultCaseDeclined -> PaywallResult.Declined
         SWBPaywallResultCaseRestored -> PaywallResult.Restored
         else -> PaywallResult.Declined
     }
 
 internal fun SWBPaywallSkippedReason.toModel(): PaywallSkippedReason =
-    when (reason) {
+    when (reason()) {
         SWBPaywallSkippedReasonCaseHoldout ->
-            PaywallSkippedReason.Holdout(experiment.toModelOrEmpty(holdout = true))
+            PaywallSkippedReason.Holdout(experiment().toModelOrEmpty(holdout = true))
         SWBPaywallSkippedReasonCaseNoAudienceMatch -> PaywallSkippedReason.NoAudienceMatch
         SWBPaywallSkippedReasonCasePlacementNotFound -> PaywallSkippedReason.PlacementNotFound
         else -> PaywallSkippedReason.NoAudienceMatch
     }
 
 internal fun SWBRestoreType.toModel(): RestoreType =
-    when (type) {
-        SWBRestoreTypeCaseViaPurchase -> RestoreType.ViaPurchase(storeTransaction?.toModel())
+    when (type()) {
+        SWBRestoreTypeCaseViaPurchase -> RestoreType.ViaPurchase(storeTransaction()?.toModel())
         else -> RestoreType.ViaRestore
     }
 
@@ -118,21 +118,21 @@ internal fun SWBRestoreType.toModel(): RestoreType =
 internal fun presentationRequestStatusFromNSNumber(value: NSNumber?): PaywallPresentationRequestStatusType? =
     value?.let {
         when (it.longLongValue) {
-            SWBPaywallPresentationRequestStatusPresentation -> PaywallPresentationRequestStatusType.PRESENTATION
-            SWBPaywallPresentationRequestStatusNoPresentation -> PaywallPresentationRequestStatusType.NO_PRESENTATION
-            SWBPaywallPresentationRequestStatusTimeout -> PaywallPresentationRequestStatusType.TIMEOUT
+            SWB_PAYWALL_PRESENTATION_REQUEST_STATUS_PRESENTATION -> PaywallPresentationRequestStatusType.PRESENTATION
+            SWB_PAYWALL_PRESENTATION_REQUEST_STATUS_NO_PRESENTATION -> PaywallPresentationRequestStatusType.NO_PRESENTATION
+            SWB_PAYWALL_PRESENTATION_REQUEST_STATUS_TIMEOUT -> PaywallPresentationRequestStatusType.TIMEOUT
             else -> null
         }
     }
 
 internal fun SWBPaywallPresentationRequestStatusReason.toModel(): PaywallPresentationRequestStatusReason? =
-    when (reason) {
+    when (reason()) {
         SWBPaywallPresentationRequestStatusReasonCaseDebuggerPresented ->
             PaywallPresentationRequestStatusReason.DebuggerPresented
         SWBPaywallPresentationRequestStatusReasonCasePaywallAlreadyPresented ->
             PaywallPresentationRequestStatusReason.PaywallAlreadyPresented
         SWBPaywallPresentationRequestStatusReasonCaseHoldout ->
-            PaywallPresentationRequestStatusReason.Holdout(experiment.toModelOrEmpty(holdout = true))
+            PaywallPresentationRequestStatusReason.Holdout(experiment().toModelOrEmpty(holdout = true))
         SWBPaywallPresentationRequestStatusReasonCaseNoAudienceMatch ->
             PaywallPresentationRequestStatusReason.NoAudienceMatch
         SWBPaywallPresentationRequestStatusReasonCasePlacementNotFound ->
@@ -153,9 +153,9 @@ internal fun SWBPaywallPresentationRequestStatusReason.toModel(): PaywallPresent
 // ---------------------------------------------------------------------------
 
 internal fun SWBRestorationResult.toModel(): RestorationResult =
-    when (result) {
+    when (result()) {
         SWBRestorationResultCaseRestored -> RestorationResult.Restored
-        else -> RestorationResult.Failed(errorMessage ?: "Unknown restoration error")
+        else -> RestorationResult.Failed(errorMessage() ?: "Unknown restoration error")
     }
 
 internal fun RestorationResult.toSWB(): SWBRestorationResult =
@@ -178,8 +178,8 @@ internal fun PurchaseResult.toSWB(): SWBPurchaseResult =
 
 internal fun SWBCustomCallback.toModel(): CustomCallback =
     CustomCallback(
-        name = name,
-        variables = NSAnySanitizer.fromMapOrNull(variables),
+        name = name(),
+        variables = NSAnySanitizer.fromMapOrNull(variables()),
     )
 
 internal fun CustomCallbackResult.toSWB(): SWBCustomCallbackResult =

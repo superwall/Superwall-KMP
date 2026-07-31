@@ -3,6 +3,40 @@
 package com.superwall.sdk.kmp.internal.mappers
 
 import com.superwall.sdk.kmp.internal.InterfaceStyle
+import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_ALL
+import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_NONE
+import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_SUPERWALL_ONLY
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_ALL
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_BOUNCE_BUTTON
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_CACHE
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_CONFIG_MANAGER
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_CORE_DATA
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_DEBUG_MANAGER
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_DEBUG_VIEW_CONTROLLER
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_DEVICE
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_GAME_CONTROLLER_MANAGER
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_IDENTITY_MANAGER
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_LOCALIZATION_MANAGER
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_LOCALIZATION_VIEW_CONTROLLER
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_NETWORK
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_PAYWALL_EVENTS
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_PAYWALL_PRESENTATION
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_PAYWALL_VIEW_CONTROLLER
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_PLACEMENTS
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_PRODUCTS_MANAGER
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_RECEIPTS
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_STORE_KIT_MANAGER
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_SUPERWALL_CORE
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_TRANSACTIONS
+import com.superwall.sdk.kmp.internal.interop.SWB_NETWORK_ENVIRONMENT_DEVELOPER
+import com.superwall.sdk.kmp.internal.interop.SWB_NETWORK_ENVIRONMENT_RELEASE
+import com.superwall.sdk.kmp.internal.interop.SWB_NETWORK_ENVIRONMENT_RELEASE_CANDIDATE
+import com.superwall.sdk.kmp.internal.interop.SWB_TEST_MODE_BEHAVIOR_ALWAYS
+import com.superwall.sdk.kmp.internal.interop.SWB_TEST_MODE_BEHAVIOR_AUTOMATIC
+import com.superwall.sdk.kmp.internal.interop.SWB_TEST_MODE_BEHAVIOR_NEVER
+import com.superwall.sdk.kmp.internal.interop.SWB_TEST_MODE_BEHAVIOR_WHEN_ENABLED_FOR_USER
+import com.superwall.sdk.kmp.internal.interop.SWB_TRANSACTION_BACKGROUND_VIEW_NONE
+import com.superwall.sdk.kmp.internal.interop.SWB_TRANSACTION_BACKGROUND_VIEW_SPINNER
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIdentityOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBInterfaceStyle
 import com.superwall.sdk.kmp.internal.ios.interop.SWBInterfaceStyleAutomatic
@@ -14,45 +48,10 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBLogLevelError
 import com.superwall.sdk.kmp.internal.ios.interop.SWBLogLevelInfo
 import com.superwall.sdk.kmp.internal.ios.interop.SWBLogLevelNone
 import com.superwall.sdk.kmp.internal.ios.interop.SWBLogLevelWarn
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScope
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeAll
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeBounceButton
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeCache
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeConfigManager
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeCoreData
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeDebugManager
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeDebugViewController
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeDevice
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeGameControllerManager
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeIdentityManager
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeLocalizationManager
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeLocalizationViewController
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeNetwork
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopePaywallEvents
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopePaywallPresentation
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopePaywallViewController
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopePlacements
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeProductsManager
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeReceipts
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeStoreKitManager
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeSuperwallCore
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLogScopeTransactions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBLoggingOptions
-import com.superwall.sdk.kmp.internal.ios.interop.SWBNetworkEnvironmentDeveloper
-import com.superwall.sdk.kmp.internal.ios.interop.SWBNetworkEnvironmentRelease
-import com.superwall.sdk.kmp.internal.ios.interop.SWBNetworkEnvironmentReleaseCandidate
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBRestoreFailedOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBSuperwallOptions
-import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTrackingBehaviorAll
-import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTrackingBehaviorNone
-import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTrackingBehaviorSuperwallOnly
-import com.superwall.sdk.kmp.internal.ios.interop.SWBTestModeBehaviorAlways
-import com.superwall.sdk.kmp.internal.ios.interop.SWBTestModeBehaviorAutomatic
-import com.superwall.sdk.kmp.internal.ios.interop.SWBTestModeBehaviorNever
-import com.superwall.sdk.kmp.internal.ios.interop.SWBTestModeBehaviorWhenEnabledForUser
-import com.superwall.sdk.kmp.internal.ios.interop.SWBTransactionBackgroundViewNone
-import com.superwall.sdk.kmp.internal.ios.interop.SWBTransactionBackgroundViewSpinner
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.LogLevel
@@ -75,52 +74,58 @@ import platform.Foundation.NSNumber
 
 internal fun SuperwallOptions.toSWB(): SWBSuperwallOptions {
     val options = SWBSuperwallOptions()
-    options.paywalls = paywalls.toSWB()
-    options.networkEnvironment = NSNumber(long = networkEnvironment.toSWBRaw())
-    options.isExternalDataCollectionEnabled = NSNumber(bool = isExternalDataCollectionEnabled)
+    options.setPaywalls(paywalls.toSWB())
+    options.setNetworkEnvironment(NSNumber(long = networkEnvironment.toSWBRaw()))
+    options.setIsExternalDataCollectionEnabled(NSNumber(bool = isExternalDataCollectionEnabled))
     // ALL is the common default and indistinguishable from "unset"; leaving
     // the SWB field nil lets the deprecated boolean keep its effect (the
     // native setter derives one from the other — same rule as androidMain).
     if (eventTrackingBehavior != EventTrackingBehavior.ALL) {
-        options.eventTrackingBehavior = NSNumber(long = eventTrackingBehavior.toSWBRaw())
+        options.setEventTrackingBehavior(NSNumber(long = eventTrackingBehavior.toSWBRaw()))
     }
-    options.localeIdentifier = localeIdentifier
-    options.isGameControllerEnabled = NSNumber(bool = isGameControllerEnabled)
-    options.enableExperimentalDeviceVariables = NSNumber(bool = enableExperimentalDeviceVariables)
-    options.testModeBehavior = NSNumber(long = testModeBehavior.toSWBRaw())
-    options.shouldObservePurchases = NSNumber(bool = shouldObservePurchases)
-    options.shouldBypassAppTransactionCheck = NSNumber(bool = shouldBypassAppTransactionCheck)
-    options.maxConfigRetryCount = NSNumber(int = maxConfigRetryCount)
-    options.logging = SWBLoggingOptions().also { swbLogging ->
-        swbLogging.level = NSNumber(long = logLevelToSWB(logging.level))
-        swbLogging.scopes = logging.scopes.map { NSNumber(long = logScopeToSWB(it)) }
-    }
+    options.setLocaleIdentifier(localeIdentifier)
+    options.setIsGameControllerEnabled(NSNumber(bool = isGameControllerEnabled))
+    options.setEnableExperimentalDeviceVariables(NSNumber(bool = enableExperimentalDeviceVariables))
+    options.setTestModeBehavior(NSNumber(long = testModeBehavior.toSWBRaw()))
+    options.setShouldObservePurchases(NSNumber(bool = shouldObservePurchases))
+    options.setShouldBypassAppTransactionCheck(NSNumber(bool = shouldBypassAppTransactionCheck))
+    options.setMaxConfigRetryCount(NSNumber(int = maxConfigRetryCount))
+    options.setLogging(
+        SWBLoggingOptions().also { swbLogging ->
+            swbLogging.setLevel(NSNumber(long = logLevelToSWB(logging.level)))
+            swbLogging.setScopes(logging.scopes.map { NSNumber(long = logScopeToSWB(it)) })
+        },
+    )
     return options
 }
 
 internal fun PaywallOptions.toSWB(): SWBPaywallOptions {
     val options = SWBPaywallOptions()
-    options.isHapticFeedbackEnabled = NSNumber(bool = isHapticFeedbackEnabled)
-    options.restoreFailed = SWBRestoreFailedOptions().also { swbRestoreFailed ->
-        swbRestoreFailed.title = restoreFailed.title
-        swbRestoreFailed.message = restoreFailed.message
-        swbRestoreFailed.closeButtonTitle = restoreFailed.closeButtonTitle
-    }
-    options.shouldShowWebRestorationAlert = NSNumber(bool = shouldShowWebRestorationAlert)
-    options.shouldShowPurchaseFailureAlert = NSNumber(bool = shouldShowPurchaseFailureAlert)
-    options.shouldPreload = NSNumber(bool = shouldPreload)
-    options.automaticallyDismiss = NSNumber(bool = automaticallyDismiss)
-    options.transactionBackgroundView = NSNumber(
-        long = when (transactionBackgroundView) {
-            TransactionBackgroundView.SPINNER -> SWBTransactionBackgroundViewSpinner
-            TransactionBackgroundView.NONE -> SWBTransactionBackgroundViewNone
+    options.setIsHapticFeedbackEnabled(NSNumber(bool = isHapticFeedbackEnabled))
+    options.setRestoreFailed(
+        SWBRestoreFailedOptions().also { swbRestoreFailed ->
+            swbRestoreFailed.setTitle(restoreFailed.title)
+            swbRestoreFailed.setMessage(restoreFailed.message)
+            swbRestoreFailed.setCloseButtonTitle(restoreFailed.closeButtonTitle)
         },
+    )
+    options.setShouldShowWebRestorationAlert(NSNumber(bool = shouldShowWebRestorationAlert))
+    options.setShouldShowPurchaseFailureAlert(NSNumber(bool = shouldShowPurchaseFailureAlert))
+    options.setShouldPreload(NSNumber(bool = shouldPreload))
+    options.setAutomaticallyDismiss(NSNumber(bool = automaticallyDismiss))
+    options.setTransactionBackgroundView(
+        NSNumber(
+            long = when (transactionBackgroundView) {
+                TransactionBackgroundView.SPINNER -> SWB_TRANSACTION_BACKGROUND_VIEW_SPINNER
+                TransactionBackgroundView.NONE -> SWB_TRANSACTION_BACKGROUND_VIEW_NONE
+            },
+        ),
     )
     overrideProductsByName?.let { overrides ->
         @Suppress("UNCHECKED_CAST")
-        options.overrideProductsByName = overrides as Map<Any?, *>
+        options.setOverrideProductsByName(overrides as Map<Any?, *>)
     }
-    options.shouldShowWebPurchaseConfirmationAlert = NSNumber(bool = shouldShowWebPurchaseConfirmationAlert)
+    options.setShouldShowWebPurchaseConfirmationAlert(NSNumber(bool = shouldShowWebPurchaseConfirmationAlert))
     return options
 }
 
@@ -128,24 +133,24 @@ internal fun IdentityOptions.toSWB(): SWBIdentityOptions = SWBIdentityOptions(re
 
 private fun NetworkEnvironment.toSWBRaw(): Long =
     when (this) {
-        NetworkEnvironment.RELEASE -> SWBNetworkEnvironmentRelease
-        NetworkEnvironment.RELEASE_CANDIDATE -> SWBNetworkEnvironmentReleaseCandidate
-        NetworkEnvironment.DEVELOPER -> SWBNetworkEnvironmentDeveloper
+        NetworkEnvironment.RELEASE -> SWB_NETWORK_ENVIRONMENT_RELEASE
+        NetworkEnvironment.RELEASE_CANDIDATE -> SWB_NETWORK_ENVIRONMENT_RELEASE_CANDIDATE
+        NetworkEnvironment.DEVELOPER -> SWB_NETWORK_ENVIRONMENT_DEVELOPER
     }
 
 private fun EventTrackingBehavior.toSWBRaw(): Long =
     when (this) {
-        EventTrackingBehavior.ALL -> SWBEventTrackingBehaviorAll
-        EventTrackingBehavior.SUPERWALL_ONLY -> SWBEventTrackingBehaviorSuperwallOnly
-        EventTrackingBehavior.NONE -> SWBEventTrackingBehaviorNone
+        EventTrackingBehavior.ALL -> SWB_EVENT_TRACKING_BEHAVIOR_ALL
+        EventTrackingBehavior.SUPERWALL_ONLY -> SWB_EVENT_TRACKING_BEHAVIOR_SUPERWALL_ONLY
+        EventTrackingBehavior.NONE -> SWB_EVENT_TRACKING_BEHAVIOR_NONE
     }
 
 private fun TestModeBehavior.toSWBRaw(): Long =
     when (this) {
-        TestModeBehavior.AUTOMATIC -> SWBTestModeBehaviorAutomatic
-        TestModeBehavior.WHEN_ENABLED_FOR_USER -> SWBTestModeBehaviorWhenEnabledForUser
-        TestModeBehavior.NEVER -> SWBTestModeBehaviorNever
-        TestModeBehavior.ALWAYS -> SWBTestModeBehaviorAlways
+        TestModeBehavior.AUTOMATIC -> SWB_TEST_MODE_BEHAVIOR_AUTOMATIC
+        TestModeBehavior.WHEN_ENABLED_FOR_USER -> SWB_TEST_MODE_BEHAVIOR_WHEN_ENABLED_FOR_USER
+        TestModeBehavior.NEVER -> SWB_TEST_MODE_BEHAVIOR_NEVER
+        TestModeBehavior.ALWAYS -> SWB_TEST_MODE_BEHAVIOR_ALWAYS
     }
 
 internal fun InterfaceStyle?.toSWB(): SWBInterfaceStyle =
@@ -182,34 +187,35 @@ internal fun logLevelFromSWB(level: SWBLogLevel): LogLevel =
     }
 
 /**
- * Maps a common [LogScope] to the SWB raw value. The bridge's two 4.16.x-only
+ * Maps a common [LogScope] to the SWB raw value (the `SWBLogScope` raw Int —
+ * carried as an NSNumber across the bridge). The bridge's two 4.16.x-only
  * scopes (`analytics`, `webEntitlements`) have no common counterpart and only
  * appear in the read direction ([logScopeFromRawName]).
  */
-internal fun logScopeToSWB(scope: LogScope): SWBLogScope =
+internal fun logScopeToSWB(scope: LogScope): Long =
     when (scope) {
-        LogScope.LOCALIZATION_MANAGER -> SWBLogScopeLocalizationManager
-        LogScope.BOUNCE_BUTTON -> SWBLogScopeBounceButton
-        LogScope.CORE_DATA -> SWBLogScopeCoreData
-        LogScope.CONFIG_MANAGER -> SWBLogScopeConfigManager
-        LogScope.IDENTITY_MANAGER -> SWBLogScopeIdentityManager
-        LogScope.DEBUG_MANAGER -> SWBLogScopeDebugManager
-        LogScope.DEBUG_VIEW_CONTROLLER -> SWBLogScopeDebugViewController
-        LogScope.LOCALIZATION_VIEW_CONTROLLER -> SWBLogScopeLocalizationViewController
-        LogScope.GAME_CONTROLLER_MANAGER -> SWBLogScopeGameControllerManager
-        LogScope.DEVICE -> SWBLogScopeDevice
-        LogScope.NETWORK -> SWBLogScopeNetwork
-        LogScope.PAYWALL_EVENTS -> SWBLogScopePaywallEvents
-        LogScope.PRODUCTS_MANAGER -> SWBLogScopeProductsManager
-        LogScope.STORE_KIT_MANAGER -> SWBLogScopeStoreKitManager
-        LogScope.PLACEMENTS -> SWBLogScopePlacements
-        LogScope.RECEIPTS -> SWBLogScopeReceipts
-        LogScope.SUPERWALL_CORE -> SWBLogScopeSuperwallCore
-        LogScope.PAYWALL_PRESENTATION -> SWBLogScopePaywallPresentation
-        LogScope.TRANSACTIONS -> SWBLogScopeTransactions
-        LogScope.PAYWALL_VIEW_CONTROLLER -> SWBLogScopePaywallViewController
-        LogScope.CACHE -> SWBLogScopeCache
-        LogScope.ALL -> SWBLogScopeAll
+        LogScope.LOCALIZATION_MANAGER -> SWB_LOG_SCOPE_LOCALIZATION_MANAGER
+        LogScope.BOUNCE_BUTTON -> SWB_LOG_SCOPE_BOUNCE_BUTTON
+        LogScope.CORE_DATA -> SWB_LOG_SCOPE_CORE_DATA
+        LogScope.CONFIG_MANAGER -> SWB_LOG_SCOPE_CONFIG_MANAGER
+        LogScope.IDENTITY_MANAGER -> SWB_LOG_SCOPE_IDENTITY_MANAGER
+        LogScope.DEBUG_MANAGER -> SWB_LOG_SCOPE_DEBUG_MANAGER
+        LogScope.DEBUG_VIEW_CONTROLLER -> SWB_LOG_SCOPE_DEBUG_VIEW_CONTROLLER
+        LogScope.LOCALIZATION_VIEW_CONTROLLER -> SWB_LOG_SCOPE_LOCALIZATION_VIEW_CONTROLLER
+        LogScope.GAME_CONTROLLER_MANAGER -> SWB_LOG_SCOPE_GAME_CONTROLLER_MANAGER
+        LogScope.DEVICE -> SWB_LOG_SCOPE_DEVICE
+        LogScope.NETWORK -> SWB_LOG_SCOPE_NETWORK
+        LogScope.PAYWALL_EVENTS -> SWB_LOG_SCOPE_PAYWALL_EVENTS
+        LogScope.PRODUCTS_MANAGER -> SWB_LOG_SCOPE_PRODUCTS_MANAGER
+        LogScope.STORE_KIT_MANAGER -> SWB_LOG_SCOPE_STORE_KIT_MANAGER
+        LogScope.PLACEMENTS -> SWB_LOG_SCOPE_PLACEMENTS
+        LogScope.RECEIPTS -> SWB_LOG_SCOPE_RECEIPTS
+        LogScope.SUPERWALL_CORE -> SWB_LOG_SCOPE_SUPERWALL_CORE
+        LogScope.PAYWALL_PRESENTATION -> SWB_LOG_SCOPE_PAYWALL_PRESENTATION
+        LogScope.TRANSACTIONS -> SWB_LOG_SCOPE_TRANSACTIONS
+        LogScope.PAYWALL_VIEW_CONTROLLER -> SWB_LOG_SCOPE_PAYWALL_VIEW_CONTROLLER
+        LogScope.CACHE -> SWB_LOG_SCOPE_CACHE
+        LogScope.ALL -> SWB_LOG_SCOPE_ALL
     }
 
 /**

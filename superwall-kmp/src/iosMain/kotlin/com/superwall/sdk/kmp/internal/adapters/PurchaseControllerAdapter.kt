@@ -39,7 +39,7 @@ internal class PurchaseControllerAdapter(
 ) : NSObject(), SWBPurchaseControllerProtocol {
     override fun purchaseWithProductId(
         productId: String,
-        completion: (SWBPurchaseResult) -> Unit,
+        completion: (SWBPurchaseResult?) -> Unit,
     ) {
         scope.launch {
             val result = try {
@@ -52,7 +52,7 @@ internal class PurchaseControllerAdapter(
         }
     }
 
-    override fun restorePurchasesWithCompletion(completion: (SWBRestorationResult) -> Unit) {
+    override fun restorePurchasesWithCompletion(completion: (SWBRestorationResult?) -> Unit) {
         scope.launch {
             val result = try {
                 controller.restorePurchases()

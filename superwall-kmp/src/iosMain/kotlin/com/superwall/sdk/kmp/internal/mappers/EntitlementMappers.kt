@@ -30,15 +30,15 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeMpartic
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeOnesignalId
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributePosthogUserId
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeTenjinId
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLatestSubscriptionOfferTypeCode
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLatestSubscriptionOfferTypePromotional
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLatestSubscriptionOfferTypeTrial
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLatestSubscriptionOfferTypeWinback
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLatestSubscriptionStateExpired
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLatestSubscriptionStateInBillingRetryPeriod
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLatestSubscriptionStateInGracePeriod
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLatestSubscriptionStateRevoked
-import com.superwall.sdk.kmp.internal.ios.interop.SWBLatestSubscriptionStateSubscribed
+import com.superwall.sdk.kmp.internal.interop.SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_CODE
+import com.superwall.sdk.kmp.internal.interop.SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_PROMOTIONAL
+import com.superwall.sdk.kmp.internal.interop.SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_TRIAL
+import com.superwall.sdk.kmp.internal.interop.SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_WINBACK
+import com.superwall.sdk.kmp.internal.interop.SWB_LATEST_SUBSCRIPTION_STATE_EXPIRED
+import com.superwall.sdk.kmp.internal.interop.SWB_LATEST_SUBSCRIPTION_STATE_IN_BILLING_RETRY_PERIOD
+import com.superwall.sdk.kmp.internal.interop.SWB_LATEST_SUBSCRIPTION_STATE_IN_GRACE_PERIOD
+import com.superwall.sdk.kmp.internal.interop.SWB_LATEST_SUBSCRIPTION_STATE_REVOKED
+import com.superwall.sdk.kmp.internal.interop.SWB_LATEST_SUBSCRIPTION_STATE_SUBSCRIBED
 import com.superwall.sdk.kmp.internal.ios.interop.SWBNonSubscriptionTransaction
 import com.superwall.sdk.kmp.internal.ios.interop.SWBProductStore
 import com.superwall.sdk.kmp.internal.ios.interop.SWBProductStoreAppStore
@@ -110,11 +110,11 @@ internal fun productStoreFromNSNumber(value: NSNumber?): ProductStore? =
 internal fun subscriptionStateFromNSNumber(value: NSNumber?): LatestSubscriptionState? =
     value?.let {
         when (it.longLongValue) {
-            SWBLatestSubscriptionStateInGracePeriod -> LatestSubscriptionState.IN_GRACE_PERIOD
-            SWBLatestSubscriptionStateSubscribed -> LatestSubscriptionState.SUBSCRIBED
-            SWBLatestSubscriptionStateExpired -> LatestSubscriptionState.EXPIRED
-            SWBLatestSubscriptionStateInBillingRetryPeriod -> LatestSubscriptionState.IN_BILLING_RETRY_PERIOD
-            SWBLatestSubscriptionStateRevoked -> LatestSubscriptionState.REVOKED
+            SWB_LATEST_SUBSCRIPTION_STATE_IN_GRACE_PERIOD -> LatestSubscriptionState.IN_GRACE_PERIOD
+            SWB_LATEST_SUBSCRIPTION_STATE_SUBSCRIBED -> LatestSubscriptionState.SUBSCRIBED
+            SWB_LATEST_SUBSCRIPTION_STATE_EXPIRED -> LatestSubscriptionState.EXPIRED
+            SWB_LATEST_SUBSCRIPTION_STATE_IN_BILLING_RETRY_PERIOD -> LatestSubscriptionState.IN_BILLING_RETRY_PERIOD
+            SWB_LATEST_SUBSCRIPTION_STATE_REVOKED -> LatestSubscriptionState.REVOKED
             else -> null
         }
     }
@@ -122,10 +122,10 @@ internal fun subscriptionStateFromNSNumber(value: NSNumber?): LatestSubscription
 internal fun offerTypeFromNSNumber(value: NSNumber?): LatestSubscriptionOfferType? =
     value?.let {
         when (it.longLongValue) {
-            SWBLatestSubscriptionOfferTypeTrial -> LatestSubscriptionOfferType.TRIAL
-            SWBLatestSubscriptionOfferTypeCode -> LatestSubscriptionOfferType.CODE
-            SWBLatestSubscriptionOfferTypePromotional -> LatestSubscriptionOfferType.PROMOTIONAL
-            SWBLatestSubscriptionOfferTypeWinback -> LatestSubscriptionOfferType.WINBACK
+            SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_TRIAL -> LatestSubscriptionOfferType.TRIAL
+            SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_CODE -> LatestSubscriptionOfferType.CODE
+            SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_PROMOTIONAL -> LatestSubscriptionOfferType.PROMOTIONAL
+            SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_WINBACK -> LatestSubscriptionOfferType.WINBACK
             else -> null
         }
     }
@@ -136,19 +136,19 @@ internal fun offerTypeFromNSNumber(value: NSNumber?): LatestSubscriptionOfferTyp
 
 internal fun SWBEntitlement.toModel(): Entitlement =
     Entitlement(
-        id = id,
+        id = id(),
         type = EntitlementType.SERVICE_LEVEL,
-        isActive = isActive,
-        productIds = productIds.mapNotNull { it as? String },
-        latestProductId = latestProductId,
-        store = productStoreFromNSNumber(store),
-        startsAt = startsAt.toInstantFromEpochMs(),
-        renewedAt = renewedAt.toInstantFromEpochMs(),
-        expiresAt = expiresAt.toInstantFromEpochMs(),
-        isLifetime = isLifetime?.boolValue,
-        willRenew = willRenew?.boolValue,
-        state = subscriptionStateFromNSNumber(state),
-        offerType = offerTypeFromNSNumber(offerType),
+        isActive = isActive(),
+        productIds = productIds().mapNotNull { it as? String },
+        latestProductId = latestProductId(),
+        store = productStoreFromNSNumber(store()),
+        startsAt = startsAt().toInstantFromEpochMs(),
+        renewedAt = renewedAt().toInstantFromEpochMs(),
+        expiresAt = expiresAt().toInstantFromEpochMs(),
+        isLifetime = isLifetime()?.boolValue,
+        willRenew = willRenew()?.boolValue,
+        state = subscriptionStateFromNSNumber(state()),
+        offerType = offerTypeFromNSNumber(offerType()),
     )
 
 /**
@@ -176,27 +176,27 @@ internal fun Entitlement.toSWB(): SWBEntitlement =
 
 private fun subscriptionStateToSWBRaw(state: LatestSubscriptionState): Long =
     when (state) {
-        LatestSubscriptionState.IN_GRACE_PERIOD -> SWBLatestSubscriptionStateInGracePeriod
-        LatestSubscriptionState.SUBSCRIBED -> SWBLatestSubscriptionStateSubscribed
-        LatestSubscriptionState.EXPIRED -> SWBLatestSubscriptionStateExpired
-        LatestSubscriptionState.IN_BILLING_RETRY_PERIOD -> SWBLatestSubscriptionStateInBillingRetryPeriod
-        LatestSubscriptionState.REVOKED -> SWBLatestSubscriptionStateRevoked
+        LatestSubscriptionState.IN_GRACE_PERIOD -> SWB_LATEST_SUBSCRIPTION_STATE_IN_GRACE_PERIOD
+        LatestSubscriptionState.SUBSCRIBED -> SWB_LATEST_SUBSCRIPTION_STATE_SUBSCRIBED
+        LatestSubscriptionState.EXPIRED -> SWB_LATEST_SUBSCRIPTION_STATE_EXPIRED
+        LatestSubscriptionState.IN_BILLING_RETRY_PERIOD -> SWB_LATEST_SUBSCRIPTION_STATE_IN_BILLING_RETRY_PERIOD
+        LatestSubscriptionState.REVOKED -> SWB_LATEST_SUBSCRIPTION_STATE_REVOKED
     }
 
 private fun offerTypeToSWBRaw(offerType: LatestSubscriptionOfferType): Long =
     when (offerType) {
-        LatestSubscriptionOfferType.TRIAL -> SWBLatestSubscriptionOfferTypeTrial
-        LatestSubscriptionOfferType.CODE -> SWBLatestSubscriptionOfferTypeCode
-        LatestSubscriptionOfferType.PROMOTIONAL -> SWBLatestSubscriptionOfferTypePromotional
-        LatestSubscriptionOfferType.WINBACK -> SWBLatestSubscriptionOfferTypeWinback
+        LatestSubscriptionOfferType.TRIAL -> SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_TRIAL
+        LatestSubscriptionOfferType.CODE -> SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_CODE
+        LatestSubscriptionOfferType.PROMOTIONAL -> SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_PROMOTIONAL
+        LatestSubscriptionOfferType.WINBACK -> SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_WINBACK
     }
 
 internal fun SWBEntitlements.toModel(): Entitlements =
     Entitlements(
-        active = active.toEntitlementSet(),
-        inactive = inactive.toEntitlementSet(),
-        all = all.toEntitlementSet(),
-        web = web.toEntitlementSet(),
+        active = active().toEntitlementSet(),
+        inactive = inactive().toEntitlementSet(),
+        all = all().toEntitlementSet(),
+        web = web().toEntitlementSet(),
     )
 
 internal fun List<*>.toEntitlementSet(): Set<Entitlement> =
@@ -207,8 +207,8 @@ internal fun List<*>.toEntitlementSet(): Set<Entitlement> =
 // ---------------------------------------------------------------------------
 
 internal fun SWBSubscriptionStatus.toModel(): SubscriptionStatus =
-    when (status) {
-        SWBSubscriptionStatusCaseActive -> SubscriptionStatus.Active(entitlements.toEntitlementSet())
+    when (status()) {
+        SWBSubscriptionStatusCaseActive -> SubscriptionStatus.Active(entitlements().toEntitlementSet())
         SWBSubscriptionStatusCaseInactive -> SubscriptionStatus.Inactive
         SWBSubscriptionStatusCaseUnknown -> SubscriptionStatus.Unknown
         // Unknown native case: documented fallback (plan §7).
@@ -231,36 +231,36 @@ internal fun SubscriptionStatus.toSWB(): SWBSubscriptionStatus =
 
 internal fun SWBCustomerInfo.toModel(): CustomerInfo =
     CustomerInfo(
-        subscriptions = subscriptions.mapNotNull { (it as? SWBSubscriptionTransaction)?.toModel() },
-        nonSubscriptions = nonSubscriptions.mapNotNull { (it as? SWBNonSubscriptionTransaction)?.toModel() },
-        entitlements = entitlements.mapNotNull { (it as? SWBEntitlement)?.toModel() },
-        userId = userId,
+        subscriptions = subscriptions().mapNotNull { (it as? SWBSubscriptionTransaction)?.toModel() },
+        nonSubscriptions = nonSubscriptions().mapNotNull { (it as? SWBNonSubscriptionTransaction)?.toModel() },
+        entitlements = entitlements().mapNotNull { (it as? SWBEntitlement)?.toModel() },
+        userId = userId(),
     )
 
 internal fun SWBSubscriptionTransaction.toModel(): SubscriptionTransaction =
     SubscriptionTransaction(
-        transactionId = transactionId,
-        productId = productId,
-        purchaseDate = Instant.fromEpochMilliseconds(purchaseDate),
-        willRenew = willRenew,
-        isRevoked = isRevoked,
-        isInGracePeriod = isInGracePeriod,
-        isInBillingRetryPeriod = isInBillingRetryPeriod,
-        isActive = isActive,
-        expirationDate = expirationDate.toInstantFromEpochMs(),
-        offerType = offerTypeFromNSNumber(offerType),
-        subscriptionGroupId = subscriptionGroupId,
-        store = productStoreFromSWB(store),
+        transactionId = transactionId(),
+        productId = productId(),
+        purchaseDate = Instant.fromEpochMilliseconds(purchaseDate()),
+        willRenew = willRenew(),
+        isRevoked = isRevoked(),
+        isInGracePeriod = isInGracePeriod(),
+        isInBillingRetryPeriod = isInBillingRetryPeriod(),
+        isActive = isActive(),
+        expirationDate = expirationDate().toInstantFromEpochMs(),
+        offerType = offerTypeFromNSNumber(offerType()),
+        subscriptionGroupId = subscriptionGroupId(),
+        store = productStoreFromSWB(store()),
     )
 
 internal fun SWBNonSubscriptionTransaction.toModel(): NonSubscriptionTransaction =
     NonSubscriptionTransaction(
-        transactionId = transactionId,
-        productId = productId,
-        purchaseDate = Instant.fromEpochMilliseconds(purchaseDate),
-        isConsumable = isConsumable,
-        isRevoked = isRevoked,
-        store = productStoreFromSWB(store),
+        transactionId = transactionId(),
+        productId = productId(),
+        purchaseDate = Instant.fromEpochMilliseconds(purchaseDate()),
+        isConsumable = isConsumable(),
+        isRevoked = isRevoked(),
+        store = productStoreFromSWB(store()),
     )
 
 // ---------------------------------------------------------------------------

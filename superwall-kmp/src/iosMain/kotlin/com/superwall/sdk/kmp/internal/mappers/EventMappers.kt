@@ -86,10 +86,10 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeTransactionStart
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeTransactionTimeout
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeTriggerFire
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeUserAttributes
+import com.superwall.sdk.kmp.internal.interop.SWB_TRANSACTION_TYPE_FREE_TRIAL_START
+import com.superwall.sdk.kmp.internal.interop.SWB_TRANSACTION_TYPE_NON_RECURRING_PRODUCT_PURCHASE
+import com.superwall.sdk.kmp.internal.interop.SWB_TRANSACTION_TYPE_SUBSCRIPTION_START
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPageViewData
-import com.superwall.sdk.kmp.internal.ios.interop.SWBTransactionTypeFreeTrialStart
-import com.superwall.sdk.kmp.internal.ios.interop.SWBTransactionTypeNonRecurringProductPurchase
-import com.superwall.sdk.kmp.internal.ios.interop.SWBTransactionTypeSubscriptionStart
 import com.superwall.sdk.kmp.models.events.EventType
 import com.superwall.sdk.kmp.models.events.SuperwallEventInfo
 import platform.Foundation.NSNumber
@@ -111,49 +111,49 @@ import platform.Foundation.NSNumber
  *   `params["rawEventType"]` (degrade, never crash — plan §7).
  */
 internal fun SWBEventEnvelope.toModel(): SuperwallEventInfo {
-    val mappedType = eventTypeFromSWB(eventType)
-    val rawGapName = if (mappedType == null) rawEventNameForSWB(eventType, name) else null
+    val mappedType = eventTypeFromSWB(eventType())
+    val rawGapName = if (mappedType == null) rawEventNameForSWB(eventType(), name()) else null
 
     val mergedParams = buildMap {
-        NSAnySanitizer.fromMapOrNull(params)?.let(::putAll)
-        transactionType?.let { put("transactionType", transactionTypeNameFromNSNumber(it)) }
-        transactionProductId?.let { put("transactionProductId", it) }
-        permissionName?.let { put("permissionName", it) }
-        paywallIdentifier?.let { put("paywallIdentifier", it) }
-        paywallCount?.let { put("paywallCount", it.longLongValue) }
-        attributionMatch?.let { put("attributionMatch", it.toParamsMap()) }
-        pageViewData?.let { put("pageViewData", it.toParamsMap()) }
+        NSAnySanitizer.fromMapOrNull(params())?.let(::putAll)
+        transactionType()?.let { put("transactionType", transactionTypeNameFromNSNumber(it)) }
+        transactionProductId()?.let { put("transactionProductId", it) }
+        permissionName()?.let { put("permissionName", it) }
+        paywallIdentifier()?.let { put("paywallIdentifier", it) }
+        paywallCount()?.let { put("paywallCount", it.longLongValue) }
+        attributionMatch()?.let { put("attributionMatch", it.toParamsMap()) }
+        pageViewData()?.let { put("pageViewData", it.toParamsMap()) }
         rawGapName?.let { put("rawEventType", it) }
     }.takeIf { it.isNotEmpty() }
 
     return SuperwallEventInfo(
         eventType = mappedType ?: EventType.CUSTOM_PLACEMENT,
         params = mergedParams,
-        placementName = placementName,
-        deviceAttributes = NSAnySanitizer.fromMapOrNull(deviceAttributes),
-        deepLinkUrl = deepLinkUrl,
-        result = triggerResult?.toModel(),
-        paywallInfo = paywallInfo?.toModel(),
-        transaction = transaction?.toModel(),
-        product = product?.toModel(),
-        error = error,
-        triggeredPlacementName = triggeredPlacementName,
-        attempt = attempt?.longLongValue,
-        name = name ?: rawGapName,
-        survey = survey?.toModel(),
-        selectedOption = selectedOption?.toModel(),
-        customResponse = customResponse,
-        status = presentationRequestStatusFromNSNumber(presentationRequestStatus),
-        reason = presentationRequestReason?.toModel(),
-        restoreType = restoreType?.toModel(),
-        userAttributes = NSAnySanitizer.fromMapOrNull(userAttributes),
-        token = token,
-        userEnrichment = NSAnySanitizer.fromMapOrNull(userEnrichment),
-        deviceEnrichment = NSAnySanitizer.fromMapOrNull(deviceEnrichment),
-        message = message,
-        integrationAttributes = NSAnySanitizer.fromMapOrNull(integrationAttributes),
-        reviewRequestedCount = reviewRequestedCount?.longLongValue,
-        missingProductIdentifiers = missingProductIdentifiers?.mapNotNull { it as? String },
+        placementName = placementName(),
+        deviceAttributes = NSAnySanitizer.fromMapOrNull(deviceAttributes()),
+        deepLinkUrl = deepLinkUrl(),
+        result = triggerResult()?.toModel(),
+        paywallInfo = paywallInfo()?.toModel(),
+        transaction = transaction()?.toModel(),
+        product = product()?.toModel(),
+        error = error(),
+        triggeredPlacementName = triggeredPlacementName(),
+        attempt = attempt()?.longLongValue,
+        name = name() ?: rawGapName,
+        survey = survey()?.toModel(),
+        selectedOption = selectedOption()?.toModel(),
+        customResponse = customResponse(),
+        status = presentationRequestStatusFromNSNumber(presentationRequestStatus()),
+        reason = presentationRequestReason()?.toModel(),
+        restoreType = restoreType()?.toModel(),
+        userAttributes = NSAnySanitizer.fromMapOrNull(userAttributes()),
+        token = token(),
+        userEnrichment = NSAnySanitizer.fromMapOrNull(userEnrichment()),
+        deviceEnrichment = NSAnySanitizer.fromMapOrNull(deviceEnrichment()),
+        message = message(),
+        integrationAttributes = NSAnySanitizer.fromMapOrNull(integrationAttributes()),
+        reviewRequestedCount = reviewRequestedCount()?.longLongValue,
+        missingProductIdentifiers = missingProductIdentifiers()?.mapNotNull { it as? String },
     )
 }
 
@@ -256,30 +256,30 @@ private fun rawEventNameForSWB(value: SWBEventType, envelopeName: String?): Stri
 
 private fun transactionTypeNameFromNSNumber(value: NSNumber): String =
     when (value.longLongValue) {
-        SWBTransactionTypeNonRecurringProductPurchase -> "NON_RECURRING_PRODUCT_PURCHASE"
-        SWBTransactionTypeFreeTrialStart -> "FREE_TRIAL_START"
-        SWBTransactionTypeSubscriptionStart -> "SUBSCRIPTION_START"
+        SWB_TRANSACTION_TYPE_NON_RECURRING_PRODUCT_PURCHASE -> "NON_RECURRING_PRODUCT_PURCHASE"
+        SWB_TRANSACTION_TYPE_FREE_TRIAL_START -> "FREE_TRIAL_START"
+        SWB_TRANSACTION_TYPE_SUBSCRIPTION_START -> "SUBSCRIPTION_START"
         else -> "UNKNOWN"
     }
 
 private fun SWBAttributionMatchInfo.toParamsMap(): Map<String, Any?> =
     buildMap {
-        put("provider", provider)
-        put("matched", matched)
-        source?.let { put("source", it) }
-        confidence?.let { put("confidence", it) }
-        matchScore?.let { put("matchScore", it.doubleValue) }
-        reason?.let { put("reason", it) }
+        put("provider", provider())
+        put("matched", matched())
+        source()?.let { put("source", it) }
+        confidence()?.let { put("confidence", it) }
+        matchScore()?.let { put("matchScore", it.doubleValue) }
+        reason()?.let { put("reason", it) }
     }
 
 private fun SWBPageViewData.toParamsMap(): Map<String, Any?> =
     buildMap {
-        put("pageNodeId", pageNodeId)
-        put("flowPosition", flowPosition)
-        put("pageName", pageName)
-        put("navigationNodeId", navigationNodeId)
-        previousPageNodeId?.let { put("previousPageNodeId", it) }
-        previousFlowPosition?.let { put("previousFlowPosition", it.longLongValue) }
-        put("navigationType", navigationType)
-        timeOnPreviousPageMs?.let { put("timeOnPreviousPageMs", it.longLongValue) }
+        put("pageNodeId", pageNodeId())
+        put("flowPosition", flowPosition())
+        put("pageName", pageName())
+        put("navigationNodeId", navigationNodeId())
+        previousPageNodeId()?.let { put("previousPageNodeId", it) }
+        previousFlowPosition()?.let { put("previousFlowPosition", it.longLongValue) }
+        put("navigationType", navigationType())
+        timeOnPreviousPageMs()?.let { put("timeOnPreviousPageMs", it.longLongValue) }
     }

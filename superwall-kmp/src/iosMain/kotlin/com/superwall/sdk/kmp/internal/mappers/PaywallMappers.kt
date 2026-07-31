@@ -57,13 +57,13 @@ import com.superwall.sdk.kmp.models.triggers.VariantType
 
 internal fun SWBVariant.toModel(): Variant =
     Variant(
-        id = id,
-        type = if (type == SWBVariantTypeHoldout) VariantType.HOLDOUT else VariantType.TREATMENT,
-        paywallId = paywallId,
+        id = id(),
+        type = if (type() == SWBVariantTypeHoldout) VariantType.HOLDOUT else VariantType.TREATMENT,
+        paywallId = paywallId(),
     )
 
 internal fun SWBExperiment.toModel(): Experiment =
-    Experiment(id = id, groupId = groupId, variant = variant.toModel())
+    Experiment(id = id(), groupId = groupId(), variant = variant().toModel())
 
 /**
  * Defensive fallback for enum-envelope cases whose contract guarantees an
@@ -80,7 +80,7 @@ internal fun SWBExperiment?.toModelOrEmpty(holdout: Boolean = false): Experiment
         )
 
 internal fun SWBConfirmedAssignment.toModel(): ConfirmedAssignment =
-    ConfirmedAssignment(experimentId = experimentId, variant = variant.toModel())
+    ConfirmedAssignment(experimentId = experimentId(), variant = variant().toModel())
 
 // ---------------------------------------------------------------------------
 // Paywall info family.
@@ -88,27 +88,27 @@ internal fun SWBConfirmedAssignment.toModel(): ConfirmedAssignment =
 
 internal fun SWBProduct.toModel(): PaywallProduct =
     PaywallProduct(
-        id = id,
-        name = name,
-        entitlements = entitlements.mapNotNull { (it as? SWBEntitlement)?.toModel() }.toSet(),
+        id = id(),
+        name = name(),
+        entitlements = entitlements().mapNotNull { (it as? SWBEntitlement)?.toModel() }.toSet(),
     )
 
 internal fun SWBLocalNotification.toModel(): LocalNotification =
     LocalNotification(
-        id = id,
-        type = when (type) {
+        id = id(),
+        type = when (type()) {
             SWBLocalNotificationTypeTrialStarted -> LocalNotificationType.TRIAL_STARTED
             else -> LocalNotificationType.UNSUPPORTED
         },
-        title = title,
-        body = body,
-        delay = delay,
-        subtitle = subtitle,
+        title = title(),
+        body = body(),
+        delay = delay(),
+        subtitle = subtitle(),
     )
 
 internal fun SWBComputedPropertyRequest.toModel(): ComputedPropertyRequest =
     ComputedPropertyRequest(
-        type = when (type) {
+        type = when (type()) {
             SWBComputedPropertyRequestTypeMinutesSince -> ComputedPropertyRequestType.MINUTES_SINCE
             SWBComputedPropertyRequestTypeHoursSince -> ComputedPropertyRequestType.HOURS_SINCE
             SWBComputedPropertyRequestTypeDaysSince -> ComputedPropertyRequestType.DAYS_SINCE
@@ -123,61 +123,61 @@ internal fun SWBComputedPropertyRequest.toModel(): ComputedPropertyRequest =
             // Unknown native case: documented fallback (plan §7).
             else -> ComputedPropertyRequestType.MINUTES_SINCE
         },
-        eventName = placementName,
+        eventName = placementName(),
     )
 
-internal fun SWBSurveyOption.toModel(): SurveyOption = SurveyOption(id = id, text = text)
+internal fun SWBSurveyOption.toModel(): SurveyOption = SurveyOption(id = id(), text = text())
 
 internal fun SWBSurvey.toModel(): Survey =
     Survey(
-        id = id,
-        assignmentKey = assignmentKey,
-        title = title,
-        message = message,
-        options = options.mapNotNull { (it as? SWBSurveyOption)?.toModel() },
-        presentationCondition = when (presentationCondition) {
+        id = id(),
+        assignmentKey = assignmentKey(),
+        title = title(),
+        message = message(),
+        options = options().mapNotNull { (it as? SWBSurveyOption)?.toModel() },
+        presentationCondition = when (presentationCondition()) {
             SWBSurveyShowConditionOnPurchase -> SurveyShowCondition.ON_PURCHASE
             SWBSurveyShowConditionOnManualClose -> SurveyShowCondition.ON_MANUAL_CLOSE
             else -> SurveyShowCondition.ON_MANUAL_CLOSE
         },
-        presentationProbability = presentationProbability,
-        includeOtherOption = includeOtherOption,
-        includeCloseOption = includeCloseOption,
+        presentationProbability = presentationProbability(),
+        includeOtherOption = includeOtherOption(),
+        includeCloseOption = includeCloseOption(),
     )
 
 internal fun SWBPaywallInfo.toModel(): PaywallInfo =
     PaywallInfo(
-        identifier = identifier,
-        name = name,
-        experiment = experiment?.toModel(),
-        productIds = productIds.mapNotNull { it as? String },
-        products = products.mapNotNull { (it as? SWBProduct)?.toModel() },
-        url = url,
-        presentedByPlacementWithName = presentedByPlacementWithName,
-        presentedByPlacementWithId = presentedByPlacementWithId,
-        presentedByPlacementAt = presentedByPlacementAt.toInstantOrNull(),
-        presentedBy = presentedBy,
-        presentationSourceType = presentationSourceType,
-        responseLoadStartTime = responseLoadStartTime.toInstantOrNull(),
-        responseLoadCompleteTime = responseLoadCompleteTime.toInstantOrNull(),
-        responseLoadFailTime = responseLoadFailTime.toInstantOrNull(),
-        responseLoadDuration = responseLoadDuration?.doubleValue,
-        webViewLoadStartTime = webViewLoadStartTime.toInstantOrNull(),
-        webViewLoadCompleteTime = webViewLoadCompleteTime.toInstantOrNull(),
-        webViewLoadFailTime = webViewLoadFailTime.toInstantOrNull(),
-        webViewLoadDuration = webViewLoadDuration?.doubleValue,
-        productsLoadStartTime = productsLoadStartTime.toInstantOrNull(),
-        productsLoadCompleteTime = productsLoadCompleteTime.toInstantOrNull(),
-        productsLoadFailTime = productsLoadFailTime.toInstantOrNull(),
-        productsLoadDuration = productsLoadDuration?.doubleValue,
-        paywalljsVersion = paywalljsVersion,
-        isFreeTrialAvailable = isFreeTrialAvailable,
-        featureGatingBehavior = when (featureGatingBehavior) {
+        identifier = identifier(),
+        name = name(),
+        experiment = experiment()?.toModel(),
+        productIds = productIds().mapNotNull { it as? String },
+        products = products().mapNotNull { (it as? SWBProduct)?.toModel() },
+        url = url(),
+        presentedByPlacementWithName = presentedByPlacementWithName(),
+        presentedByPlacementWithId = presentedByPlacementWithId(),
+        presentedByPlacementAt = presentedByPlacementAt().toInstantOrNull(),
+        presentedBy = presentedBy(),
+        presentationSourceType = presentationSourceType(),
+        responseLoadStartTime = responseLoadStartTime().toInstantOrNull(),
+        responseLoadCompleteTime = responseLoadCompleteTime().toInstantOrNull(),
+        responseLoadFailTime = responseLoadFailTime().toInstantOrNull(),
+        responseLoadDuration = responseLoadDuration()?.doubleValue,
+        webViewLoadStartTime = webViewLoadStartTime().toInstantOrNull(),
+        webViewLoadCompleteTime = webViewLoadCompleteTime().toInstantOrNull(),
+        webViewLoadFailTime = webViewLoadFailTime().toInstantOrNull(),
+        webViewLoadDuration = webViewLoadDuration()?.doubleValue,
+        productsLoadStartTime = productsLoadStartTime().toInstantOrNull(),
+        productsLoadCompleteTime = productsLoadCompleteTime().toInstantOrNull(),
+        productsLoadFailTime = productsLoadFailTime().toInstantOrNull(),
+        productsLoadDuration = productsLoadDuration()?.doubleValue,
+        paywalljsVersion = paywalljsVersion(),
+        isFreeTrialAvailable = isFreeTrialAvailable(),
+        featureGatingBehavior = when (featureGatingBehavior()) {
             SWBFeatureGatingBehaviorGated -> FeatureGatingBehavior.GATED
             SWBFeatureGatingBehaviorNonGated -> FeatureGatingBehavior.NON_GATED
             else -> FeatureGatingBehavior.NON_GATED
         },
-        closeReason = when (closeReason) {
+        closeReason = when (closeReason()) {
             SWBPaywallCloseReasonSystemLogic -> PaywallCloseReason.SYSTEM_LOGIC
             SWBPaywallCloseReasonForNextPaywall -> PaywallCloseReason.FOR_NEXT_PAYWALL
             SWBPaywallCloseReasonWebViewFailedToLoad -> PaywallCloseReason.WEB_VIEW_FAILED_TO_LOAD
@@ -185,9 +185,9 @@ internal fun SWBPaywallInfo.toModel(): PaywallInfo =
             SWBPaywallCloseReasonNone -> PaywallCloseReason.NONE
             else -> PaywallCloseReason.NONE
         },
-        localNotifications = localNotifications.mapNotNull { (it as? SWBLocalNotification)?.toModel() },
+        localNotifications = localNotifications().mapNotNull { (it as? SWBLocalNotification)?.toModel() },
         computedPropertyRequests =
-            computedPropertyRequests.mapNotNull { (it as? SWBComputedPropertyRequest)?.toModel() },
-        surveys = surveys.mapNotNull { (it as? SWBSurvey)?.toModel() },
-        state = NSAnySanitizer.fromMapOrNull(state),
+            computedPropertyRequests().mapNotNull { (it as? SWBComputedPropertyRequest)?.toModel() },
+        surveys = surveys().mapNotNull { (it as? SWBSurvey)?.toModel() },
+        state = NSAnySanitizer.fromMapOrNull(state()),
     )

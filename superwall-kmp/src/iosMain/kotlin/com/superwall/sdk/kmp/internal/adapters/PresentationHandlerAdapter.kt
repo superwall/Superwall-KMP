@@ -67,7 +67,7 @@ internal class PresentationHandlerAdapter(
         deliver { handler.onDismissHandler?.invoke(info, paywallResult) }
         // Mirror of the Swift wrapper's release condition: only a real close
         // (closeReason != none) ends the registration.
-        if (paywallInfo.closeReason != SWBPaywallCloseReasonNone) {
+        if (paywallInfo.closeReason() != SWBPaywallCloseReasonNone) {
             onFinished(this)
         }
     }
@@ -87,7 +87,7 @@ internal class PresentationHandlerAdapter(
 
     override fun onCustomCallback(
         callback: SWBCustomCallback,
-        completion: (SWBCustomCallbackResult) -> Unit,
+        completion: (SWBCustomCallbackResult?) -> Unit,
     ) {
         val model = callback.toModel()
         scope.launch {

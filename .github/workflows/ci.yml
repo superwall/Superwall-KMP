@@ -91,6 +91,19 @@ jobs:
             echo "bridge/Package.swift not present yet (lands with Phase 1) - skipping"
           fi
 
+      # Ground truth for cinterop debugging: the generated ObjC header defines
+      # exactly what Kotlin sees. Dumped to the log so binding mismatches can
+      # be diagnosed without a macOS machine.
+      - name: Dump generated bridge header
+        run: |
+          H="$(find bridge/build -name 'SuperwallKMPBridge-Swift.h' -print -quit)"
+          if [ -n "$H" ]; then
+            echo "=== ${H} ==="
+            cat "$H"
+          else
+            echo "no generated header found under bridge/build"
+          fi
+
       # cinterop wiring against the bridge XCFramework lands with the iosMain phase;
       # until then these tasks compile stub actuals only.
       - name: Compile iOS targets

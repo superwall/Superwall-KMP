@@ -5,6 +5,7 @@ package com.superwall.sdk.kmp.internal.interop
 import kotlinx.cinterop.toKString
 import platform.Foundation.NSArray
 import platform.Foundation.NSDictionary
+import platform.Foundation.allKeys
 import platform.Foundation.NSMutableArray
 import platform.Foundation.NSMutableDictionary
 import platform.Foundation.NSNull
