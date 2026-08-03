@@ -1,0 +1,23 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <!-- androidx.startup entry point: SuperwallInitializer captures the
+             Application and registers the Activity tracker before any app
+             code runs, so Superwall.configure needs no Context parameter.
+             tools:node="merge" folds this into the app's (or other
+             libraries') InitializationProvider entry. Apps that remove this
+             provider must call Superwall.androidSetup(application) from
+             Application.onCreate() instead. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="com.superwall.sdk.kmp.internal.SuperwallInitializer"
+                android:value="androidx.startup" />
+        </provider>
+    </application>
+
+</manifest>

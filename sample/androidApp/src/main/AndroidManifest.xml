@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Superwall fetches its configuration and paywalls over the network.
+         (superwall-android also declares this; kept explicit for clarity.) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:label="Superwall KMP Sample"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <!-- superwall-kmp's androidx.startup initializer (merged in from the
+             library manifest) captures the Application automatically — no
+             Application subclass and no Context parameter needed. -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
