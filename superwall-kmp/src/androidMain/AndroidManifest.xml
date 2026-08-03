@@ -2,6 +2,18 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <application>
+        <!-- superwall-android's AAR does not declare its paywall activity in
+             its own manifest — wrappers must (the Flutter plugin does the
+             same). Without this, presenting a paywall crashes with
+             ActivityNotFoundException. Mirrors the Flutter plugin's
+             declaration: AppCompat theme (appcompat is a transitive runtime
+             dep of superwall-android) and rotation/keyboard configChanges so
+             the paywall WebView survives them without recreation. -->
+        <activity
+            android:name="com.superwall.sdk.paywall.view.SuperwallPaywallActivity"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
         <!-- androidx.startup entry point: SuperwallInitializer captures the
              Application and registers the Activity tracker before any app
              code runs, so Superwall.configure needs no Context parameter.
