@@ -34,10 +34,15 @@ kotlin {
     // Per the README consumer guidance: export the shared module as a STATIC
     // framework. isStatic is required — the Kotlin framework does not embed
     // the SuperwallKMPBridge binary; the app links it via SPM.
+    //
+    // No iosX64 here: Compose Multiplatform 1.11.x no longer publishes
+    // ios_x64 (uikitx64) variants — the Intel iOS simulator was dropped — so
+    // a Compose-consuming iosX64 target cannot resolve compose.runtime/
+    // foundation/ui and fails Gradle sync. The published :superwall-kmp
+    // module keeps iosX64 (it doesn't depend on Compose).
     listOf(
         iosArm64(),
         iosSimulatorArm64(),
-        iosX64(),
     ).forEach {
         it.binaries.framework {
             baseName = "SampleShared"

@@ -1,20 +1,22 @@
 # Superwall KMP — sample app
 
-One Compose Multiplatform demo (plan §8, ratified decision #9) exercising the `:superwall-kmp` SDK on Android and iOS from a single shared UI.
+A Compose Multiplatform port of the Flutter SDK's `test_app` (see `test_app/lib/` in the Superwall-Flutter repo), exercising the `:superwall-kmp` SDK on Android and iOS from a single shared UI.
 
-## What the demo shows
+## What the app shows
 
-`sample/shared/src/commonMain/.../App.kt` — one `App()` composable with:
+`sample/shared/src/commonMain/.../App.kt` — a Home screen navigating to one test screen per SDK area, mirroring the Flutter test_app's routes:
 
-- **Configure** — calls `Superwall.configure(SUPERWALL_API_KEY)`; the completion's real `Result<Unit>` is shown in the "Last configure result" line.
-- **Identify ("sample_user")** — calls `Superwall.identify("sample_user")`.
-- **Register ("campaign_trigger")** — calls `Superwall.register("campaign_trigger") { feature }`; with the test API key this placement is attached to a live campaign, so a real paywall presents. The feature closure's execution is logged.
-- **Subscription status line** — bound to `Superwall.subscriptionStatusFlow` via `collectAsState()`. It reads `Unknown` before configure (the flow is guard-exempt and pre-seeded) and updates live afterwards.
-- **Log line** — the last action's outcome. Tapping Identify/Register *before* Configure is expected to log `SuperwallError.NotConfigured` — the SDK has no pre-configure call queue, and the guard is part of the demo.
+- **Configuration test** (`ConfigureTestScreen.kt`) — `Superwall.configure` with/without the mock purchase controller, showing the completion's real `Result<Unit>` in a dialog. Every configure call in the app disables paywall preloading (`PaywallOptions.shouldPreload = false`). The Flutter screen's RevenueCat variant has no port (no RevenueCat dependency here).
+- **Subscription Status Test** (`SubscriptionStatusTestScreen.kt`) — sets `Superwall.subscriptionStatus` to Active (`pro` + `test_entitlement`) / Inactive / Unknown and shows the result in a dialog.
+- **Purchase Controller Test** (`PurchaseControllerTestScreen.kt`) — configures with the shared mock `TestingPurchaseController`, triggers the `campaign_trigger` paywall, and toggles whether mock purchases/restores succeed.
+- **Delegate Test** (`DelegateTestScreen.kt`) — installs a `SuperwallDelegate` that records every callback, then inspects the recorded events (with/without the high-volume log and analytics callbacks).
+- **Handler Test** (`HandlerTestScreen.kt`) — registers `non_gated_paywall` / `gated_paywall` / `skip_audience` / `error_placement` with a recording `PaywallPresentationHandler`, plus a results box showing feature-block execution and event count.
+
+Screens that need a configured SDK surface `SuperwallError.NotConfigured` in a dialog when used before configuring — the SDK has no pre-configure call queue, and the guard is part of what the app demonstrates.
 
 ## Where the API key lives
 
-`SUPERWALL_API_KEY` in `sample/shared/src/commonMain/kotlin/com/superwall/sdk/kmp/sample/App.kt`. It is the **public Android test-app key** (`com.superwall.superapp`) shared with the Flutter SDK's `test_app` — safe to commit. Replace it with your own dashboard's Public API Key (Settings → Keys) to run against your campaigns; note iOS and Android normally use **different** keys per platform-app.
+`superwallApiKey` is an expect/actual in `sample/shared/src/{commonMain,androidMain,iosMain}/kotlin/com/superwall/sdk/kmp/sample/ApiKey*.kt`. These are the **public test-app keys** shared with the Flutter SDK's `test_app` (Android: `com.superwall.superapp`, iOS: `com.superwall.Advanced`) — safe to commit. Replace them with your own dashboard's Public API Key (Settings → Keys) to run against your campaigns; note iOS and Android normally use **different** keys per platform-app.
 
 ## Module layout
 
