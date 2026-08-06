@@ -1,0 +1,25 @@
+appId: ${APP_ID}
+---
+# Not in the Flutter original — needed because these flows run on a simulator
+# with no Apple Account signed in.
+#
+# Shortly after configure, SuperwallKit asks StoreKit for products, and iOS puts
+# up a system "Sign in to Apple Account" alert ON TOP of the app. It covers the
+# app's own dialogs, so an assertVisible right after configure fails even though
+# the SDK configured successfully. Cancelling it is harmless: nothing in these
+# flows needs a real StoreKit account (the purchase-controller flows use the
+# sample's mock TestingPurchaseController).
+#
+# The alert is asynchronous, hence the settle wait before reaching for it.
+#
+# Why `tapOn ... optional` rather than `runFlow: when: visible:` — a `when:`
+# condition is evaluated against the APP's view hierarchy, which does not
+# contain this alert (it belongs to a system service), so the guard always
+# evaluates false and skips even while the alert is plainly on screen. `tapOn`
+# does find it. `optional: true` keeps the flow green when no alert appeared
+# (e.g. Android, or a simulator with an Apple Account already signed in).
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: "Cancel"
+    optional: true

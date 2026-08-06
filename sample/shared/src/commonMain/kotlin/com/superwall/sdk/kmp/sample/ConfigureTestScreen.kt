@@ -8,13 +8,33 @@ import androidx.compose.runtime.setValue
 import com.superwall.sdk.kmp.Superwall
 import com.superwall.sdk.kmp.models.options.PaywallOptions
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
+import com.superwall.sdk.kmp.models.options.TestModeBehavior
 
 /**
  * The options every configure call in this app uses: paywall preloading OFF,
  * matching the Flutter test_app's `options.paywalls.shouldPreload = false`.
+ *
+ * [testMode] switches [TestModeBehavior.ALWAYS] on. Test mode makes the SDK
+ * resolve products from Superwall's servers instead of StoreKit / Play Billing,
+ * and simulate purchases through its own drawer — so paywalls show real prices
+ * and can be bought on a bare simulator with no StoreKit configuration and no
+ * sandbox account.
+ *
+ * Note it bypasses the purchase controller as well as the store, so a test-mode
+ * run does NOT exercise [TestingPurchaseController].
+ *
+ * Every other configure path uses [TestModeBehavior.NEVER] rather than the SDK
+ * default of `AUTOMATIC`, so that real purchases are always exercised against
+ * the real store. `AUTOMATIC` would silently switch to simulated purchases when
+ * it detects a bundle-ID mismatch (e.g. running under a different signing team)
+ * or when the dashboard enables test mode for the user — which is exactly what
+ * you do NOT want when verifying StoreKit / Play Billing on a device.
  */
-fun sampleOptions(): SuperwallOptions =
-    SuperwallOptions(paywalls = PaywallOptions(shouldPreload = false))
+fun sampleOptions(testMode: Boolean = false): SuperwallOptions =
+    SuperwallOptions(
+        paywalls = PaywallOptions(shouldPreload = false),
+        testModeBehavior = if (testMode) TestModeBehavior.ALWAYS else TestModeBehavior.NEVER,
+    )
 
 /**
  * Port of the Flutter test_app's `ConfigureTest` screen.

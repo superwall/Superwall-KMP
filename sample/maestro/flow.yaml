@@ -1,0 +1,46 @@
+# APP_ID must be passed in — the sample ships under a different id per platform
+# (iOS com.superwall.Advanced, Android com.superwall.superapp), each matching the
+# Superwall dashboard app its API key belongs to. See sample/maestro/README.md.
+# Do NOT add an `env:` default block: an in-file default silently WINS over `-e`.
+appId: ${APP_ID}
+---
+# Smoke flow: configure, then exercise the subscription-status setters.
+# Ported from Superwall-Flutter test_app/maestro/flow.yaml.
+- launchApp: ${APP_ID}
+# A StoreKit sign-in alert left over from an earlier run survives relaunch and
+# would hide the app's own UI, so clear it before touching anything.
+- runFlow: "util/dismiss_storekit_signin.yaml"
+- tapOn: "Configuration test"
+- tapOn: "Configure with dialog shown + no PC"
+- runFlow: "util/dismiss_storekit_signin.yaml"
+- assertVisible:
+    text: "Configuration completed"
+- tapOn: "OK"
+- runFlow: "util/back.yaml"
+
+# Navigate to Subscription Status Test screen
+- tapOn: "Subscription Status Test"
+
+# Test Unknown status
+- tapOn: "Set Subscription Status Unknown"
+- assertVisible:
+    text: "Subscription status: Unknown"
+- tapOn: "OK"
+
+# Test Inactive status
+- tapOn: "Set Subscription Status Inactive"
+- assertVisible:
+    text: "Subscription status: Inactive"
+- tapOn: "OK"
+
+# Test Active status with specific entitlements
+- tapOn: "Set Subscription Status Active"
+- assertVisible:
+    text: "Subscription status: Active - Entitlements: pro, test_entitlement"
+- tapOn: "OK"
+
+- tapOn: "Set Subscription Status Inactive"
+- tapOn: "OK"
+
+# Return to previous screen
+- runFlow: "util/back.yaml"

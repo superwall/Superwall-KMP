@@ -1,0 +1,115 @@
+appId: ${APP_ID}
+---
+# SuperwallDelegate callback coverage: presentation lifecycle, subscription
+# status change, and the deep-link / URL / custom-action interaction events.
+# Ported from Superwall-Flutter test_app/maestro/delegate/flow.yaml.
+- launchApp: ${APP_ID}
+- runFlow: "../util/dismiss_storekit_signin.yaml"
+- tapOn: "Configuration test"
+- tapOn: "Just configure"
+- runFlow: "../util/dismiss_storekit_signin.yaml"
+- runFlow: "../util/back.yaml"
+
+# Navigate to Delegate Test screen
+- tapOn: "Delegate Test"
+
+# Set up delegate and test basic paywall flow
+- tapOn: "Set Test Delegate"
+- tapOn: "Show Paywall"
+- assertVisible: "Continue"
+- runFlow: "../util/back.yaml"
+
+# Verify basic delegate events (presentation and dismissal)
+- tapOn: "Show Delegate Events without log"
+- assertVisible: "Event 1: WillPresentPaywall"
+- assertVisible: "Event 2: DidPresentPaywall"
+- assertVisible: "Event 3: WillDismissPaywall"
+- assertVisible: "Event 4: DidDismissPaywall"
+- tapOn: "OK"
+
+# Check that log events are captured
+- tapOn: "Show Delegate Events with log"
+- assertVisible: "Event 1: HandleLog"
+- tapOn: "OK"
+
+# Test subscription status change events
+- tapOn: "Clear Delegate Events"
+- tapOn: "Change Subscription Status"
+- tapOn: "Show Delegate Events without log"
+- assertVisible: "Event 1: SubscriptionStatusDidChange"
+- tapOn: "OK"
+
+# Reset delegate and set up for advanced events
+- tapOn: "Clear Delegate and Change Status"
+- tapOn: "Set Test Delegate"
+
+# Test various interaction events (deep link, URL, custom action)
+- tapOn: "Show Paywall"
+- tapOn: "Open DL"
+# Getting back from the deep link differs by environment, so do it in two steps
+# rather than relying on one affordance:
+#   - Simulator: an in-app Safari appears with a "Return to <app>" control. The
+#     Flutter original tapped "Return to Superwallkit Flutter"; the label carries
+#     the host app's display name, here "Superwall KMP Sample"
+#     (sample/iosApp/project.yml → CFBundleDisplayName).
+#   - Physical device: the link is handed to REAL Safari, the app is backgrounded
+#     and no such control is on screen — the flow used to strand itself in the
+#     browser and fail at the next step with "SIGN UP"/"Menu" on screen.
+# `stopApp: false` foregrounds the app WITHOUT relaunching it, so the delegate
+# events recorded so far survive (a plain launchApp would reset them).
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Return to Superwall KMP Sample"
+    commands:
+      - tapOn: "Return to Superwall KMP Sample"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- launchApp:
+    appId: ${APP_ID}
+    stopApp: false
+# Whether the paywall survived the round trip varies too; re-present it if we
+# landed back on the Delegate Test screen.
+- runFlow:
+    when:
+      visible: "Show Paywall"
+    commands:
+      - tapOn: "Show Paywall"
+
+- tapOn: "Open URL"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      # The URL opens in an in-app SFSafariViewController. Older iOS labelled its
+      # dismiss control "Done" (what the Flutter original tapped); iOS 26 renders
+      # an ✕ whose accessibility label is "Close". Try both so the flow survives
+      # either simulator runtime.
+      - tapOn:
+          text: "Done"
+          optional: true
+      - tapOn:
+          text: "Close"
+          optional: true
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+
+- tapOn: "Custom Action"
+- runFlow: "../util/back.yaml"
+
+# Verify advanced interaction events
+- tapOn: "Events without log and presentation"
+- assertVisible: "Event 1: PaywallWillOpenDeepLink"
+- assertVisible: "Event 2: PaywallWillOpenURL"
+- assertVisible: "Event 3: HandleCustomPaywallAction"
+- tapOn: "OK"
+
+# Clean up and end test
+- tapOn: "Clear Delegate and Change Status"
+- stopApp

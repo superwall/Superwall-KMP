@@ -8,7 +8,9 @@ A Compose Multiplatform port of the Flutter SDK's `test_app` (see `test_app/lib/
 
 - **Configuration test** (`ConfigureTestScreen.kt`) — `Superwall.configure` with/without the mock purchase controller, showing the completion's real `Result<Unit>` in a dialog. Every configure call in the app disables paywall preloading (`PaywallOptions.shouldPreload = false`). The Flutter screen's RevenueCat variant has no port (no RevenueCat dependency here).
 - **Subscription Status Test** (`SubscriptionStatusTestScreen.kt`) — sets `Superwall.subscriptionStatus` to Active (`pro` + `test_entitlement`) / Inactive / Unknown and shows the result in a dialog.
-- **Purchase Controller Test** (`PurchaseControllerTestScreen.kt`) — configures with the shared mock `TestingPurchaseController`, triggers the `campaign_trigger` paywall, and toggles whether mock purchases/restores succeed.
+- **Purchase Controller Test** (`PurchaseControllerTestScreen.kt`) — configures with the shared mock `TestingPurchaseController`, triggers the `campaign_trigger` paywall, and toggles whether mock purchases/restores succeed. Its **"Configure with test mode"** button has no Flutter counterpart: it configures with `TestModeBehavior.ALWAYS`, which resolves products from Superwall's servers and simulates transactions in the SDK's own drawer — the only way to buy on a bare simulator/emulator. Test mode bypasses the purchase controller as well as the store, so it does not exercise `TestingPurchaseController`.
+
+Every **other** configure path in the app passes `TestModeBehavior.NEVER` (not the SDK default `AUTOMATIC`), so real purchases always go to the real store. `AUTOMATIC` would silently fall back to simulated purchases on a bundle-ID mismatch — e.g. when the app is re-signed with a different team to run on a device — which would quietly invalidate exactly the thing a device run is meant to verify.
 - **Delegate Test** (`DelegateTestScreen.kt`) — installs a `SuperwallDelegate` that records every callback, then inspects the recorded events (with/without the high-volume log and analytics callbacks).
 - **Handler Test** (`HandlerTestScreen.kt`) — registers `non_gated_paywall` / `gated_paywall` / `skip_audience` / `error_placement` with a recording `PaywallPresentationHandler`, plus a results box showing feature-block execution and event count.
 
@@ -16,14 +18,14 @@ Screens that need a configured SDK surface `SuperwallError.NotConfigured` in a d
 
 ## Where the API key lives
 
-`superwallApiKey` is an expect/actual in `sample/shared/src/{commonMain,androidMain,iosMain}/kotlin/com/superwall/sdk/kmp/sample/ApiKey*.kt`. These are the **public test-app keys** shared with the Flutter SDK's `test_app` (Android: `com.superwall.superapp`, iOS: `com.superwall.Advanced`) — safe to commit. Replace them with your own dashboard's Public API Key (Settings → Keys) to run against your campaigns; note iOS and Android normally use **different** keys per platform-app.
+`superwallApiKey` is an expect/actual in `sample/shared/src/{commonMain,androidMain,iosMain}/kotlin/com/superwall/sdk/kmp/sample/ApiKey*.kt`. These are the **public test-app keys** shared with the Flutter SDK's `test_app` — safe to commit. Each key belongs to a dashboard platform-app, so the sample's app ids match those apps: Android applicationId `com.superwall.superapp`, iOS bundle id `com.superwall.Advanced`. Replace them with your own dashboard's Public API Key (Settings → Keys) to run against your campaigns; note iOS and Android normally use **different** keys per platform-app.
 
 ## Module layout
 
 | Module | What | Build |
 |---|---|---|
 | `sample/shared` | KMP module: the Compose UI (commonMain), `setSampleAppContent()` activity host (androidMain), `MainViewController()` = `ComposeUIViewController { App() }` (iosMain). iOS targets export a **static** `SampleShared` framework (static is required — see the root README's iOS install notes). | Gradle (`:sample:shared`) |
-| `sample/androidApp` | Android application (`com.superwall.sdk.kmp.sample`, minSdk 26, compileSdk 36). Uses AGP 9 **built-in Kotlin** — no `org.jetbrains.kotlin.android`, no Compose compiler; all `@Composable` code stays in `sample/shared`. | Gradle (`:sample:androidApp`) |
+| `sample/androidApp` | Android application (applicationId `com.superwall.superapp`, namespace `com.superwall.sdk.kmp.sample`, minSdk 26, compileSdk 36). Uses AGP 9 **built-in Kotlin** — no `org.jetbrains.kotlin.android`, no Compose compiler; all `@Composable` code stays in `sample/shared`. | Gradle (`:sample:androidApp`) |
 | `sample/iosApp` | SwiftUI app embedding `MainViewController()` via `UIViewControllerRepresentable`. Not a Gradle module — an [xcodegen](https://github.com/yonaskolb/XcodeGen) project (`project.yml`). | xcodegen + Xcode (macOS) |
 
 Neither sample module is published.
@@ -52,6 +54,26 @@ Select the SampleApp scheme + a simulator and Run. What happens on the first bui
 2. SPM resolves the **local** `../../bridge` package (SuperwallKMPBridge built from source) and pins SuperwallKit `4.16.1` transitively. The sample uses the local source package rather than the repo-root `Package.swift` because that manifest's binary-target URL/checksum are placeholders until the first release publishes the XCFramework artifact. Do **not** add SuperwallKit separately.
 
 This mirrors the documented consumer setup (root README → Installation → iOS): static Kotlin framework + the bridge SPM package supplying the binary the klib was compiled against.
+
+### StoreKit products
+
+`sample/iosApp/Products.storekit` (copied from the Flutter test_app: subscriptions `superwall_pro_3999` and `superwall_diamond_8999`) is attached to the SampleApp scheme's **run action**. Without it the paywall resolves no products — it presents with an empty price and its CONTINUE button does nothing.
+
+It applies only when **Xcode** launches the app. A `simctl`-launched build (including anything Maestro starts) does not get it; `xcrun simctl` has no storekit option.
+
+## UI tests (Maestro)
+
+`sample/maestro/` holds the Maestro flows, ported from the Flutter SDK's
+`test_app/maestro/`. The app id is a parameter, since it differs per platform:
+
+```bash
+maestro test -e APP_ID=com.superwall.Advanced sample/maestro/flow.yaml   # iOS
+maestro test -e APP_ID=com.superwall.superapp sample/maestro/flow.yaml   # Android
+```
+
+See [`maestro/README.md`](maestro/README.md) for the per-flow status, the
+deviations from the Flutter originals, and why the two purchase-controller flows
+need a StoreKit product source that a Maestro run cannot supply.
 
 ## Troubleshooting
 

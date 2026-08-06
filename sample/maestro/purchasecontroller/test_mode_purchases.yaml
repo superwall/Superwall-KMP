@@ -1,0 +1,93 @@
+appId: ${APP_ID}
+---
+# Purchases in SDK TEST MODE (TestModeBehavior.ALWAYS). No Flutter original —
+# this flow exists because it is the only purchase path that runs unattended on
+# a bare simulator/emulator.
+#
+# In test mode the SDK resolves products from Superwall's servers rather than
+# StoreKit / Play Billing, and simulates the transaction in its own drawer
+# ("Confirm Purchase" / "Simulate Failure"). No StoreKit configuration and no
+# sandbox account are needed.
+#
+# What it does NOT cover: the drawer replaces the store AND the purchase
+# controller, so TestingPurchaseController is never invoked here. Keep
+# test_pc_purchases.yaml for that.
+#
+# Configure must be the FIRST configure of the process — the SDK configures once
+# per process, so a later call cannot turn test mode on.
+- launchApp: ${APP_ID}
+- runFlow: "../util/dismiss_storekit_signin.yaml"
+- tapOn: "Purchase Controller Test"
+- tapOn: "Configure with test mode"
+- runFlow: "../util/dismiss_storekit_signin.yaml"
+
+# Entering test mode raises the SDK's own "Test Mode Active" sheet (it reports
+# the alias id, whether a purchase controller is attached, and the starting
+# entitlement states). It covers the app until dismissed.
+# The title is "🧪 Test Mode Active" — Maestro matches the WHOLE string, so the
+# emoji has to be allowed for.
+- assertVisible: ".*Test Mode Active.*"
+- tapOn: "OK"
+
+# NOTE ON THE DRAWER — why the taps below use coordinates.
+#
+# The simulated-purchase drawer is invisible to Maestro: with the drawer plainly
+# on screen, `maestro hierarchy` contains none of its labels ("Simulate Failure",
+# "Start Free Trial", the product id, the footer). Both `assertVisible` and
+# `tapOn` by text therefore fail on it. Same class of problem as an iOS system
+# alert, except taps by text do not reach this one either. Everything else in the
+# app — including the Superwall paywall behind it — resolves normally.
+#
+# So the drawer's two buttons are tapped by position, and all assertions are made
+# against the APP's own UI afterwards (the "Feature triggered" dialog), which is
+# what actually proves the entitlement was granted and the feature block ran.
+#
+# The percentages match the drawer's layout: the confirm button sits just above
+# the destructive one at the bottom of the sheet. If the drawer is ever
+# restyled, or on a very differently proportioned device, re-measure them.
+# The confirm button reads "Start Free Trial" when the product offers a trial
+# and "Confirm Purchase" otherwise (TestModePurchaseDrawer.swift) — tapping by
+# position sidesteps that difference too.
+
+# Failure path: "Simulate Failure" must NOT run the feature block.
+- tapOn:
+    text: "Trigger Paywall"
+    waitToSettleTimeoutMs: 1000
+    optional: true
+- tapOn: "Continue"
+# The drawer is fetched/animated in; give it time before reaching for a button.
+- waitForAnimationToEnd:
+    timeout: 8000
+- tapOn:
+    point: "50%,94%"   # "Simulate Failure"
+# Do NOT use util/back.yaml here. After a simulated failure the paywall stays up
+# on the simulator but dismisses itself on a device, and back.yaml taps whatever
+# "Back" it finds — on the device that was the app's own Back button, popping to
+# Home, so the next round had no paywall and died on "Continue".
+# Instead: normalise on the Mock PC Test screen. If "Trigger Paywall" is already
+# visible the paywall is gone and there is nothing to close; otherwise close it
+# with its X (top-left of the paywall, outside the app's own chrome).
+- runFlow:
+    when:
+      notVisible: "Trigger Paywall"
+    commands:
+      - tapOn:
+          point: "8%,9%"   # paywall close (X)
+- assertVisible: "Trigger Paywall"
+
+# Success path: confirming grants the entitlement and runs the feature block.
+- tapOn:
+    text: "Trigger Paywall"
+    waitToSettleTimeoutMs: 1000
+    optional: true
+- tapOn: "Continue"
+- waitForAnimationToEnd:
+    timeout: 8000
+- tapOn:
+    point: "50%,87%"   # "Start Free Trial" / "Confirm Purchase"
+- assertVisible: "Feature triggered"
+- tapOn: "OK"
+
+# Back to a clean state for whatever runs next.
+- tapOn: "Reset status"
+- runFlow: "../util/back.yaml"

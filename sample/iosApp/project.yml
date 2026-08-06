@@ -43,8 +43,17 @@ targets:
     sources:
       - SampleApp
     dependencies:
+      # embed is REQUIRED: the bridge product is declared `type: .dynamic`
+      # (bridge/Package.swift), so the app must carry
+      # SuperwallKMPBridge.framework inside SampleApp.app/Frameworks. Without an
+      # embed phase the simulator still runs — dyld resolves the framework from
+      # the local DerivedData PackageFrameworks directory — but on a DEVICE that
+      # path does not exist and the app dies at launch with
+      # "Library not loaded: @rpath/SuperwallKMPBridge.framework/SuperwallKMPBridge".
       - package: SuperwallKMPBridge
         product: SuperwallKMPBridge
+        embed: true
+        codeSign: true
     preBuildScripts:
       - name: Build SampleShared Kotlin framework
         # embedAndSignAppleFrameworkForXcode reads Xcode's CONFIGURATION /
@@ -58,15 +67,27 @@ targets:
         basedOnDependencyAnalysis: false
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.superwall.sdk.kmp.sample
+        # Must match the Superwall dashboard app that `superwallApiKey` (iosMain)
+        # belongs to — the same platform-app the Flutter SDK's test_app ships as
+        # (test_app/ios/Runner.xcodeproj → com.superwall.Advanced). The ported
+        # Maestro flows target this id on iOS (sample/maestro/**).
+        PRODUCT_BUNDLE_IDENTIFIER: com.superwall.Advanced
         FRAMEWORK_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
         OTHER_LDFLAGS: "$(inherited) -framework SampleShared"
         # The Gradle pre-build script writes outside the Xcode sandbox.
         ENABLE_USER_SCRIPT_SANDBOXING: "NO"
-        # Simulator debugging convenience on Apple-silicon Macs.
-        CODE_SIGN_IDENTITY: ""
-        CODE_SIGNING_REQUIRED: "NO"
-        CODE_SIGNING_ALLOWED: "NO"
+        # Simulator debugging convenience on Apple-silicon Macs. SCOPED to the
+        # simulator SDK on purpose: a device build must be signed, and these
+        # keys applied unconditionally make "Run on iPhone" fail outright.
+        CODE_SIGN_IDENTITY[sdk=iphonesimulator*]: ""
+        CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]: "NO"
+        CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]: "NO"
+        # Device builds: let Xcode manage the profile. No DEVELOPMENT_TEAM is
+        # committed — set your own team in Xcode (target → Signing &
+        # Capabilities → Team), or pass DEVELOPMENT_TEAM=<id> to xcodebuild.
+        # Note the .xcodeproj is generated and gitignored, so a team picked in
+        # the Xcode UI is lost on the next `xcodegen generate`.
+        CODE_SIGN_STYLE: Automatic
     info:
       path: SampleApp/Info.plist
       properties:
@@ -74,3 +95,40 @@ targets:
         UILaunchScreen: {}
         # Recommended by Compose Multiplatform for high-refresh-rate displays.
         CADisableMinimumFrameDurationOnPhone: true
+
+# =============================================================================
+# Explicit scheme, declared solely to attach the StoreKit configuration to the
+# RUN action. Without a product source the paywall resolves no products: it
+# presents with an empty price and its CONTINUE button does nothing, which blocks
+# both purchase-controller flows in sample/maestro/purchasecontroller/.
+#
+# Products.storekit is a copy of the Flutter SDK's test_app/ios/Runner/Products.storekit
+# (subscriptions superwall_pro_3999 and superwall_diamond_8999) — the same
+# dashboard app this sample's iOS API key belongs to, com.superwall.Advanced.
+#
+# SCOPE: a StoreKit configuration is applied by XCODE when it launches the app.
+# It does NOT apply to a `simctl`-launched build, which is how Maestro starts the
+# app — `xcrun simctl` has no storekit option. So this unblocks running the
+# purchase screens from Xcode, not the Maestro purchase flows. See
+# sample/maestro/README.md.
+#
+# The file sits beside project.yml rather than under SampleApp/ on purpose: the
+# target's `sources: - SampleApp` would otherwise copy it into the app bundle,
+# and it is a development-time config, not a shipped resource.
+# =============================================================================
+schemes:
+  SampleApp:
+    build:
+      targets:
+        SampleApp: all
+    run:
+      config: Debug
+      storeKitConfiguration: Products.storekit
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

@@ -1,0 +1,93 @@
+appId: ${APP_ID}
+---
+# Purchases with NO purchase controller — the SDK drives StoreKit / Play Billing
+# itself, so this flow needs a real purchase sandbox (a StoreKit test session on
+# iOS, a Play sandbox account on Android). It does NOT pass on a bare simulator:
+# with no product source the paywall's price is empty and CONTINUE goes nowhere,
+# so the run dies on `assertVisible: "Feature triggered"`.
+# See sample/maestro/README.md.
+# Ported from Superwall-Flutter test_app/maestro/purchasecontroller/no_pc_purchases.yaml.
+- launchApp: ${APP_ID}
+- runFlow: "../util/dismiss_storekit_signin.yaml"
+- tapOn: "Purchase Controller Test"
+
+# Configure without Purchase Controller and trigger paywall
+- tapOn: "Configure without PC"
+- runFlow: "../util/dismiss_storekit_signin.yaml"
+# We mark this as optional as sometimes it triggers but doesnt register as visible
+- tapOn:
+    text: "Trigger Paywall"
+    waitToSettleTimeoutMs: 1000
+    optional: true
+- tapOn: "Continue"
+
+# Handle terms agreement if visible
+- runFlow:
+    when:
+      visible: "Agree"
+    commands:
+      - tapOn: "Agree"
+
+# If approve card is pre-selected, switch to decline card
+- runFlow:
+    when:
+      visible: "Test card, always approves"
+    commands:
+      - tapOn: "Test card, always approves"
+      - tapOn: "Test card, always declines"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn: "Subscribe"
+      - assertVisible: "Declined by always denied test instrument"
+      - tapOn: "Got it"
+      - assertVisible: "An error occurred"
+      - tapOn: "Done"
+      - tapOn: "Continue"
+      - tapOn: "Test card, always declines"
+      - tapOn: "Test card, always approves"
+      - tapOn: "Subscribe"
+      - assertVisible: "Subscribed"
+      - assertVisible: "Feature triggered"
+      - tapOn: "OK"
+
+# Test on iOS
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      # After CONTINUE the paywall shows a spinner for ~10s while StoreKit
+      # prepares the transaction, then Apple's purchase sheet slides up with a
+      # "Subscribe" button. Two things to know:
+      #
+      #  1. The spinner is why the original optional taps never worked — they
+      #     fired instantly, found nothing, and fell through to a failing assert.
+      #  2. The sheet belongs to a SYSTEM process, not to the app, so the flow's
+      #     appId-scoped queries cannot see it: `extendedWaitUntil visible:
+      #     "Subscribe"` times out after 45s even though `maestro-runner
+      #     hierarchy` (which dumps the whole screen) lists "Subscribe",
+      #     "Diamond Subscription" and "Xcode". So it is tapped by position,
+      #     the same workaround the test-mode drawer needs.
+      # A fixed ~14s pause. Maestro has no sleep command, and
+      # `waitForAnimationToEnd` is the wrong tool — it returns as soon as
+      # animations settle (measured: 450ms), so the tap below landed on the
+      # paywall long before the sheet existed. An optional assert for a string
+      # that cannot exist burns its full timeout and then continues.
+      - assertVisible:
+          text: "__wait_for_storekit_sheet__"
+          timeout: 14000
+          optional: true
+      - tapOn:
+          point: "50%,92%"   # "Subscribe" on the StoreKit sheet
+      # Sandbox sign-in / "You're all set" confirmations, if any.
+      - tapOn:
+          text: "OK"
+          optional: true
+      # The transaction round-trips through the store before the SDK unlocks the
+      # feature, so wait rather than assert immediately.
+      - extendedWaitUntil:
+          visible: "Feature triggered"
+          timeout: 45000
+      - tapOn: "OK"
+      - tapOn: "Reset status"

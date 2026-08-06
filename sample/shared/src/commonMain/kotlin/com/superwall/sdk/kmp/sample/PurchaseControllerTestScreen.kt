@@ -46,6 +46,19 @@ fun PurchaseControllerTestScreen(onBack: () -> Unit) {
                 completion = onConfigured,
             )
         }
+        // Not in the Flutter test_app. Test mode resolves products from
+        // Superwall's servers and simulates the purchase in its own drawer, so
+        // the paywall is buyable with no StoreKit configuration and no sandbox
+        // account — the only purchase path that runs unattended on a bare
+        // simulator (see sample/maestro/purchasecontroller/test_mode_purchases.yaml).
+        // No purchase controller is passed: test mode bypasses it anyway.
+        SampleButton("Configure with test mode") {
+            Superwall.configure(
+                apiKey = superwallApiKey,
+                options = sampleOptions(testMode = true),
+                completion = onConfigured,
+            )
+        }
         if (isConfigured) {
             SampleButton("Trigger Paywall") {
                 Superwall.register(placement = "campaign_trigger") {

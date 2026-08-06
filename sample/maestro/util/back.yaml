@@ -1,0 +1,25 @@
+appId: ${APP_ID}
+---
+# Ported from Superwall-Flutter test_app/maestro/util/back.yaml, with one
+# behavioural change for the KMP sample.
+#
+# The Flutter app used a real Navigator, so Android could pop a screen with
+# hardware back. The KMP sample navigates by in-app state (sample/shared/.../App.kt)
+# and installs NO BackHandler — hardware back there would exit the app instead of
+# popping. It does render a "Back" TextButton in the TopAppBar on every non-Home
+# screen, on BOTH platforms (App.kt: SampleScreen), so tapping it is correct
+# everywhere.
+#
+# This util is also used to dismiss a native paywall, which has no "Back" button.
+# That case falls through to hardware back on Android.
+- runFlow:
+    when:
+      visible: "Back"
+    commands:
+      - tapOn: "Back"
+- runFlow:
+    when:
+      notVisible: "Back"
+      platform: Android
+    commands:
+      - back

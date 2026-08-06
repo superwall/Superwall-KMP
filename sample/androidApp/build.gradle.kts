@@ -18,7 +18,11 @@ android {
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.superwall.sdk.kmp.sample"
+        // Must match the Superwall dashboard app that `superwallApiKey` (androidMain)
+        // belongs to — the same platform-app the Flutter SDK's test_app uses. The
+        // ported Maestro flows target this id too (`appId:` in sample/maestro/**).
+        // `namespace` stays com.superwall.sdk.kmp.sample: that's the Kotlin package.
+        applicationId = "com.superwall.superapp"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.compileSdk.get().toInt()
         versionCode = 1

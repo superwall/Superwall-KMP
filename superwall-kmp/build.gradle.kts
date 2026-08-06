@@ -7,7 +7,9 @@ plugins {
 }
 
 group = "com.superwall.sdk"
-version = "0.1.0"
+// Resolved in the root build.gradle.kts from $SUPERWALL_VERSION or version.env,
+// matching Superwall-Android. Do not hard-code a version here.
+version = rootProject.extra["superwallVersion"] as String
 
 // ---------------------------------------------------------------------------
 // SuperwallKMPBridge XCFramework location (plan §5.2).
@@ -153,6 +155,19 @@ val buildBridgeXCFramework: TaskProvider<Exec> = tasks.register<Exec>("buildBrid
 if (isMacOsHost && !bridgeFrameworkDir.exists()) {
     tasks.matching { it.name.startsWith("cinteropSuperwallKMPBridge") }.configureEach {
         dependsOn(buildBridgeXCFramework)
+    }
+}
+
+// Writes build/version.json with the resolved version, so the release workflow
+// can read it back the same way Superwall-Android's does (its `Get Version`
+// step parses this file). Keep the shape — {"version": "x.y.z"} — in sync with
+// the workflow's json-property lookup.
+tasks.register("generateBuildInfo") {
+    val versionValue = version.toString()
+    val outputFile = layout.buildDirectory.file("version.json")
+    outputs.file(outputFile)
+    doLast {
+        outputFile.get().asFile.writeText("{\n  \"version\": \"$versionValue\"\n}\n")
     }
 }
 

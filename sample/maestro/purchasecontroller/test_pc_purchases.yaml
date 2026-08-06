@@ -1,0 +1,75 @@
+appId: ${APP_ID}
+---
+# Purchases routed through the sample's mock TestingPurchaseController: first
+# with purchases rejected (paywall surfaces an error), then accepted.
+# Ported from Superwall-Flutter test_app/maestro/purchasecontroller/test_pc_purchases.yaml.
+#
+# REQUIRES A STOREKIT PRODUCT SOURCE — does not pass on a bare simulator.
+# Even though purchasing itself is delegated to the mock controller, the paywall
+# still resolves its products through StoreKit. With no product source the
+# paywall renders with an empty price ("/ (only/month)") and CONTINUE is a
+# no-op, so neither the rejected nor the accepted purchase path is ever reached.
+# The Flutter test_app solves this with test_app/ios/Runner/Products.storekit;
+# see sample/maestro/README.md for why that file cannot help a Maestro run.
+#
+# The Flutter original tapped "Mock PC Test" after "Purchase Controller Test" —
+# it had an intermediate route. Here "Mock PC Test" is the SCREEN TITLE that
+# "Purchase Controller Test" navigates straight to (App.kt), so there is no
+# second tap to make.
+- launchApp: ${APP_ID}
+- runFlow: "../util/dismiss_storekit_signin.yaml"
+- tapOn: "Purchase Controller Test"
+
+# Configure with Purchase Controller (purchases initially disabled)
+- tapOn: "Configure with PC"
+- runFlow: "../util/dismiss_storekit_signin.yaml"
+# We mark this as optional as sometimes it triggers but doesnt register as visible
+- tapOn:
+    text: "Trigger Paywall"
+    waitToSettleTimeoutMs: 1000
+    optional: true
+
+# Test paywall with purchases disabled (should show error).
+# CONTINUE puts the paywall into a spinner before anything else appears, so every
+# step past it WAITS rather than asserting immediately — on a device the round
+# trip is slow enough that a bare assertVisible times out first.
+- tapOn: "Continue"
+# Apple's purchase sheet appears on the store-driven path; when the mock
+# controller is the one answering, it may not. Tap it only if it shows up.
+- runFlow:
+    when:
+      visible: "Subscribe"
+    commands:
+      - tapOn: "Subscribe"
+- extendedWaitUntil:
+    visible: "An error occurred"
+    timeout: 45000
+- tapOn: "DONE"
+- runFlow: "../util/back.yaml"
+
+- tapOn: "OK"
+# Enable purchases and test successful purchase flow
+- tapOn: "Enable purchases"
+- tapOn:
+    text: "Trigger Paywall"
+    waitToSettleTimeoutMs: 1000
+    optional: true
+
+# Verify successful purchase and feature access
+- tapOn: "Continue"
+- runFlow:
+    when:
+      visible: "Subscribe"
+    commands:
+      - tapOn: "Subscribe"
+- assertVisible:
+    text: "Subscribed"
+    optional: true
+- extendedWaitUntil:
+    visible: "Feature triggered"
+    timeout: 45000
+- tapOn: "OK"
+
+# Reset and prepare for another test
+- tapOn: "Reset status"
+- tapOn: "Trigger Paywall"
