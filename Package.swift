@@ -41,13 +41,18 @@ let package = Package(
     ],
     targets: [
         // The prebuilt @objc bridge, attached to each GitHub release.
-        // TODO(release): url and checksum below are PLACEHOLDERS. The release
-        // job (.github/workflows/release.yml) zips the freshly built
-        // SuperwallKMPBridge.xcframework, computes its checksum via
-        // `swift package compute-checksum`, attaches the zip to the GitHub
-        // release for the tag, and rewrites these two values to the real
-        // release-asset URL + checksum before committing. The klib and this
-        // binary ship from the same tag — they are one release unit.
+        //
+        // DO NOT EDIT the url/checksum below by hand. The release job
+        // (.github/workflows/release.yml, "Point Package.swift at the release
+        // artifact") zips the freshly built SuperwallKMPBridge.xcframework,
+        // computes its checksum with `swift package compute-checksum`, rewrites
+        // both values here, and commits BEFORE tagging — SPM resolves this
+        // manifest at the tag, so the tag has to already carry them. The klib
+        // and this binary ship from the same tag; they are one release unit.
+        //
+        // Until the first release runs, these are placeholder values and this
+        // package cannot resolve — build the bridge from source (bridge/) in the
+        // meantime, as sample/iosApp does.
         .binaryTarget(
             name: "SuperwallKMPBridge",
             url: "https://github.com/superwall/Superwall-KMP/releases/download/v0.0.0-PLACEHOLDER/SuperwallKMPBridge.xcframework.zip",

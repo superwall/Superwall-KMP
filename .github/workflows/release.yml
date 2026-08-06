@@ -113,15 +113,56 @@ jobs:
           fi
 
       - name: Zip and checksum XCFramework
+        id: xcframework
         run: |
           cd bridge/build
           zip -r -y SuperwallKMPBridge.xcframework.zip SuperwallKMPBridge.xcframework
-          swift package compute-checksum SuperwallKMPBridge.xcframework.zip | tee SuperwallKMPBridge.xcframework.zip.checksum
+          CHECKSUM="$(swift package compute-checksum SuperwallKMPBridge.xcframework.zip)"
+          echo "$CHECKSUM" > SuperwallKMPBridge.xcframework.zip.checksum
+          echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
+          echo "Computed checksum: $CHECKSUM"
 
-      # TODO: update the repo-root Package.swift binary-target URL/checksum (+ podspec)
-      # and commit, per docs/IMPLEMENTATION_PLAN.md section 8 (Release). Until this
-      # lands, the root manifest's url/checksum stay placeholders and consumers must
-      # use the source package.
+      # Point the CONSUMER-facing manifest at the artifact this run just built.
+      #
+      # Why this has to happen here, before the Tag step: SPM resolves a
+      # package's manifest AT THE GIT TAG, so the tag must already contain the
+      # real url + checksum — but the checksum only exists once the XCFramework
+      # has been built and zipped. Hence: build → zip → checksum → rewrite →
+      # commit → tag that commit → upload the asset to that tag.
+      #
+      # The URL uses the bare version, matching the tag format the Tag step
+      # creates (0.1.0, not v0.1.0) — the placeholder in Package.swift carries a
+      # `v` prefix that no tag ever uses.
+      #
+      # [skip ci] on the commit stops this push to main from re-triggering the
+      # workflow.
+      - name: Point Package.swift at the release artifact
+        if: steps.check-tag.outputs.tag-exists == 'false' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          VERSION: ${{ steps.version.outputs.prop }}
+          CHECKSUM: ${{ steps.xcframework.outputs.checksum }}
+        run: |
+          ASSET_URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}/SuperwallKMPBridge.xcframework.zip"
+          # Anchored on the keys rather than the placeholder values, so this is
+          # idempotent: it rewrites whatever the previous release left behind.
+          sed -i '' -E \
+            -e "s#url: \".*/SuperwallKMPBridge\.xcframework\.zip\"#url: \"${ASSET_URL}\"#" \
+            -e "s#checksum: \"[a-fA-F0-9]*\"#checksum: \"${CHECKSUM}\"#" \
+            Package.swift
+          echo "--- binaryTarget after rewrite ---"
+          grep -A2 'binaryTarget' Package.swift
+          # Fail loudly rather than shipping a manifest that still points at
+          # nothing. Scoped to the url/checksum LINES — the surrounding comment
+          # legitimately contains the word "placeholder".
+          if grep -E '^[[:space:]]*(url|checksum): ' Package.swift | grep -q 'PLACEHOLDER\|"0\{64\}"'; then
+            echo "::error::Package.swift still contains placeholder values after rewrite"
+            exit 1
+          fi
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add Package.swift
+          git commit -m "chore(release): point Package.swift at ${VERSION} artifact [skip ci]"
+          git push origin HEAD:main
 
       # mavenCentralAutomaticPublishing releases the deployment in the Central
       # Portal automatically, so no manual "Publish" click is needed.
