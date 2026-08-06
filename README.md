@@ -60,7 +60,7 @@ Superwall.register(placement = "campaign_trigger") {
 }
 
 // 3. Observe subscription status (collectable even before configure;
-//    seeded with SubscriptionStatus.Unknown, emissions on the main thread)
+//    seeded with SubscriptionStatus.Unknown, delivered on your collecting scope)
 scope.launch {
     Superwall.subscriptionStatusFlow.collect { status ->
         when (status) {
@@ -91,8 +91,10 @@ There is no pre-configure call queue: most members throw `SuperwallError.NotConf
 # Lint
 ./gradlew :superwall-kmp:check
 
-# Swift bridge tests (macOS only)
-cd bridge && swift test
+# Swift bridge tests (macOS only). NOT `swift test` — bridge/Package.swift is
+# iOS-only, so a host build fails on SuperwallKit's `import UIKit`.
+cd bridge && xcodebuild test -scheme SuperwallKMPBridge \
+  -workspace . -destination 'platform=iOS Simulator,name=iPhone 17'
 
 # Build the bridge XCFramework (macOS only)
 ./bridge/scripts/build-xcframework.sh
@@ -105,10 +107,10 @@ The public `Superwall` facade (`superwall-kmp/src/commonMain/.../Superwall.kt`) 
 - **Android** (`androidMain`) wraps `com.superwall.sdk:superwall-android` directly.
 - **iOS** (`iosMain`) forwards through **SuperwallKMPBridge** (`bridge/`), a self-authored `@objc` Swift facade over SuperwallKit that destructures Swift-only constructs (enum associated values, structs, async) into ObjC-visible envelopes, consumed via cinterop.
 
-See `docs/` for the details:
+For details:
 
-- [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) — full architecture, API design, phased plan
-- [`docs/bridge-surface.md`](docs/bridge-surface.md) — the iOS bridge API map: Kotlin bridge member → `@objc` bridge API → SuperwallKit call, the `SWBEventEnvelope` design, and the SuperwallKit 4.16.1 deltas
+- [`.agents/AGENTS.md`](.agents/AGENTS.md) — architecture, repo layout, build/test commands, conventions, and the release process
+- [`docs/MODELS.md`](docs/MODELS.md) — the public model types
 
 ## License
 

@@ -28,14 +28,14 @@ import com.superwall.sdk.paywall.presentation.PaywallInfo as NativePaywallInfo
 /**
  * Maps the native [NativePaywallInfo] to the common [PaywallInfo]. Port of the
  * Flutter host's `PaywallInfoMapper.toPPaywallInfo` (utils/OptionsMapper.kt)
- * with the date convention changed to [kotlin.time.Instant] (plan §3.4):
+ * with the date convention changed to [kotlin.time.Instant]
  * superwall-android 2.8.0 renders its load-time fields as **strings**
  * (`DateFormatterUtil`, pattern `yyyy-MM-dd'T'HH:mm:ss.SSS` in the device's
  * default zone, empty string when absent), so [parseNativePaywallDate] parses
  * them leniently and degrades to `null` rather than crashing.
  *
  * `LocalNotification.id` is the real native `String` id (the Flutter layer
- * hardcoded `""`/`0` — plan §3.4 fix).
+ * hardcoded `""`/`0` fix).
  */
 internal fun NativePaywallInfo.toKmp(): PaywallInfo =
     PaywallInfo(
@@ -187,7 +187,7 @@ private val paywallDatePatterns =
  * ISO-8601 with an offset first (`Instant.parse`), then the native
  * `DateFormatterUtil` patterns (device default zone, matching how they were
  * formatted), then `Date.toString()`. Blank or unparseable input degrades to
- * `null` — never crash (plan §7).
+ * `null` — never crash.
  */
 internal fun parseNativePaywallDate(raw: String?): Instant? {
     val value = raw?.trim().takeUnless { it.isNullOrEmpty() } ?: return null

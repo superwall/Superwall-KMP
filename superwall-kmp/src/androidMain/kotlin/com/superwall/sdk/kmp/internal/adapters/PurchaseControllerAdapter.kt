@@ -20,12 +20,12 @@ import com.superwall.sdk.store.abstractions.product.StoreProduct as NativeStoreP
  * Both sides are suspend functions, so — unlike the Flutter host's
  * `PurchaseControllerHost.kt` `suspendCoroutine` shim — the user's
  * implementation is called **directly** from the native SDK's coroutine
- * (plan §4), hopped onto `Dispatchers.Main.immediate` to honor the plan §6
+ *, hopped onto `Dispatchers.Main.immediate` to honor the
  * delivery contract. There is no `runBlocking` anywhere on this path: the
  * native SDK invokes these `@MainThread` and the call suspends rather than
  * blocks; the user's implementation may switch dispatchers freely.
  *
- * Exception safety (plan §6.5): anything the user's implementation throws is
+ * Exception safety anything the user's implementation throws is
  * caught, logged via the bridge's `handleLog` path, and mapped to the domain
  * failure ([PurchaseResult.Failed] / [RestorationResult.Failed]) — it never
  * propagates into native SDK internals. Coroutine cancellation is rethrown,

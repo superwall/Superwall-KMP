@@ -8,7 +8,7 @@ import kotlin.time.Instant
 /**
  * Tests for the date-conversion helpers in StoreMapper.kt: native
  * `java.util.Date` <-> common `kotlin.time.Instant` via epoch milliseconds
- * (plan §3.4 — no ISO-8601 string round trip).
+ * (no ISO-8601 string round trip).
  */
 class StoreMapperTest {
     @Test

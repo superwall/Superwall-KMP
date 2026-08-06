@@ -23,7 +23,7 @@ import com.superwall.sdk.store.abstractions.product.receipt.LatestSubscriptionSt
  * entitlements to `{id, type}` and hardcoded `isActive = true`), these map the
  * FULL superwall-android 2.8.0 [NativeEntitlement] — all 13 device-enriched
  * fields — with epoch-millisecond `Date`s converted to [kotlin.time.Instant]
- * (plan §3.4).
+ *.
  */
 
 // ---- Entitlement --------------------------------------------------------------
@@ -72,7 +72,7 @@ internal fun Entitlement.toNative(): NativeEntitlement =
 
 /**
  * Snapshots the live native [NativeEntitlements] object into the common
- * pure-value [Entitlements] (plan §3.5: the common type never carries a live
+ * pure-value [Entitlements] (the common type never carries a live
  * SDK reference).
  */
 internal fun NativeEntitlements.toKmp(): Entitlements =

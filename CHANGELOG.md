@@ -2,6 +2,11 @@
 
 The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/superwall/Superwall-KMP/releases) on GitHub.
 
+## 0.1.1
+
+## Enhancements
+- Adds threading improvements to reduce main thread load
+
 ## 0.1.0
 
 Initial release of the Kotlin Multiplatform SDK for Superwall.

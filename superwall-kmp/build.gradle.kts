@@ -12,7 +12,7 @@ group = "com.superwall.sdk"
 version = rootProject.extra["superwallVersion"] as String
 
 // ---------------------------------------------------------------------------
-// SuperwallKMPBridge XCFramework location (plan §5.2).
+// SuperwallKMPBridge XCFramework location.
 //
 // iosMain cinterops against the prebuilt @objc Swift bridge. The XCFramework
 // directory resolves from, in order:
@@ -63,7 +63,7 @@ kotlin {
     iosSimulatorArm64()
     iosX64()
 
-    // Cinterop against the prebuilt SuperwallKMPBridge.xcframework (plan §5.2):
+    // Cinterop against the prebuilt SuperwallKMPBridge.xcframework
     // the device target uses the ios-arm64 slice; both simulator targets share
     // the fat ios-arm64_x86_64-simulator slice. -F must point at the directory
     // that CONTAINS SuperwallKMPBridge.framework, i.e. the slice directory.
@@ -75,7 +75,7 @@ kotlin {
         target.compilations.getByName("main").cinterops.create("SuperwallKMPBridge") {
             definitionFile.set(layout.projectDirectory.file("nativeInterop/cinterop/SuperwallKMPBridge.def"))
             compilerOpts(
-                // `modules =` in the .def requires Clang modules enabled.
+                // `modules =` in the.def requires Clang modules enabled.
                 "-fmodules",
                 "-F${bridgeFrameworkDir.resolve(slice).absolutePath}",
                 "-framework",
@@ -125,7 +125,7 @@ kotlin {
 }
 
 // ---------------------------------------------------------------------------
-// Bridge XCFramework build task (plan §5.2).
+// Bridge XCFramework build task.
 //
 // Builds bridge/build/SuperwallKMPBridge.xcframework from bridge/Package.swift
 // via xcodebuild. Requires macOS + Xcode; onlyIf-skipped everywhere else so it

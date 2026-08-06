@@ -19,9 +19,9 @@ import platform.Foundation.setValue
  * `Map<String, Any?>` model contract.
  *
  * ObjC → Kotlin (read direction): `NSNumber` values are disambiguated via
- * `objCType` per plan §5.3 — `c`/`B` encodings read as Boolean, `f`/`d` as
+ * `objCType` — `c`/`B` encodings read as Boolean, `f`/`d` as
  * Double, everything else as Long. `NSNull` becomes Kotlin `null`. Unknown
- * object types degrade to `toString()` (degrade, never crash — plan §7).
+ * object types degrade to `toString` (degrade, never crash).
  * Kotlin/Native eagerly bridges NSString/NSArray/NSDictionary crossing as
  * `id` into String/List/Map; the explicit NS-class branches below are
  * defensive belts for values that arrive unbridged.
@@ -70,7 +70,7 @@ internal object NSAnySanitizer {
     fun fromMapOrNull(value: Map<Any?, *>?): Map<String, Any?>? = value?.let { fromMap(it) }
 
     /**
-     * `objCType`-based NSNumber disambiguation (plan §5.3): `c` (signed char,
+     * `objCType`-based NSNumber disambiguation `c` (signed char,
      * also CFBoolean's encoding) and `B` (C99 bool) read as Boolean; `f`/`d`
      * as Double; all remaining integral encodings as Long.
      */

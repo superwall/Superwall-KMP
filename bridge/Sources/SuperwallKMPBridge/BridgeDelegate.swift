@@ -7,14 +7,14 @@
 //
 //  The event switch is a faithful port of the Flutter host's
 //  SuperwallDelegateHost.handleSuperwallEvent (~70 cases in 4.14; 80 in SuperwallKit
-//  4.16.2), with the Flutter mislabels FIXED per plan §3.4:
+// 4.16.2), with the Flutter mislabels FIXED per
 //  - transactionRestore is its own event type (Flutter mislabeled it transactionComplete)
 //  - transactionComplete carries transaction, product AND type (Flutter dropped type)
 //  - nonRecurringProductPurchase carries the TransactionProduct id (Flutter dropped it)
 //
 //  Threading: SuperwallKit invokes its delegate methods on the main actor; the bridge
 //  forwards SYNCHRONOUSLY on that same queue (main). Dispatching onward (e.g. into a
-//  Kotlin Dispatchers.Main context) is the Kotlin side's job (plan §6).
+// Kotlin Dispatchers.Main context) is the Kotlin side's job.
 //
 
 import Foundation
@@ -647,7 +647,7 @@ public final class SWBEventEnvelope: NSObject {
 
 /// @objc mirror of SuperwallKit.SuperwallDelegate. Kotlin implements the FULL
 /// protocol (all methods required — user-facing optionality lives as default
-/// no-ops in the commonMain SuperwallDelegate interface, plan §5.3).
+/// no-ops in the commonMain SuperwallDelegate interface).
 ///
 /// All methods are invoked on the queue SuperwallKit calls its delegate on
 /// (the main actor); redispatching is the Kotlin side's responsibility.
@@ -672,7 +672,7 @@ public protocol SWBBridgeDelegate: AnyObject {
   /// The paywall will open a deep link.
   @objc func paywallWillOpenDeepLink(_ url: String)
   /// SDK log record. level/scope are the raw native strings; the Kotlin side maps
-  /// them to LogLevel/LogScope enums (degrading with raw preservation, plan §3.4).
+  /// them to LogLevel/LogScope enums (degrading with raw preservation).
   @objc func handleLog(
     level: String,
     scope: String,

@@ -24,6 +24,14 @@ maestro test -e APP_ID=com.superwall.Advanced sample/maestro/
 > in-file default silently overrides `-e` on the command line, so the flow would
 > always run against whichever id is hard-coded.
 
+**With both a simulator and an emulator running, pass `--udid`** (before the
+`test` subcommand) — otherwise Maestro picks one for you and you get
+`Package com.superwall.Advanced is not installed` from the Android side:
+
+```bash
+maestro --udid <ios-sim-udid> test -e APP_ID=com.superwall.Advanced sample/maestro/flow.yaml
+```
+
 Maestro is the mobile UI framework from mobile.dev. Beware: `brew install --cask
 maestro` installs an unrelated macOS app of the same name. The right one is:
 
@@ -37,14 +45,19 @@ e.g. `/opt/homebrew/Cellar/maestro/<version>/bin/maestro`.
 
 ## Status
 
-| Flow | iOS simulator |
-|---|---|
-| `flow.yaml` — configure + subscription status | passes |
-| `handler/flow.yaml` — presentation handler | passes |
-| `delegate/flow.yaml` — delegate callbacks | passes |
-| `purchasecontroller/test_mode_purchases.yaml` — simulated purchases | passes |
-| `purchasecontroller/test_pc_purchases.yaml` | blocked — needs StoreKit products |
-| `purchasecontroller/no_pc_purchases.yaml` | blocked — needs a purchase sandbox |
+| Flow | iOS simulator | Android emulator |
+|---|---|---|
+| `flow.yaml` — configure + subscription status | passes | passes |
+| `handler/flow.yaml` — presentation handler | passes | passes |
+| `delegate/flow.yaml` — delegate callbacks | passes | passes |
+| `purchasecontroller/test_mode_purchases.yaml` — simulated purchases | passes | **blocked** — see below |
+| `purchasecontroller/test_pc_purchases.yaml` | blocked — needs StoreKit products | not run — needs Play Billing sandbox |
+| `purchasecontroller/no_pc_purchases.yaml` | blocked — needs a purchase sandbox | not run — needs Play Billing sandbox |
+
+On Android, test mode activates (the "Test Mode Active" sheet appears and reports
+products come from the dashboard), but tapping the paywall's CONTINUE produces no
+simulated-purchase drawer — 10s later the paywall is unchanged. The flow's
+purchase steps therefore cannot run there.
 
 ### Buying without a store: test mode
 

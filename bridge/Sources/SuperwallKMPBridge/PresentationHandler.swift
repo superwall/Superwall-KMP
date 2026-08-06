@@ -5,7 +5,7 @@
 //  The @objc presentation-handler protocol Kotlin implements for register(...),
 //  plus the internal wrapper that builds the native PaywallPresentationHandler
 //  and manages per-registration retention (port of the Flutter
-//  PaywallPresentationHandlerHost, with the leak fixed per plan §6.4: the wrapper
+// PaywallPresentationHandlerHost, with the leak fixed per the wrapper
 //  releases on onDismiss, onSkip AND onError — the Flutter host never released
 //  on error, leaking the adapter when no paywall was ever presented).
 //
@@ -16,7 +16,7 @@ import SuperwallKit
 /// Completion-handler mirror of SuperwallKit.PaywallPresentationHandler's callbacks.
 ///
 /// Callbacks arrive on the queue SuperwallKit fires them on (main);
-/// redispatching is the Kotlin side's job (plan §6).
+/// redispatching is the Kotlin side's job.
 @objc(SWBPaywallPresentationHandler)
 public protocol SWBPaywallPresentationHandler: AnyObject {
   /// The paywall presented.
@@ -38,7 +38,7 @@ public protocol SWBPaywallPresentationHandler: AnyObject {
 
 /// Internal per-registration wrapper. Strongly retains the Kotlin-implemented
 /// handler and the feature closure for the lifetime of the presentation
-/// (plan §6.4: per-registration adapters, no placement-keyed registry).
+/// (per-registration adapters, no placement-keyed registry).
 final class PresentationHandlerWrapper {
   /// The native handler handed to Superwall.register.
   let nativeHandler: PaywallPresentationHandler
@@ -60,7 +60,7 @@ final class PresentationHandlerWrapper {
     nativeHandler.onDismiss { [weak self, bridgeHandler] paywallInfo, result in
       bridgeHandler.onDismiss(SWBPaywallInfo(paywallInfo), result: SWBPaywallResult(result))
       // Mirror of the Flutter host's cleanup condition: only a real close
-      // (closeReason != .none) ends the registration.
+      // (closeReason !=.none) ends the registration.
       if paywallInfo.closeReason != .none, let self = self {
         self.release(self)
       }

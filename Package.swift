@@ -1,6 +1,6 @@
 // swift-tools-version:5.9
 // =============================================================================
-// Consumer-facing SPM manifest for the Superwall KMP SDK (plan §5.2, §5.4).
+// Consumer-facing SPM manifest for the Superwall KMP SDK.
 //
 // iOS apps that depend on com.superwall.sdk:superwall-kmp add THIS package
 // (the repo URL) to get the prebuilt SuperwallKMPBridge.xcframework the Kotlin
@@ -36,7 +36,7 @@ let package = Package(
     dependencies: [
         // Exact pin — MUST stay in lockstep with bridge/Package.swift so the
         // binary artifact and the transitively-resolved SuperwallKit can never
-        // drift apart (plan §5.2 "Version pins, two layers").
+        // drift apart ("Version pins, two layers").
         .package(url: "https://github.com/superwall/Superwall-iOS", exact: "4.16.1")
     ],
     targets: [

@@ -2,20 +2,20 @@
 //  SuperwallKMPBridge.swift
 //  SuperwallKMPBridge
 //
-//  The @objc control-plane facade for the Superwall KMP SDK (plan §5). One method
+// The @objc control-plane facade for the Superwall KMP SDK. One method
 //  per operation the Kotlin `SuperwallBridge` interface needs — the same set the
 //  Flutter host (SuperwallHost.swift) implements, minus Pigeon transport, plus the
-//  fidelity fixes recorded in plan §3.4/§5.2.
+// fidelity fixes recorded in
 //
 //  Conventions:
 //  - The full public surface is @objc-compatible: NSObject classes, @objc Int enums,
 //    completion blocks, NSDictionary/NSArray/NSNumber. No Swift-only types.
 //  - Async SuperwallKit APIs wrap in Task { } and report through completion handlers.
 //    Completions fire on the queue the underlying API completes on — main-thread
-//    delivery is the Kotlin side's job (plan §6), EXCEPT where documented.
+// delivery is the Kotlin side's job, EXCEPT where documented.
 //  - Getters that would trip SuperwallKit's not-configured assertion are guarded
 //    with Superwall.isInitialized and return documented pre-configure defaults;
-//    the real pre-configure guard lives in the Kotlin façade (plan §7).
+// the real pre-configure guard lives in the Kotlin façade.
 //
 
 import Combine
@@ -172,7 +172,7 @@ public final class SWBSuperwallOptions: NSObject {
   @objc public var eventTrackingBehavior: NSNumber?
   @objc public var localeIdentifier: String?
   @objc public var isGameControllerEnabled: NSNumber?
-  /// Wired for real (dead in the Flutter public layer; plan §3.4).
+  /// Wired for real (dead in the Flutter public layer).
   @objc public var enableExperimentalDeviceVariables: NSNumber?
   /// Wraps SWBTestModeBehavior.rawValue.
   @objc public var testModeBehavior: NSNumber?
@@ -379,7 +379,7 @@ extension SWBLogLevel {
 @objc(SWBSuperwallBridge)
 public final class SWBSuperwallBridge: NSObject {
   /// The bridge version, asserted by the klib at configure time against the
-  /// constant it was compiled against (plan §5.2). Bumped in lockstep with
+  /// constant it was compiled against. Bumped in lockstep with
   /// the superwall-kmp release that ships this bridge.
   @objc public static let bridgeVersion: String = SWBBridgeVersion
 
@@ -390,7 +390,7 @@ public final class SWBSuperwallBridge: NSObject {
   @objc(sharedBridge)
   public static let shared = SWBSuperwallBridge()
 
-  // Retained collaborators (plan §6.4: never rely on ObjC retaining
+  // Retained collaborators (never rely on ObjC retaining
   // Kotlin-implemented objects).
   private var delegateForwarder: BridgeDelegateForwarder?
   private var purchaseControllerForwarder: BridgePurchaseControllerForwarder?
@@ -406,7 +406,7 @@ public final class SWBSuperwallBridge: NSObject {
   /// Configures the shared Superwall instance.
   ///
   /// Unlike native SuperwallKit — whose completion is a bare `() -> Void` — this
-  /// completion carries a derived outcome (plan §5.2): when the native completion
+  /// completion carries a derived outcome when the native completion
   /// fires, the bridge reads `Superwall.shared.configurationStatus` and maps
   /// `.configured` → (`.configured`, nil), `.failed` → (`.failed`, NSError),
   /// `.pending` → (`.pending`, nil) (treated as success by the Kotlin side, with
@@ -454,7 +454,7 @@ public final class SWBSuperwallBridge: NSObject {
   }
 
   /// Status → (status, error) derivation used by configure's completion.
-  /// Factored out so it is unit-testable without network (plan §5.2).
+  /// Factored out so it is unit-testable without network.
   static func deriveConfigureOutcome(
     from status: ConfigurationStatus
   ) -> (status: SWBConfigurationStatus, error: NSError?) {
@@ -475,7 +475,7 @@ public final class SWBSuperwallBridge: NSObject {
       )
     case .pending:
       // Should not happen after the native completion fires; surfaced as pending
-      // so the Kotlin side can log-and-continue (plan §5.2).
+      // so the Kotlin side can log-and-continue.
       return (.pending, nil)
     @unknown default:
       return (.pending, nil)
@@ -500,7 +500,7 @@ public final class SWBSuperwallBridge: NSObject {
     Superwall.shared.reset()
   }
 
-  /// Current configuration status. Safe pre-configure (returns .pending).
+  /// Current configuration status. Safe pre-configure (returns.pending).
   @objc public var configurationStatus: SWBConfigurationStatus {
     guard Superwall.isInitialized else { return .pending }
     switch Superwall.shared.configurationStatus {
@@ -687,7 +687,7 @@ public final class SWBSuperwallBridge: NSObject {
   ///   - params: Optional sanit-izable placement params.
   ///   - handler: Optional Kotlin-implemented presentation handler. The bridge
   ///     retains a per-registration wrapper and releases it on dismiss
-  ///     (closeReason != none), skip, or error (plan §6.4 — the error release is a
+  /// (closeReason != none), skip, or error (the error release is a
   ///     deliberate fix of the Flutter host's leak).
   ///   - feature: Optional feature closure, invoked per SuperwallKit's gating rules.
   @objc public func register(
@@ -776,7 +776,7 @@ public final class SWBSuperwallBridge: NSObject {
   }
 
   /// Routes a deep link. Uses the STATIC native entry point, so this works
-  /// before/around configure (deep-link cold start; guard-exempt, plan §7).
+  /// before/around configure (deep-link cold start; guard-exempt).
   /// Returns false for unparseable URLs.
   @objc public func handleDeepLink(_ url: String) -> Bool {
     guard let url = URL(string: url) else { return false }
@@ -812,5 +812,5 @@ public final class SWBSuperwallBridge: NSObject {
 }
 
 /// Swift-side version constant (mirrored @objc as SWBSuperwallBridge.bridgeVersion,
-/// which is what the Kotlin klib asserts against at configure; plan §5.2).
+/// which is what the Kotlin klib asserts against at configure).
 public let SWBBridgeVersion = "0.1.0"

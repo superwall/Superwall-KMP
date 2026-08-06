@@ -22,20 +22,28 @@ import com.superwall.sdk.paywall.presentation.PaywallPresentationHandler as Nati
  * `AndroidSuperwallBridge.registerPlacement` creates a **fresh instance per
  * call** — there is deliberately no placement-keyed registry, which was the
  * source of the Flutter plugin's one-handler-per-placement aliasing bug
- * (plan §3.4/§6.4): two `register` calls for the same placement each keep
+ * two `register` calls for the same placement each keep
  * their own handler and feature here.
  *
  * The adapter **strongly retains** both the [handler] and the [feature]
  * closure (constructor properties) for as long as the native SDK retains the
  * native handler/feature it hands out via [nativeHandler]/[nativeFeature].
  *
- * Threading (plan §6): every closure is delivered on
+ * Threading every closure is delivered on
  * `Dispatchers.Main.immediate` via the bridge scope; `onCustomCallback` — the
  * only value-returning, suspending callback — is awaited in place on
  * `Main.immediate` (the native SDK calls it from a coroutine; no blocking).
  * User-closure exceptions are caught, logged via the bridge's `handleLog`
  * path, and degrade (custom callbacks degrade to
  * `CustomCallbackResult.failure()`); they never reach native SDK internals.
+ *
+ * Unlike [DelegateAdapter], this adapter KEEPS its main-thread guarantee.
+ * These closures gate UI — `feature` is where the app navigates or unlocks
+ * content, and `onPresent`/`onDismiss` bracket it — and they fire a handful of
+ * times per presentation, not hundreds of times per `register`, so there is
+ * nothing worth reclaiming. It is also free in practice: superwall-android
+ * collects its `PaywallState` publisher on `CoroutineScope(Dispatchers.Main)`
+ * (`PublicPresentation.kt`), so `Main.immediate` already runs inline here.
  */
 internal class PresentationHandlerAdapter(
     private val handler: PaywallPresentationHandler?,
@@ -125,7 +133,7 @@ internal class PresentationHandlerAdapter(
 
     /**
      * Delivers [block] on the main thread via the bridge scope, catching and
-     * logging anything the user's closure throws (plan §6.5).
+ * logging anything the user's closure throws.
      */
     private fun dispatch(
         callbackName: String,

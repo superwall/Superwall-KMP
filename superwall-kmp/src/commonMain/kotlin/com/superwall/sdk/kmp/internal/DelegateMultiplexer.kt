@@ -21,9 +21,12 @@ import com.superwall.sdk.kmp.models.redemption.RedemptionResult
  * delegate exists, and setting/clearing [userDelegate] never touches the
  * native SDK.
  *
- * Platform adapters invoke this on the main thread. Exceptions thrown by the
- * user's delegate are caught and swallowed (degrade, never crash) so they
- * cannot propagate into native SDK internals.
+ * Platform adapters invoke this on the native SDK's own calling thread (see
+ * [com.superwall.sdk.kmp.SuperwallDelegate]'s threading contract), so this
+ * class must stay thread-safe: both stream feeds below are
+ * (`MutableStateFlow.value`, `MutableSharedFlow.tryEmit`). Exceptions thrown
+ * by the user's delegate are caught and swallowed (degrade, never crash) so
+ * they cannot propagate into native SDK internals.
  */
 internal class DelegateMultiplexer(
     private val streams: StreamHolder,
@@ -34,6 +37,14 @@ internal class DelegateMultiplexer(
      * clears forwarding without uninstalling the multiplexer.
      */
     var userDelegate: SuperwallDelegate? = null
+
+    /**
+     * Only the user's delegate consumes the pure-forwarding hooks, so when
+     * none is set the platform adapters can skip mapping and dispatching them
+     * altogether (see [BridgeListener.forwardsToUserDelegate]).
+     */
+    override val forwardsToUserDelegate: Boolean
+        get() = userDelegate != null
 
     override fun subscriptionStatusDidChange(
         from: SubscriptionStatus,

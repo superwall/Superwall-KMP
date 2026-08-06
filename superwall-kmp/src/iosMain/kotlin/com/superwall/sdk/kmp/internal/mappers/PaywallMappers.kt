@@ -69,7 +69,7 @@ internal fun SWBExperiment.toModel(): Experiment =
  * Defensive fallback for enum-envelope cases whose contract guarantees an
  * experiment payload (`paywall`/`holdout`): should the bridge ever deliver a
  * nil experiment there, the CASE is preserved with an empty experiment rather
- * than crashing or misreporting the case (degrade, never crash — plan §7).
+ * than crashing or misreporting the case (degrade, never crash).
  */
 internal fun SWBExperiment?.toModelOrEmpty(holdout: Boolean = false): Experiment =
     this?.toModel()
@@ -120,7 +120,7 @@ internal fun SWBComputedPropertyRequest.toModel(): ComputedPropertyRequest =
             SWBComputedPropertyRequestTypePlacementsInMonth -> ComputedPropertyRequestType.PLACEMENTS_IN_MONTH
             SWBComputedPropertyRequestTypePlacementsSinceInstall ->
                 ComputedPropertyRequestType.PLACEMENTS_SINCE_INSTALL
-            // Unknown native case: documented fallback (plan §7).
+            // Unknown native case: documented fallback.
             else -> ComputedPropertyRequestType.MINUTES_SINCE
         },
         eventName = placementName(),

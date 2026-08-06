@@ -18,7 +18,7 @@ import java.math.BigInteger
  * boundary: normalizes arbitrary native payload maps into the documented
  * commonMain value contract (String / Boolean / Long / Double / List / Map /
  * Set). Anything unknown degrades to `toString()` — this sanitizer must never
- * crash (plan §7: mapping failures degrade, never crash).
+ * crash (mapping failures degrade, never crash).
  *
  * Beyond the Flutter port it also understands `org.json` (`JSONObject` /
  * `JSONArray`) and kotlinx-serialization `JsonElement` trees, both of which

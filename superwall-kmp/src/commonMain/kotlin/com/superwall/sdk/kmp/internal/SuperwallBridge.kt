@@ -53,6 +53,25 @@ internal enum class InterfaceStyle {
  * [SuperwallBridge.configure] and invoked directly by platform adapters.
  */
 internal interface BridgeListener {
+    /**
+     * Whether anything downstream still consumes the PURE-FORWARDING hooks —
+     * i.e. whether the app has a [com.superwall.sdk.kmp.SuperwallDelegate] set.
+     *
+     * Platform adapters check this BEFORE mapping a native payload and before
+     * dispatching to the main thread, and skip the callback entirely when it is
+     * `false`. This matters a lot on Android: superwall-android's `Logger`
+     * invokes the native delegate's `handleLog` for EVERY internal log line
+     * (ungated by log level, ~240 call sites), so an always-installed delegate
+     * that maps-then-discards turns a `register` into hundreds of main-thread
+     * dispatches and deep map copies. With no user delegate the native SDK's
+     * own null-check is free; this restores that.
+     *
+     * The hooks that also feed the [StreamHolder] flows —
+     * [subscriptionStatusDidChange] and [customerInfoDidChange] — must be
+     * delivered regardless of this flag and are exempt.
+     */
+    val forwardsToUserDelegate: Boolean
+
     /** Native subscription status changed from [from] to [to]. */
     fun subscriptionStatusDidChange(
         from: SubscriptionStatus,

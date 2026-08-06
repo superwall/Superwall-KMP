@@ -15,7 +15,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * completion firing after cancellation is likewise dropped.
  *
  * Resumption may happen on ANY queue — the SWB facade's async methods complete
- * on arbitrary queues (plan §6.2); `suspendCancellableCoroutine` hops back to
+ * on arbitrary queues; `suspendCancellableCoroutine` hops back to
  * the caller's dispatcher.
  */
 internal suspend fun <T> awaitCompletion(register: (completion: (T) -> Unit) -> Unit): T =

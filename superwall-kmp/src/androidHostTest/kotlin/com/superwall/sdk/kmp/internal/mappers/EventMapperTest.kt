@@ -117,7 +117,7 @@ class EventMapperTest {
                     placementName = "campaign_trigger",
                     result = NativeTriggerResult.Paywall(nativeExperiment),
                 ),
-                // Plan §3.4 fix: unlike the Flutter host, params are NOT dropped.
+                // fix: unlike the Flutter host, params are NOT dropped.
                 params = mapOf("source" to "test"),
             ).toKmp()
 

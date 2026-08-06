@@ -43,10 +43,14 @@ import kotlinx.coroutines.flow.asStateFlow
  * installed natively at configure). Use [configureAndAwait] or gate on
  * [isConfigured] to order calls.
  *
- * **Threading:** every SDK-to-app callback — delegate methods,
- * presentation-handler closures, `feature` lambdas, configure completions,
- * and Flow emissions — is delivered on the main thread. All `suspend`
- * functions are main-safe and callable from any dispatcher.
+ * **Threading:** presentation-handler closures, `feature` lambdas, and
+ * configure completions are delivered on the main thread — they gate UI, so
+ * the guarantee is worth its cost. [SuperwallDelegate] callbacks are NOT
+ * forced onto main: they arrive on the native SDK's own calling thread, which
+ * puts the paywall-lifecycle hooks on main and the analytics-shaped ones on a
+ * background thread on Android (see [SuperwallDelegate] for the split and what
+ * it asks of your implementation). Flow collection runs wherever you collect
+ * it. All `suspend` functions are main-safe and callable from any dispatcher.
  */
 public object Superwall {
     /** Test seam: commonTest FakeBridge contract tests inject here; `null` in production. */

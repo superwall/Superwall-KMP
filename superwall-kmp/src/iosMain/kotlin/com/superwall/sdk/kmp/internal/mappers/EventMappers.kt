@@ -108,7 +108,7 @@ import platform.Foundation.NSNumber
  *   stripeCheckout*, testModeModal*, paywallPageView, unknown) degrade to
  *   [EventType.CUSTOM_PLACEMENT] — the common surface's generic named-event
  *   envelope — with the raw case name in [SuperwallEventInfo.name] and under
- *   `params["rawEventType"]` (degrade, never crash — plan §7).
+ * `params["rawEventType"]` (degrade, never crash).
  */
 internal fun SWBEventEnvelope.toModel(): SuperwallEventInfo {
     val mappedType = eventTypeFromSWB(eventType())

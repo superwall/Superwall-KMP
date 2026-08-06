@@ -10,7 +10,11 @@ jobs:
   notify_pwn:
     runs-on: ubuntu-latest
     steps:
+      # continue-on-error: this is a courtesy ping to another repo. If
+      # MAIN_REPO_PAT is missing or expired, or paywall-next is unavailable, the
+      # release itself is still fine — don't report a red run for it.
       - name: Repository Dispatch
+        continue-on-error: true
         uses: peter-evans/repository-dispatch@98b1133981c5060126325c279a8840c1711a9fe0
         with:
           token: ${{ secrets.MAIN_REPO_PAT }}

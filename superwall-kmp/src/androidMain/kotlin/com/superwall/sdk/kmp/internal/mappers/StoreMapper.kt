@@ -14,7 +14,7 @@ import com.superwall.sdk.store.abstractions.transactions.StoreTransactionType as
  * Store-layer mappers: native product/transaction types to the common models.
  * Port of the Flutter host's json/StoreProductMapper.kt and
  * json/StoreTransactionMapper.kt, with the date convention changed from
- * ISO-8601 strings to [kotlin.time.Instant] (plan §3.4): native `java.util.Date`
+ * ISO-8601 strings to [kotlin.time.Instant] native `java.util.Date`
  * values convert directly via epoch milliseconds — no formatting round trip.
  */
 
@@ -28,7 +28,7 @@ internal fun Instant.toNativeDate(): Date = Date(toEpochMilliseconds())
  * Maps a native [NativeStoreProductType] (implemented by both the native
  * `StoreProduct` wrapper and `RawStoreProduct`) to the common [StoreProduct].
  *
- * Android gaps surfaced honestly (plan §4): `entitlements` is empty (the
+ * Android gaps surfaced honestly `entitlements` is empty (the
  * native product type carries none), `subscriptionGroupIdentifier` is `null`
  * and `isFamilyShareable` is `false` (App Store concepts).
  */

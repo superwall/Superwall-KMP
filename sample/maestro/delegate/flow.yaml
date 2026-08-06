@@ -17,7 +17,7 @@ appId: ${APP_ID}
 - tapOn: "Set Test Delegate"
 - tapOn: "Show Paywall"
 - assertVisible: "Continue"
-- runFlow: "../util/back.yaml"
+- runFlow: "../util/dismiss_paywall.yaml"
 
 # Verify basic delegate events (presentation and dismissal)
 - tapOn: "Show Delegate Events without log"
@@ -101,7 +101,7 @@ appId: ${APP_ID}
       - back
 
 - tapOn: "Custom Action"
-- runFlow: "../util/back.yaml"
+- runFlow: "../util/dismiss_paywall.yaml"
 
 # Verify advanced interaction events
 - tapOn: "Events without log and presentation"

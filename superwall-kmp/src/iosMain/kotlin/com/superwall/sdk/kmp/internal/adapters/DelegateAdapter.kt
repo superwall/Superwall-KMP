@@ -25,7 +25,7 @@ import platform.darwin.NSObject
  * every native delegate callback to the common [BridgeListener] (the
  * [com.superwall.sdk.kmp.internal.DelegateMultiplexer]).
  *
- * Threading (plan §6): SuperwallKit invokes its delegate synchronously on the
+ * Threading SuperwallKit invokes its delegate synchronously on the
  * main actor; each forward hops through [scope] —
  * `Dispatchers.Main.immediate` — so delivery stays on the main thread
  * (executing inline when already there) and a throwing listener can never
@@ -34,7 +34,7 @@ import platform.darwin.NSObject
  *
  * Retention: the [com.superwall.sdk.kmp.internal.IosSuperwallBridge] strongly
  * retains this adapter — never rely on ObjC retaining Kotlin-implemented
- * objects (plan §6.4).
+ * objects.
  */
 internal class DelegateAdapter(
     internal val listener: BridgeListener,
@@ -104,7 +104,7 @@ internal class DelegateAdapter(
         error: String?,
     ) {
         // Unmappable native level/scope strings fall back to DEBUG/ALL with the
-        // raw value preserved (BridgeListener contract; plan §3.4). The bridge's
+        // raw value preserved (BridgeListener contract). The bridge's
         // 4.16.x-only scopes (analytics, webEntitlements) land here too.
         val mappedLevel = logLevelFromRawName(level)
         val mappedScope = logScopeFromRawName(scope)

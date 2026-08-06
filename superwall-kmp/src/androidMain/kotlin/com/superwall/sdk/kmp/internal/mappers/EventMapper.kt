@@ -21,13 +21,13 @@ import com.superwall.sdk.store.transactions.TransactionError as NativeTransactio
  *   is a [NativeTransactionError.Failure] (the Flutter host dropped it).
  * - `IntegrationAttributes`, `EnrichmentComplete`, `CustomerInfoDidChange`,
  *   `ReviewRequested` and the permission events map to their real event types
- *   with their payloads (the six silently-dropped fields of plan §3.4).
+ * with their payloads (the six silently-dropped fields of).
  *
  * Native cases with no common [EventType] counterpart (`PaywallPageView`,
  * `TestModeModalOpen/Close`, `ReviewGranted/Denied`, the SDK-internal events,
  * and anything added after this SDK version) degrade to the Flutter host's
  * fallback: [EventType.CUSTOM_PLACEMENT] with `name = rawName` — degrade,
- * never crash (plan §7).
+ * never crash.
  */
 @Suppress("DEPRECATION") // IntegrationProps + PaywallWebviewLoadTimeout are deprecated-but-live native cases.
 internal fun NativeSuperwallEventInfo.toKmp(): SuperwallEventInfo {
@@ -145,7 +145,7 @@ internal fun NativeSuperwallEventInfo.toKmp(): SuperwallEventInfo {
                 params = params,
             )
         // Correctly labeled TRANSACTION_RESTORE — the iOS Flutter host's
-        // transactionComplete mislabel (plan §3.4) is NOT replicated.
+        // transactionComplete mislabel is NOT replicated.
         is NativeSuperwallEvent.TransactionRestore ->
             SuperwallEventInfo(
                 eventType = EventType.TRANSACTION_RESTORE,

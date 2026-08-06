@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 // =============================================================================
-// sample:shared — the Compose Multiplatform demo UI (plan §8, sample row).
+// sample:shared — the Compose Multiplatform demo UI (sample row).
 //
 // NOT published (no maven-publish plugin). It consumes :superwall-kmp exactly
 // like a real app's shared module would (README "Installation"): a plain

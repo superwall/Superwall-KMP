@@ -8,7 +8,7 @@
 # Two differences, both forced by the iOS half of this SDK:
 #   * It runs on macOS. Publishing a KMP module with iOS targets has to compile
 #     the iOS klibs, and the cinterop step needs the bridge XCFramework present —
-#     this is a hard requirement, not an optimisation (docs/IMPLEMENTATION_PLAN.md §8).
+#     this is a hard requirement, not an optimisation (see .agents/AGENTS.md).
 #   * It builds and tests bridge/ first, then ships SuperwallKMPBridge.xcframework.zip
 #     plus its checksum as release assets. The klib and the exact bridge build it
 #     was compiled against are one release unit.
@@ -242,8 +242,13 @@ jobs:
             bridge/build/SuperwallKMPBridge.xcframework.zip.checksum
 
       - name: slack-send
-        # Only notify on a new release
+        # Only notify on a new release.
+        #
+        # continue-on-error: notification is not part of the release. By this
+        # point the artifacts are published, tagged and released — a missing or
+        # rotated SLACK_WEBHOOK must not turn a successful release red.
         if: steps.check-release.outputs.release-exists == 'false'
+        continue-on-error: true
         uses: slackapi/slack-github-action@v1.24.0
         with:
           payload: |

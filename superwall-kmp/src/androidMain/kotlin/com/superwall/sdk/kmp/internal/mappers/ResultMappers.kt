@@ -78,7 +78,7 @@ internal fun NativePurchaseResult.toKmp(): PurchaseResult =
         is NativePurchaseResult.Pending -> PurchaseResult.Pending
         is NativePurchaseResult.Failed -> PurchaseResult.Failed(errorMessage)
         // Native PurchaseResult is a non-exhaustive sealed class from another
-        // module — degrade, never crash (plan §7).
+        // module — degrade, never crash.
         else -> PurchaseResult.Failed("Unknown purchase result: $this")
     }
 

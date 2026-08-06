@@ -86,7 +86,7 @@ internal fun SWBExpiredCodeInfo.toModel(): ExpiredCodeInfo =
  * Maps the SWB redemption envelope back into the sealed common result. A
  * case whose contract-guaranteed payload is missing degrades to
  * [RedemptionResult.InvalidCode]-adjacent shapes rather than crashing
- * (plan §7).
+ *.
  */
 internal fun SWBRedemptionResult.toModel(): RedemptionResult =
     when (result()) {

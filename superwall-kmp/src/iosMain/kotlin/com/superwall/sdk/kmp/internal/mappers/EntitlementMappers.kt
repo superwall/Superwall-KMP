@@ -69,7 +69,7 @@ import platform.Foundation.NSNumber
 
 // ---------------------------------------------------------------------------
 // Date helpers: the SWB CustomerInfo/Entitlement family uses epoch-ms
-// NSNumbers, converted here to kotlin.time.Instant (plan §3.5 conventions).
+// NSNumbers, converted here to kotlin.time.Instant (conventions).
 // ---------------------------------------------------------------------------
 
 internal fun NSNumber?.toInstantFromEpochMs(): Instant? =
@@ -211,7 +211,7 @@ internal fun SWBSubscriptionStatus.toModel(): SubscriptionStatus =
         SWBSubscriptionStatusCaseActive -> SubscriptionStatus.Active(entitlements().toEntitlementSet())
         SWBSubscriptionStatusCaseInactive -> SubscriptionStatus.Inactive
         SWBSubscriptionStatusCaseUnknown -> SubscriptionStatus.Unknown
-        // Unknown native case: documented fallback (plan §7).
+        // Unknown native case: documented fallback.
         else -> SubscriptionStatus.Unknown
     }
 

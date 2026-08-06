@@ -18,7 +18,7 @@ import platform.darwin.NSObject
  * protocol: handed to `SWBSuperwallBridge.configure` and forwarding purchase
  * and restore requests to the user's suspend [PurchaseController].
  *
- * THREADING (critical, plan §5.3/§6.3): SuperwallKit invokes these methods on
+ * THREADING (critical): SuperwallKit invokes these methods on
  * the MAIN ACTOR. The suspend work is `launch`ed on [scope]
  * (`Dispatchers.Main.immediate` + SupervisorJob) — NEVER `runBlocking`, which
  * would deadlock the main actor. The completion is invoked exactly once from
@@ -26,12 +26,12 @@ import platform.darwin.NSObject
  * forwarder resumes its continuation safely from any queue.
  *
  * Exceptions thrown by the user's implementation are caught and mapped to
- * domain failures (plan §6.5) — they never propagate into native internals
+ * domain failures — they never propagate into native internals
  * and never kill the supervisor scope.
  *
  * Retention: the [com.superwall.sdk.kmp.internal.IosSuperwallBridge] strongly
  * retains this adapter for the lifetime of the process (never rely on ObjC
- * retaining Kotlin-implemented objects; plan §6.4).
+ * retaining Kotlin-implemented objects).
  */
 internal class PurchaseControllerAdapter(
     private val controller: PurchaseController,

@@ -182,7 +182,7 @@ internal fun logLevelFromSWB(level: SWBLogLevel): LogLevel =
         SWBLogLevelWarn -> LogLevel.WARN
         SWBLogLevelError -> LogLevel.ERROR
         SWBLogLevelNone -> LogLevel.NONE
-        // Unknown native case: documented fallback (plan §7).
+        // Unknown native case: documented fallback.
         else -> LogLevel.DEBUG
     }
 

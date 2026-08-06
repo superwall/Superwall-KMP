@@ -24,10 +24,26 @@ appId: ${APP_ID}
 # Entering test mode raises the SDK's own "Test Mode Active" sheet (it reports
 # the alias id, whether a purchase controller is attached, and the starting
 # entitlement states). It covers the app until dismissed.
-# The title is "🧪 Test Mode Active" — Maestro matches the WHOLE string, so the
-# emoji has to be allowed for.
+# The title carries an emoji — "🧪 Test Mode Active" on iOS, "✏️ Test Mode Active"
+# on Android — and Maestro matches the WHOLE string, so it has to be allowed for.
 - assertVisible: ".*Test Mode Active.*"
-- tapOn: "OK"
+# The dismiss button differs by platform: "OK" on iOS, "Continue" on Android —
+# where the sheet is also a bottom sheet taller than the screen, so the button
+# can start below the fold and has to be scrolled to first.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Continue"
+          direction: DOWN
+      - tapOn: "Continue"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "OK"
 
 # NOTE ON THE DRAWER — why the taps below use coordinates.
 #

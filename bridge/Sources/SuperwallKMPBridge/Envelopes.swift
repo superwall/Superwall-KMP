@@ -3,7 +3,7 @@
 //  SuperwallKMPBridge
 //
 //  @objc envelope classes for every Swift-only SuperwallKit shape that must cross
-//  the ObjC boundary into Kotlin/Native (plan §5.3). Each enum-with-associated-values
+// the ObjC boundary into Kotlin/Native. Each enum-with-associated-values
 //  becomes a class with a case discriminator (an @objc Int enum) plus optional payload
 //  fields; structs become flat field copies.
 //
@@ -260,7 +260,7 @@ public enum SWBRestorationResultCase: Int {
 }
 
 /// Mirror of SuperwallKit.TransactionType (payload of transactionComplete —
-/// the field the Flutter host dropped; carried here per plan §3.4).
+/// the field the Flutter host dropped; carried here).
 @objc(SWBTransactionType)
 public enum SWBTransactionType: Int {
   case nonRecurringProductPurchase = 0
@@ -416,7 +416,7 @@ public final class SWBVariant: NSObject {
 }
 
 /// Flat copy of SuperwallKit.Experiment — carries its variant
-/// (the payload the Flutter public layer faked; plan §3.4).
+/// (the payload the Flutter public layer faked).
 @objc(SWBExperiment)
 public final class SWBExperiment: NSObject {
   /// The experiment id.
@@ -821,7 +821,7 @@ public final class SWBProduct: NSObject {
 }
 
 /// Flat copy of SuperwallKit.LocalNotification.
-/// Note: `id` is required here (the Flutter host hardcoded ""; fixed per plan §3.4 —
+/// Note: `id` is required here (the Flutter host hardcoded ""; fixed —
 /// SuperwallKit has no notification id, so the bridge synthesizes a stable one from content).
 @objc(SWBLocalNotification)
 public final class SWBLocalNotification: NSObject {
@@ -1472,7 +1472,7 @@ public final class SWBPaywallResult: NSObject {
 }
 
 /// Envelope for SuperwallKit.PaywallSkippedReason — keeps the holdout
-/// experiment payload the Flutter layer drops (plan §3.4).
+/// experiment payload the Flutter layer drops.
 @objc(SWBPaywallSkippedReason)
 public final class SWBPaywallSkippedReason: NSObject {
   /// Which case this represents.

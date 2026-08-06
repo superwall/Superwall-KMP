@@ -48,7 +48,7 @@ import com.superwall.sdk.paywall.presentation.register as nativeRegister
  * `SuperwallHost.kt` minus all Pigeon transport, calling superwall-android
  * 2.7.11 directly (every native symbol verified against the 2.7.11 sources).
  *
- * Deliberate fixes over the Flutter host (plan §3.4):
+ * Deliberate fixes over the Flutter host
  * - `configure`'s completion forwards the REAL native `Result<Unit>` instead
  *   of dropping the success bool (`ConfigureCompletionProxy` bug), and no
  *   longer force-overwrites `logging.level = debug`.
@@ -64,10 +64,15 @@ import com.superwall.sdk.paywall.presentation.register as nativeRegister
  *   of the Flutter host's `$`-prefixed user-attribute workaround, with
  *   merge/null-removes semantics implemented over the native replace-all call.
  *
- * Threading (plan §6): SDK→app callbacks dispatch on
+ * Threading SDK→app callbacks dispatch on
  * `Dispatchers.Main.immediate` via the attached [StreamHolder]'s scope
  * (see [callbackScope]); native suspend calls keep the Flutter host's
  * conservative `Dispatchers.IO` hop until individually verified main-safe.
+ * Native→common MAPPING deliberately does not run there: [DelegateAdapter]
+ * maps on the native SDK's calling thread and only hands the finished value to
+ * the main thread, and skips the pure-forwarding hooks entirely when no user
+ * delegate is set (see its KDoc — `Logger` fires `handleLog` for every
+ * internal log line, so mapping there would flood the main looper).
  */
 internal class AndroidSuperwallBridge : SuperwallBridge {
     /**
@@ -93,20 +98,21 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
     /**
      * The scope all SDK→app callbacks are launched on: the [StreamHolder]'s
      * `Main.immediate` scope once attached, an identically composed fallback
-     * before that (plan §6.1/§6.3).
+ * before that.
      */
     private fun callbackScope(): CoroutineScope = streamHolder?.scope ?: fallbackScope
 
     /**
      * Routes adapter-caught user-callback exceptions to the app through the
-     * common `handleLog` path (plan §6.5), with logcat as the last resort.
+ * common `handleLog` path, with logcat as the last resort.
      */
     private fun logError(
         message: String,
         error: Throwable?,
     ) {
         Log.w(TAG, message, error)
-        val target = listener ?: return
+        val target = listener?.takeIf { it.forwardsToUserDelegate } ?: return
+        val mappedError = error?.let { it.localizedMessage ?: it.message ?: it.toString() }
         callbackScope().launch {
             try {
                 target.handleLog(
@@ -114,7 +120,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
                     scope = LogScope.SUPERWALL_CORE,
                     message = message,
                     info = null,
-                    error = error?.let { it.localizedMessage ?: it.message ?: it.toString() },
+                    error = mappedError,
                 )
             } catch (throwable: Throwable) {
                 Log.w(TAG, "handleLog forwarding failed", throwable)
@@ -133,7 +139,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
      * The `Application` comes from [ApplicationContextHolder]; when neither
      * the androidx.startup initializer nor `Superwall.androidSetup` ran, this
      * throws [SuperwallError.NotInitialized] immediately and actionably
-     * instead of letting the native SDK crash later (plan §4).
+ * instead of letting the native SDK crash later.
      *
      * The native completion's `Result<Unit>` is FORWARDED (fixing the Flutter
      * host's dropped success bool); failures are wrapped in
@@ -202,7 +208,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         if (!NativeSuperwall.initialized) return
         val adapter =
             delegateAdapter?.takeIf { it.wraps(target) }
-                ?: DelegateAdapter(target, ::callbackScope).also { delegateAdapter = it }
+                ?: DelegateAdapter(target).also { delegateAdapter = it }
         NativeSuperwall.instance.delegate = adapter
     }
 
@@ -223,8 +229,14 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     /**
      * Attaches the native subscription-status source to the common-owned flow:
-     * an initial synchronous read closes the seed gap, then a collector on the
-     * holder's `Main.immediate` scope keeps it fed (plan §4 stream wiring).
+     * an initial synchronous read closes the seed gap, then a collector keeps
+     * it fed (stream wiring).
+     *
+     * The collector runs on [Dispatchers.Default], not the holder's
+     * `Main.immediate` scope: it only maps a status and assigns
+     * `MutableStateFlow.value`, which is thread-safe, and a `StateFlow`
+     * delivers to each collector on ITS OWN context — so where this feed runs
+     * is invisible to app code and has no business occupying the looper.
      *
      * `customerInfo` is deliberately NOT collected here: superwall-android
      * 2.7.11's `SuperwallDelegate.customerInfoDidChange` hook exists and is
@@ -237,7 +249,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         streamHolder = holder
         val native = NativeSuperwall.instance
         holder.subscriptionStatus.value = native.subscriptionStatus.value.toKmp()
-        holder.scope.launch {
+        holder.scope.launch(Dispatchers.Default) {
             native.subscriptionStatus.collect { status ->
                 holder.subscriptionStatus.value = status.toKmp()
             }
@@ -383,7 +395,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
                 .toSet()
         }
 
-    /** Restoration failure stays in the domain type (plan §7) — never throws. */
+ /** Restoration failure stays in the domain type — never throws. */
     override suspend fun restorePurchases(): RestorationResult =
         withContext(Dispatchers.IO) {
             NativeSuperwall.instance.restorePurchases().fold(
@@ -402,7 +414,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
      * Fire-and-forget, matching the native `Superwall.register` extension.
      * Creates a PER-CALL [PresentationHandlerAdapter] that strongly retains
      * the handler and feature — no placement-keyed registry (fixes the Flutter
-     * one-handler-per-placement aliasing, plan §6.4).
+ * one-handler-per-placement aliasing).
      */
     override fun registerPlacement(
         placement: String,
@@ -498,7 +510,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
     }
 
     /**
-     * Actually wired (the equivalent Flutter option was dead, plan §3.4):
+ * Actually wired (the equivalent Flutter option was dead):
      * flips the live native option — it is read per device-attribute
      * computation, so post-configure changes take effect.
      */

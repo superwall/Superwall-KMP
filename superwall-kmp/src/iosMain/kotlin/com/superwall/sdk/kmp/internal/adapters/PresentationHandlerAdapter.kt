@@ -20,13 +20,13 @@ import platform.darwin.NSObject
 /**
  * The per-registration Kotlin implementation of the bridge's
  * `@objc(SWBPaywallPresentationHandler)` protocol. One fresh adapter is
- * created for every `register` call (plan §6.4 — per-registration adapters,
+ * created for every `register` call (per-registration adapters,
  * no placement-keyed registry), strongly retaining the user's
  * [PaywallPresentationHandler] closures.
  *
  * Lifetime: the [com.superwall.sdk.kmp.internal.IosSuperwallBridge] keeps
  * each adapter in a main-confined registry for the paywall's lifetime — never
- * rely on ObjC retaining Kotlin objects (plan §6.4). [onFinished] removes it
+ * rely on ObjC retaining Kotlin objects. [onFinished] removes it
  * on the terminal callbacks, mirroring the Swift wrapper's own release
  * condition: dismiss with `closeReason != none`, skip, or error (the
  * release-on-error is the declared deliberate delta vs the leaking Flutter
@@ -34,7 +34,7 @@ import platform.darwin.NSObject
  *
  * Threading: callbacks arrive synchronously on SuperwallKit's main actor;
  * user closures are delivered through [scope] (`Dispatchers.Main.immediate`),
- * and their exceptions are caught (plan §6.5). `onCustomCallback` launches
+ * and their exceptions are caught. `onCustomCallback` launches
  * the user's suspend closure — never blocking — and bridges the result back
  * through the async completion exactly once.
  */
@@ -75,7 +75,7 @@ internal class PresentationHandlerAdapter(
     override fun onError(error: String) {
         deliver { handler.onErrorHandler?.invoke(error) }
         // Deliberate delta vs the Flutter host (which leaked here): a failed
-        // presentation gets no dismiss/skip, so release now (plan §6.4).
+        // presentation gets no dismiss/skip, so release now.
         onFinished(this)
     }
 

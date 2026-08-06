@@ -12,10 +12,34 @@ import com.superwall.sdk.kmp.models.redemption.RedemptionResult
  * The delegate protocol that handles Superwall lifecycle events.
  *
  * The delegate methods receive callbacks from the SDK in response to certain placements.
- * All callbacks are delivered on the main thread.
  *
  * You set this via [Superwall.delegate]. Every method has a default no-op
  * implementation, so override only the ones you need.
+ *
+ * ## Threading
+ *
+ * Callbacks arrive on the thread the underlying native SDK invoked them on —
+ * this layer adds no dispatch of its own, so a high-volume hook like
+ * [handleLog] can never cost you frames. In practice that means:
+ *
+ * - The **paywall lifecycle** hooks ([willPresentPaywall], [didPresentPaywall],
+ *   [willDismissPaywall], [didDismissPaywall], [handleCustomPaywallAction],
+ *   [paywallWillOpenURL], [paywallWillOpenDeepLink]) arrive on the **main
+ *   thread** on both platforms — both native SDKs emit them from their UI
+ *   layer. Update UI from these directly.
+ * - The **analytics-shaped** hooks ([handleSuperwallEvent], [handleLog],
+ *   [subscriptionStatusDidChange], [customerInfoDidChange],
+ *   [userAttributesDidChange], [willRedeemLink], [didRedeemLink]) arrive on a
+ *   **background thread on Android** and on the main thread on iOS. Forward
+ *   them to your analytics SDK as-is; if you need to touch UI, hop yourself
+ *   (`withContext(Dispatchers.Main) {... }`), or collect
+ *   [Superwall.subscriptionStatusFlow] / [Superwall.customerInfoFlow] in a
+ *   main-dispatched scope instead, which handles the hop for you.
+ *
+ * Two consequences worth designing for: implementations should be
+ * **thread-safe** (the analytics hooks are not serialized against each other),
+ * and they run **synchronously on an SDK thread** — blocking in one slows the
+ * SDK, so keep them short and hand long work to your own scope.
  *
  * To learn how to conform to the delegate in your app and best practices, see
  * [our docs](https://docs.superwall.com/docs/3rd-party-analytics).

@@ -13,7 +13,7 @@ import kotlin.time.Instant
  * Parses the ISO-8601 date strings the SWB StoreTransaction/StoreProduct
  * family carries (and the native PaywallInfo time strings) into
  * [kotlin.time.Instant]. Unparseable values degrade to `null` rather than
- * crashing (plan §7); the bridge emits
+ * crashing; the bridge emits
  * `yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX`, which `Instant.parse` accepts.
  */
 internal fun String?.toInstantOrNull(): Instant? =

@@ -14,7 +14,7 @@ appId: ${APP_ID}
 # Test non-gated paywall
 - tapOn: "Test Non-Gated Paywall"
 - assertVisible: "Continue"
-- runFlow: "../util/back.yaml"
+- runFlow: "../util/dismiss_paywall.yaml"
 
 - assertVisible: "Feature Block Executed: Yes"
 
@@ -31,7 +31,7 @@ appId: ${APP_ID}
 # Test gated paywall
 - tapOn: "Test Gated Paywall"
 - assertVisible: "Continue"
-- runFlow: "../util/back.yaml"
+- runFlow: "../util/dismiss_paywall.yaml"
 
 - assertVisible: "Feature Block Executed: No"
 

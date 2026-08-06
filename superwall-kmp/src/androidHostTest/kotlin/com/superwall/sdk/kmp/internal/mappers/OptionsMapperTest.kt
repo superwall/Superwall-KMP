@@ -218,7 +218,7 @@ class OptionsMapperTest {
 
     @Test
     fun logLevelFromNativeString_mapsEveryNativeToStringRendering() {
-        // The native delegate passes level.toString() ("DEBUG", "INFO", ...).
+        // The native delegate passes level.toString() ("DEBUG", "INFO",...).
         for (native in NativeLogLevel.entries) {
             assertEquals(native.toKmp(), logLevelFromNativeString(native.toString()))
         }
@@ -232,7 +232,7 @@ class OptionsMapperTest {
 
     @Test
     fun logLevelFromNativeString_unknownLevelReturnsNullSoCallerCanDegrade() {
-        // Plan §3.4: unmappable levels degrade to DEBUG + info["rawLevel"] at the
+        // unmappable levels degrade to DEBUG + info["rawLevel"] at the
         // call site; the mapper's contract is to return null.
         assertNull(logLevelFromNativeString("VERBOSE"))
         assertNull(logLevelFromNativeString(""))

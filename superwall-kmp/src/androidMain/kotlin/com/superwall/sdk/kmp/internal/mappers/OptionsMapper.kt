@@ -26,7 +26,7 @@ import com.superwall.sdk.store.testmode.TestModeBehavior as NativeTestModeBehavi
  * deliberate deltas:
  *
  * - `enableExperimentalDeviceVariables` is actually wired (dead in the
- *   Flutter layer — plan §3.4).
+ * Flutter layer).
  * - iOS-only options (`shouldBypassAppTransactionCheck`, `maxConfigRetryCount`,
  *   `shouldShowWebRestorationAlert`, `shouldShowWebPurchaseConfirmationAlert`,
  *   `transactionBackgroundView` semantics aside) are documented no-ops here
@@ -34,7 +34,7 @@ import com.superwall.sdk.store.testmode.TestModeBehavior as NativeTestModeBehavi
  *
  * `PaywallOptions.onBackPressed` is deliberately NOT wired here: the bridge
  * installs an `OnBackPressedAdapter` on the returned native options so the
- * synchronous-callback threading rules (plan §6.1) live in one place.
+ * synchronous-callback threading rules live in one place.
  */
 internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
     val native = NativeSuperwallOptions()
@@ -186,7 +186,7 @@ internal fun NativeLogLevel.toKmp(): LogLevel =
  * Maps a native log-level string (the native delegate's `handleLog` passes
  * `level.toString()`, e.g. `"DEBUG"`) to the common [LogLevel]. Returns `null`
  * when unmappable so the caller can apply the documented degrade rule
- * ([LogLevel.DEBUG] + `info["rawLevel"]`, plan §3.4).
+ * ([LogLevel.DEBUG] + `info["rawLevel"]`).
  */
 internal fun logLevelFromNativeString(raw: String): LogLevel? =
     when (raw.trim().uppercase()) {
@@ -232,7 +232,7 @@ internal fun LogScope.toNative(): NativeLogScope =
  * `webEntitlements`, `customerInfo`, `jsEvaluator`, `paywallTransactions`,
  * `nativePurchaseController`, `deepLinks`, which the 22-value common enum
  * lacks). Callers apply the documented degrade rule ([LogScope.ALL] +
- * `info["rawScope"]`, plan §3.4).
+ * `info["rawScope"]`).
  */
 internal fun NativeLogScope.toKmp(): LogScope? =
     when (this) {

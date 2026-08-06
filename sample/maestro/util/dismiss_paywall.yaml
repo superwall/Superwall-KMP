@@ -1,0 +1,27 @@
+appId: ${APP_ID}
+---
+# Dismiss a presented PAYWALL (not an app screen — for that use back.yaml).
+#
+# The paywall is native UI with no "Back" button of the app's own:
+#   * Android: hardware back does NOT work. superwall-android 2.8.0 forwards the
+#     system back press into the paywall as a `back_button_input` message rather
+#     than dismissing it, and paywalls built on runtimes predating that message
+#     ignore it entirely — the press is simply swallowed and the paywall stays.
+#     The paywall's own ✕ (top-left) is tapped by position instead: its WebView
+#     content is not exposed in the hierarchy Maestro queries, so there is no
+#     label or resource-id to match on.
+#   * iOS shows a "Back" affordance when the paywall provides one; tap it if
+#     present, otherwise the paywall has already gone (a simulated purchase or a
+#     failure can close it on its own) and there is nothing to do.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          point: "8%,8%"   # paywall close (✕)
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Back"
+    commands:
+      - tapOn: "Back"

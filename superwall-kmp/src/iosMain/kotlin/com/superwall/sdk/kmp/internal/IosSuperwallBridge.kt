@@ -49,13 +49,13 @@ import platform.Foundation.NSNumber
 
 /**
  * The iOS [SuperwallBridge]: a thin forwarder to the `SWBSuperwallBridge`
- * Swift facade (plan §5). All semantic work — enum destructuring, the event
+ * Swift facade. All semantic work — enum destructuring, the event
  * envelope switch, configure-status derivation — lives in the Swift bridge;
  * this class only converts between common models and the `@objc` envelope
- * types and manages Kotlin-side adapter retention (plan §6.4: never rely on
+ * types and manages Kotlin-side adapter retention (never rely on
  * ObjC retaining Kotlin-implemented objects).
  *
- * Threading (plan §6): [scope] is the bridge's one internal
+ * Threading [scope] is the bridge's one internal
  * `Dispatchers.Main.immediate` supervisor scope; adapters use it to deliver
  * SDK→app callbacks on the main thread and to run app→SDK suspend callbacks.
  * Suspend members wrap the facade's completion-handler calls via
@@ -66,7 +66,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
     private val swb: SWBSuperwallBridge
         get() = SWBSuperwallBridge.sharedBridge()
 
-    /** One internal supervisor scope per bridge (plan §6.3). */
+    /** One internal supervisor scope per bridge. */
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     /** Strongly retained delegate adapter (installed natively at configure). */
@@ -84,7 +84,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
      */
     private val activeHandlers: MutableSet<PresentationHandlerAdapter> = mutableSetOf()
 
-    /** Retained observation tokens for the stream subscriptions (plan §5.3). */
+    /** Retained observation tokens for the stream subscriptions. */
     private var subscriptionStatusObservation: SWBObservation? = null
     private var customerInfoObservation: SWBObservation? = null
 
@@ -113,7 +113,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
             } else {
                 if (status != SWBConfigurationStatusConfigured) {
                     // Post-completion pending: treated as success with a logged
-                    // warning (plan §5.2).
+                    // warning.
                     warn("Superwall configuration completed while still pending; treating as success.")
                 }
                 Result.success(Unit)
@@ -172,12 +172,12 @@ internal class IosSuperwallBridge : SuperwallBridge {
         // thread-safe flow mutations.
         subscriptionStatusObservation = swb.observeSubscriptionStatus { status ->
             // The cinterop block signature is nullable although the Swift side
-            // never emits nil; degrade an unexpected nil to Unknown (plan §7).
+            // never emits nil; degrade an unexpected nil to Unknown.
             holder.subscriptionStatus.value = status?.toModel() ?: SubscriptionStatus.Unknown
         }
         customerInfoObservation = swb.observeCustomerInfo { customerInfo ->
             // Nullable-only-in-the-binding: skip an unexpected nil emission
-            // rather than fabricating an empty customer info (plan §7).
+            // rather than fabricating an empty customer info.
             customerInfo?.let { holder.customerInfo.tryEmit(it.toModel()) }
         }
     }
@@ -267,7 +267,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
     override suspend fun getCustomerInfo(): CustomerInfo =
         // The cinterop block signature is nullable although the Swift side
         // never passes nil; degrade an unexpected nil to an empty customer
-        // info rather than crashing (plan §7).
+        // info rather than crashing.
         awaitCompletion<SWBCustomerInfo?> { swb.getCustomerInfo(it) }?.toModel()
             ?: CustomerInfo(
                 subscriptions = emptyList(),
@@ -304,7 +304,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
         }
         if (handlerAdapter != null) {
             // Retention is main-confined; the launch closure keeps the adapter
-            // strongly reachable until the set does (plan §6.4).
+            // strongly reachable until the set does.
             scope.launch { activeHandlers.add(handlerAdapter) }
         }
 

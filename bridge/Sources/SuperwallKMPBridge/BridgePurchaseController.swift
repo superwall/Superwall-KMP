@@ -16,7 +16,7 @@ import SuperwallKit
 /// Kotlin implementation must dispatch its suspend work asynchronously (launch,
 /// never runBlocking) and may invoke the completion from ANY queue — the bridge
 /// resumes the awaiting continuation safely from wherever the completion fires
-/// (plan §5.3 / §6.3: blocking the main queue here deadlocks the SDK).
+/// (blocking the main queue here deadlocks the SDK).
 @objc(SWBPurchaseController)
 public protocol SWBPurchaseController: AnyObject {
   /// Purchase the App Store product with the given identifier.

@@ -4,7 +4,7 @@
 //
 //  Tests everything testable without network or a configured Superwall instance:
 //  - envelope construction and field carriage (including the Flutter-mislabel fixes)
-//  - the configure-status derivation (plan §5.2)
+// - the configure-status derivation
 //  - options mapping to real SuperwallKit types
 //  - value sanitization (degrade-never-crash)
 //  - enum raw-value stability (the Kotlin side codes against these numbers)
@@ -33,7 +33,7 @@ final class ConfigureStatusDerivationTests: XCTestCase {
   }
 
   func testPendingMapsToPendingWithoutError() {
-    // Post-completion .pending should not happen, but must degrade, not fail.
+    // Post-completion.pending should not happen, but must degrade, not fail.
     let outcome = SWBSuperwallBridge.deriveConfigureOutcome(from: .pending)
     XCTAssertEqual(outcome.status, .pending)
     XCTAssertNil(outcome.error)
@@ -452,7 +452,7 @@ final class OptionsMappingTests: XCTestCase {
 
 final class ContractStabilityTests: XCTestCase {
   // The Kotlin side maps these raw values 1:1 — they are the wire contract
-  // (docs/bridge-surface.md). A change here is a breaking bridge change.
+  // A change here is a breaking bridge change.
 
   func testEventTypeRawValuesAreStable() {
     XCTAssertEqual(SWBEventType.firstSeen.rawValue, 0)
