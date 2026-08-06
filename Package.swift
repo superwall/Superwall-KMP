@@ -55,8 +55,8 @@ let package = Package(
         // meantime, as sample/iosApp does.
         .binaryTarget(
             name: "SuperwallKMPBridge",
-            url: "https://github.com/superwall/Superwall-KMP/releases/download/v0.0.0-PLACEHOLDER/SuperwallKMPBridge.xcframework.zip",
-            checksum: "0000000000000000000000000000000000000000000000000000000000000000"
+            url: "https://github.com/superwall/Superwall-KMP/releases/download/0.1.0/SuperwallKMPBridge.xcframework.zip",
+            checksum: "3852250309ea23f0dfc204cebf8e1b14c3b156fb9b9bc13e3b24a54f7edfa287"
         ),
         // Wrapper target: exists ONLY to carry the SuperwallKit dependency
         // alongside the binary (see header comment). Its single stub source
