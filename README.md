@@ -2,7 +2,7 @@
 
 Kotlin Multiplatform SDK for [Superwall](https://superwall.com) — remotely configurable in-app paywall infrastructure.
 
-This library wraps the native SuperwallKit SDKs (Android and iOS) behind a single Kotlin Multiplatform API. The public API lives entirely in `commonMain` — no platform types, and an identical `configure` signature on both platforms (no `Context` parameter on Android).
+This library wraps the native SuperwallKit SDKs (Android and iOS) and the Superwall Web SDK behind a single Kotlin Multiplatform API. The public API lives entirely in `commonMain` — no platform types, and an identical `configure` signature on every platform (no `Context` parameter on Android).
 
 ## Installation
 
@@ -41,6 +41,33 @@ Two steps:
 
    The Kotlin side compiles against the bridge's ObjC headers only (compile-only cinterop); your app supplies the binary by linking the SPM package. If it is missing you'll get a link error at app build time, not at runtime.
 
+### Web (Kotlin/JS)
+
+1. Add the same Gradle dependency to a `js` target. The [`@superwall/paywalls-js`](https://www.npmjs.com/package/@superwall/paywalls-js) npm package comes in transitively. It is ESM-only, so build ES modules:
+
+   ```kotlin
+   kotlin {
+       js(IR) {
+           useEsModules()
+           browser()
+           binaries.executable()
+       }
+   }
+   ```
+
+2. Add `webpack.config.d/superwall.js` to the app module. The SDK evaluates audience rules with a WebAssembly module, which webpack 5 does not load by default, and that package's ESM build uses extensionless relative imports:
+
+   ```js
+   config.experiments = Object.assign({}, config.experiments, { asyncWebAssembly: true });
+   config.module.rules.push({ test: /[\\/]@superwall[\\/]superscript[\\/].*\.m?js$/, resolve: { fullySpecified: false } });
+   ```
+
+Paywalls render in an iframe overlay on the page. Web differences from the native platforms:
+
+- **`PurchaseController` is ignored** (with a logged warning). Purchases go through Superwall's built-in web checkout, which updates `subscriptionStatus` itself.
+- `handleDeepLink` handles redemption links (`?code=redemption_…`); the page's own URL is redeemed automatically at configure.
+- No-ops on web: `togglePaywallSpinner`, `overrideProductsByName`, `consume`; `getDeviceAttributes()` returns an empty map. `PaywallPresentationHandler.onCustomCallback` is never invoked.
+
 ## Usage
 
 ```kotlin
@@ -78,6 +105,7 @@ There is no pre-configure call queue: most members throw `SuperwallError.NotConf
 
 - Android (`minSdk 26`, matching the native superwall-android SDK)
 - iOS 14+ (`iosArm64`, `iosSimulatorArm64`, `iosX64`)
+- Web: Kotlin/JS (`js`, browser), wrapping `@superwall/paywalls-js`
 
 ## Development
 
@@ -85,7 +113,7 @@ There is no pre-configure call queue: most members throw `SuperwallError.NotConf
 # Build the library
 ./gradlew :superwall-kmp:build
 
-# Run tests (common + Android host tests; iOS simulator tests on macOS)
+# Run tests (common + Android host + JS/Node tests; iOS simulator tests on macOS)
 ./gradlew :superwall-kmp:allTests
 
 # Lint
@@ -106,6 +134,7 @@ The public `Superwall` facade (`superwall-kmp/src/commonMain/.../Superwall.kt`) 
 
 - **Android** (`androidMain`) wraps `com.superwall.sdk:superwall-android` directly.
 - **iOS** (`iosMain`) forwards through **SuperwallKMPBridge** (`bridge/`), a self-authored `@objc` Swift facade over SuperwallKit that destructures Swift-only constructs (enum associated values, structs, async) into ObjC-visible envelopes, consumed via cinterop.
+- **Web** (`jsMain`) forwards to a `@superwall/paywalls-js` instance through hand-written `external` declarations; its JSON-shaped payloads are mapped field-by-field.
 
 For details:
 

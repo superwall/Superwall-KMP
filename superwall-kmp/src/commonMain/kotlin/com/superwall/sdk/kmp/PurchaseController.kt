@@ -14,6 +14,10 @@ import com.superwall.sdk.kmp.models.results.RestorationResult
  * store's method. When implementing this, you also need to set the subscription
  * status using `Superwall.subscriptionStatus`.
  *
+ * **Web:** a purchase controller is ignored (with a logged warning). Web
+ * purchases always go through Superwall's built-in checkout, which completes
+ * the purchase and updates the subscription status itself.
+ *
  * To learn how to implement a `PurchaseController` in your app and best practices,
  * see [Purchases and Subscription Status](https://docs.superwall.com/docs/advanced-configuration).
  */

@@ -63,6 +63,19 @@ kotlin {
     iosSimulatorArm64()
     iosX64()
 
+    // Web: jsMain wraps the @superwall/paywalls-js npm package. It is ESM-only,
+    // so our own test executables are ES modules too. Tests run on Node — the
+    // package's core is headless, and Node needs no browser on CI (the Karma
+    // runner would also pull Kotlin's karma fork from GitHub).
+    js(IR) {
+        useEsModules()
+        browser {
+            testTask { enabled = false }
+        }
+        nodejs()
+        binaries.library()
+    }
+
     // Cinterop against the prebuilt SuperwallKMPBridge.xcframework
     // the device target uses the ios-arm64 slice; both simulator targets share
     // the fat ios-arm64_x86_64-simulator slice. -F must point at the directory
@@ -120,6 +133,12 @@ kotlin {
             // them compileOnly at the exact versions superwall-android 2.8.0 uses.
             compileOnly(libs.android.billing)
             compileOnly(libs.kotlinx.serialization.json)
+        }
+
+        jsMain.dependencies {
+            // npm() is carried into consumers' Kotlin/JS builds through the
+            // published Gradle metadata, so they get the package transitively.
+            implementation(npm("@superwall/paywalls-js", libs.versions.superwall.paywalls.js.get()))
         }
     }
 }

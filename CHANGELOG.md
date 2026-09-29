@@ -2,6 +2,15 @@
 
 The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/superwall/Superwall-KMP/releases) on GitHub.
 
+## Unreleased
+
+## Enhancements
+- Adds a web target (Kotlin/JS, browser) backed by [`@superwall/paywalls-js`](https://www.npmjs.com/package/@superwall/paywalls-js) 0.3.0, pulled in transitively through npm. The common API is unchanged; paywalls render in an iframe overlay on the page. Consumers need `useEsModules()` and a two-line `webpack.config.d` addition — see the [README](README.md#web-kotlinjs).
+
+## Notes
+- A `PurchaseController` is ignored on web (a warning is logged): web purchases always go through Superwall's built-in checkout.
+- No-ops on web: `togglePaywallSpinner`, `overrideProductsByName` and `consume`. `getDeviceAttributes()` returns an empty map, and `PaywallPresentationHandler.onCustomCallback` is never invoked.
+
 ## 0.1.1
 
 ## Enhancements

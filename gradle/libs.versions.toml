@@ -6,6 +6,9 @@ android-compileSdk = "36"
 vanniktechMavenPublish = "0.36.0"
 kotlinx-coroutines = "1.10.2"
 superwall-android = "2.8.0"
+# npm package the js target wraps (Superwall-Web). Pinned exactly, like the
+# native SDKs, so the event/model mappers stay in step with the JS surface.
+superwall-paywalls-js = "0.3.0"
 androidx-startup = "1.2.0"
 # Compile-only pins matching superwall-android 2.8.0's own (runtime-scoped) deps:
 android-billing = "9.1.0"

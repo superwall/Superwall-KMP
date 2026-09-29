@@ -202,3 +202,16 @@ Additions beyond the Pigeon contract picked up when the wrapper moved to the lat
 | Δ31 | — (absent) | `ProductStore.CUSTOM` | add | Present on both natives; previously degraded to `OTHER` on iOS and was unmappable on Android | APPROVED (ian@superwall.com, 2026-07-31) |
 | Δ32 | `purchase(activity, ProductDetails, …)` (Flutter host path) | Android adapter overrides 2.8.0's primary `purchase(activity, StoreProduct, …)` overload | add (behavior) | The `ProductDetails` overload is deprecated in 2.8.0 and its replacement's default implementation fails for custom-store products; overriding the new entry point routes Play AND custom products to the user's productId-based `purchaseFromGooglePlay` | APPROVED (ian@superwall.com, 2026-07-31) |
 | Δ33 | `PProduct` (paywall product slot: id, name, entitlements) | `PaywallProduct` | rename | Disambiguates from the store-level `StoreProduct` and avoids the StoreKit `Product` collision for future Swift consumers | APPROVED (ian@superwall.com, 2026-07-31) |
+
+### Web target (`@superwall/paywalls-js` 0.3.0)
+
+The web `actual` adds no public types; these rows record where web's shapes force a mapping decision. Same governance as above — **not yet reviewed**.
+
+| # | Web shape | KMP shape | Category | Rationale | Sign-off |
+|---|---|---|---|---|---|
+| Δ34 | `PurchaseController.purchase(product)` (Stripe products) | common `PurchaseController` ignored on web, warning logged | drop (web) | The common controller only has App Store / Play entry points; passing web an empty controller would hang every checkout, so web keeps its built-in checkout | PENDING REVIEW |
+| Δ35 | `PaywallSkippedReason { type: "userSubscribed" }` | `onSkip` not invoked | drop (web) | The natives report no skip for an entitled user (they just run `feature`), so the common sealed type has no such case | PENDING REVIEW |
+| Δ36 | `RedemptionResult` success = `{ code, entitlements }` | `RedemptionResult.Success` with `ownership = AppUser(currentUserId)`, `purchaserInfo.storeIdentifiers = Unknown("stripe")`, `paywallInfo = null` | type | Web's response carries no ownership/purchaser data; the required fields are synthesized from the current user. `expired` → `ExpiredCode(resent = false)`; web has no `ExpiredSubscription` | PENDING REVIEW |
+| Δ37 | `page_view`, `paywall_page_view`, `discount_redeem_complete`, `discount_redeem_fail`, custom `track()` events | `EventType.CUSTOM_PLACEMENT` with `name = rawName` | add (fallback) | No common `EventType`; same fallback the native mappers use for their unmapped cases | PENDING REVIEW |
+| Δ38 | `Entitlements { active, inactive, all }` | `Entitlements.web = all` | type | Every web entitlement comes from web checkout | PENDING REVIEW |
+| Δ39 | Web `Product { id, name, entitlements, store }` on transaction events | `SuperwallEventInfo.product = null` (product stays in `params`) | drop (web) | Web products carry none of the pricing fields `StoreProduct` requires | PENDING REVIEW |

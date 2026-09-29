@@ -30,7 +30,8 @@ cd bridge && xcodebuild test -scheme SuperwallKMPBridge \
   public declaration needs explicit visibility and return type.
 - Platform work goes behind the internal `SuperwallBridge` (`expect`/`actual`):
   `androidMain` wraps `superwall-android`; `iosMain` calls the `@objc` Swift
-  bridge in `bridge/` through cinterop.
+  bridge in `bridge/` through cinterop; `jsMain` wraps the
+  `@superwall/paywalls-js` npm package.
 - Touching `bridge/Sources/**` changes an ObjC surface Kotlin is compiled
   against — rebuild the XCFramework and expect cinterop fallout.
 
@@ -47,6 +48,13 @@ cd bridge && xcodebuild test -scheme SuperwallKMPBridge \
   take effect.
 - Callbacks (delegate, presentation handler, flows) are **main-thread**; keep it
   that way.
+- **Bumping `superwall-paywalls-js`** means re-checking the web event and model
+  surface: `jsTest`'s `EventMapperTest` pins the web `SuperwallEventMap` keys and
+  `OptionsMapperTest` the `IntegrationAttribute` union — update both lists from
+  Superwall-Web's `types.ts` / `events.ts`, don't just bump the number.
+- Kotlin/JS uses **npm, not Yarn** (`kotlin.js.yarn=false`); the lockfile is
+  `kotlin-js-store/package-lock.json`. Refresh it with
+  `./gradlew kotlinUpgradePackageLock` after changing npm dependencies.
 - The SDK **has no pre-configure call queue** — most members throw
   `SuperwallError.NotConfigured`. That behaviour is intentional; don't "fix" it.
 

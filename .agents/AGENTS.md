@@ -38,6 +38,14 @@ implementation("com.superwall.sdk:superwall-kmp:<version>")
    cinterop); the app supplies the binary. If it is missing you get a **link
    error at app build time**, not a runtime failure.
 
+**Web** — the same Gradle dependency on a `js(IR) { useEsModules(); browser() }`
+target; `@superwall/paywalls-js` comes in transitively through npm. The app
+module also needs a `webpack.config.d/superwall.js` enabling
+`experiments.asyncWebAssembly` and relaxing `fullySpecified` for
+`@superwall/superscript` (see the README for the two lines). A
+`PurchaseController` is ignored on web — Superwall's built-in web checkout
+handles purchases.
+
 ### Usage
 
 ```kotlin
@@ -92,6 +100,11 @@ is a thin layer over an internal `SuperwallBridge` interface with one platform
   destructures Swift-only constructs — enum associated values, structs, `async` —
   into ObjC-visible envelopes (`SWBEventEnvelope` and friends) consumed via
   cinterop. Kotlin never sees a Swift type.
+- **Web** (`jsMain`) wraps the `@superwall/paywalls-js` npm package (Superwall-Web)
+  through hand-written `external` declarations in `internal/interop/`. Payloads
+  stay `dynamic` and are read field-by-field in `internal/mappers/`. Where web
+  has no equivalent, the bridge member degrades (no-op / empty) and says why at
+  the site.
 
 Version pins live in two layers and must stay in lockstep: `bridge/Package.swift`
 pins SuperwallKit exactly, and the root `Package.swift` pins the same version so
@@ -111,7 +124,8 @@ the prebuilt binary and the transitively resolved SuperwallKit cannot drift.
 
 ```bash
 ./gradlew :superwall-kmp:build            # build the library
-./gradlew :superwall-kmp:allTests         # common + Android host tests, iOS simulator tests on macOS
+./gradlew :superwall-kmp:allTests         # common + Android host + JS (Node) tests, iOS simulator tests on macOS
+./gradlew :superwall-kmp:jsNodeTest       # common + JS tests only — runs anywhere, no Android SDK needed
 ./gradlew :superwall-kmp:check            # lint
 ./bridge/scripts/build-xcframework.sh     # build the bridge XCFramework (macOS)
 ```

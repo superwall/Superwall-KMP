@@ -29,8 +29,8 @@ import kotlinx.coroutines.flow.asStateFlow
  *
  * Call [configure] (or [configureAndAwait]) as early as possible in your app's
  * lifecycle, then use the instance members to identify users, register
- * placements, and observe subscription state. The API is identical on Android
- * and iOS — no `Context` parameter is needed on Android (the SDK's
+ * placements, and observe subscription state. The API is identical on Android,
+ * iOS and web — no `Context` parameter is needed on Android (the SDK's
  * androidx.startup initializer captures the `Application`).
  *
  * **Pre-configure access:** there is no call queue. Every member throws
@@ -96,7 +96,8 @@ public object Superwall {
      * @param apiKey Your Public API Key from the Superwall dashboard settings.
      * @param purchaseController An optional [PurchaseController] that handles
      * all purchasing and restoring yourself; `null` lets Superwall handle
-     * purchases and subscription state automatically.
+     * purchases and subscription state automatically. Ignored on web, where
+     * Superwall's built-in checkout always handles purchases.
      * @param options An optional [SuperwallOptions] to customize paywall
      * appearance and behavior.
      * @param completion Invoked on the main thread when configuration
