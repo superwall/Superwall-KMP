@@ -136,10 +136,7 @@ The public `Superwall` facade (`superwall-kmp/src/commonMain/.../Superwall.kt`) 
 - **iOS** (`iosMain`) forwards through **SuperwallKMPBridge** (`bridge/`), a self-authored `@objc` Swift facade over SuperwallKit that destructures Swift-only constructs (enum associated values, structs, async) into ObjC-visible envelopes, consumed via cinterop.
 - **Web** (`jsMain`) forwards to a `@superwall/paywalls-js` instance through hand-written `external` declarations; its JSON-shaped payloads are mapped field-by-field.
 
-For details:
-
-- [`.agents/AGENTS.md`](.agents/AGENTS.md) — architecture, repo layout, build/test commands, conventions, and the release process
-- [`docs/MODELS.md`](docs/MODELS.md) — the public model types
+For details — architecture, repo layout, build/test commands, conventions, and the release process — see [`.agents/AGENTS.md`](.agents/AGENTS.md).
 
 ## License
 
