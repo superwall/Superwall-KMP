@@ -21,6 +21,7 @@ import com.superwall.sdk.kmp.internal.mappers.integrationAttributeFromJs
 import com.superwall.sdk.kmp.internal.mappers.logLevelFromJs
 import com.superwall.sdk.kmp.internal.mappers.paywallInfoOrNull
 import com.superwall.sdk.kmp.internal.mappers.presentationResultFromJs
+import com.superwall.sdk.kmp.internal.mappers.restorationResultFromJs
 import com.superwall.sdk.kmp.internal.mappers.subscriptionStatusFromJs
 import com.superwall.sdk.kmp.internal.mappers.toJs
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
@@ -247,9 +248,11 @@ internal class JsSuperwallBridge : SuperwallBridge {
         instance.placements.confirmAllAssignments().await().map { confirmedAssignmentFromJs(it) }.toSet()
 
     /**
-     * Web's `purchases.restore()` resolves without its outcome, which it only
-     * publishes as a `restore_complete` / `restore_fail` event — so the
-     * result is read from whichever of those fires during the call.
+     * `purchases.restore()` resolves with the `RestorationResult` from the
+     * next paywalls-js release on; 0.3.0 (pinned) resolves `undefined` and
+     * only publishes the outcome as a `restore_complete` / `restore_fail`
+     * event, so the events captured during the call are the fallback. Drop
+     * the listeners once the pin moves past the release that returns it.
      */
     override suspend fun restorePurchases(): RestorationResult {
         val events = instance.events
@@ -260,7 +263,8 @@ internal class JsSuperwallBridge : SuperwallBridge {
         events.addEventListener("restore_fail", onFail)
         events.addEventListener("restore_complete", onComplete)
         try {
-            instance.purchases.restore().await()
+            val returned = instance.purchases.restore().await()
+            if (returned != null) return restorationResultFromJs(returned)
         } catch (throwable: Throwable) {
             return RestorationResult.Failed(throwable.message ?: "Restore failed.")
         } finally {

@@ -106,7 +106,8 @@ internal external interface JsPlacementsNamespace {
 }
 
 internal external interface JsPurchasesNamespace {
-    fun restore(): Promise<Unit>
+    /** `RestorationResult` from the release after 0.3.0; `undefined` on 0.3.0. */
+    fun restore(): Promise<dynamic>
 
     fun setSubscriptionStatus(status: dynamic)
 
