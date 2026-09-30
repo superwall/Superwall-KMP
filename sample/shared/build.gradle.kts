@@ -14,7 +14,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.android.kotlin.multiplatform.library)
-    // Compose compiler ships with Kotlin (same 2.3.10 version); the
+    // Compose compiler ships with Kotlin (same 2.3.21 version); the
     // org.jetbrains.compose plugin adds the multiplatform Compose artifacts.
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeMultiplatform)
@@ -48,6 +48,14 @@ kotlin {
             baseName = "SampleShared"
             isStatic = true
         }
+    }
+
+    // Web: the same UI rendered by Compose on a <canvas>, hosted by
+    // :sample:webApp through startSampleApp() (jsMain). ES modules because
+    // :superwall-kmp's npm dependency (@superwall/paywalls-js) is ESM-only.
+    js(IR) {
+        useEsModules()
+        browser()
     }
 
     compilerOptions {

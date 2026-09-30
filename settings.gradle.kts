@@ -19,3 +19,5 @@ include(":superwall-kmp")
 // xcodegen/Xcode project (sample/iosApp/project.yml), not a Gradle module.
 include(":sample:shared")
 include(":sample:androidApp")
+include(":sample:webApp")
+include(":sample:webMinimal")

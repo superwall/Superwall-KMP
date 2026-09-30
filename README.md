@@ -62,7 +62,7 @@ Two steps:
    config.module.rules.push({ test: /[\\/]@superwall[\\/]superscript[\\/].*\.m?js$/, resolve: { fullySpecified: false } });
    ```
 
-Paywalls render in an iframe overlay on the page. Web differences from the native platforms:
+Paywalls render in an iframe overlay on the page. [`sample/webMinimal`](sample/webMinimal) is a complete minimal setup; [`sample/webApp`](sample/webApp) runs the shared Compose sample in the browser. Web differences from the native platforms:
 
 - **`PurchaseController` is ignored** (with a logged warning). Purchases go through Superwall's built-in web checkout, which updates `subscriptionStatus` itself.
 - `handleDeepLink` handles redemption links (`?code=redemption_…`); the page's own URL is redeemed automatically at configure.

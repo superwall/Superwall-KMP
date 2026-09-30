@@ -86,6 +86,8 @@ scope.launch {
 | `bridge/` | `SuperwallKMPBridge`, the `@objc` Swift facade over SuperwallKit |
 | `sample/shared` | Compose Multiplatform test app UI (commonMain) |
 | `sample/androidApp` · `sample/iosApp` | platform hosts (`iosApp` is xcodegen, not Gradle) |
+| `sample/webApp` | browser host for the shared Compose UI |
+| `sample/webMinimal` | standalone Kotlin/JS page — the minimal web consumer setup |
 | `sample/maestro/` | Maestro UI flows |
 | `Package.swift` | **consumer-facing** SPM manifest — machine-owned, see Release |
 
@@ -146,6 +148,7 @@ if it is missing (network needed for SPM resolution; several minutes once).
 
 ```bash
 ./gradlew :sample:androidApp:installDebug          # Android
+./gradlew :sample:webApp:jsBrowserDevelopmentRun   # Web (Compose); :sample:webMinimal for the plain page
 cd sample/iosApp && xcodegen generate && open SuperwallKMPSample.xcodeproj
 ```
 

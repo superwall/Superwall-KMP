@@ -9,6 +9,8 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 
 ## Notes
 - A `PurchaseController` is ignored on web (a warning is logged): web purchases always go through Superwall's built-in checkout.
+- Built with Kotlin 2.3.21 (was 2.3.10): Compose Multiplatform 1.11's web artifacts, used by the new web samples, need Kotlin/JS's stdlib from 2.3.20.
+- New web samples: `sample/webApp` runs the shared Compose sample in the browser, `sample/webMinimal` is a plain Kotlin/JS page.
 - No-ops on web: `togglePaywallSpinner`, `overrideProductsByName` and `consume`. `getDeviceAttributes()` returns an empty map, and `PaywallPresentationHandler.onCustomCallback` is never invoked.
 
 ## 0.1.1

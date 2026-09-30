@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Superwall KMP — minimal web sample</title>
+    <style>
+        body { font: 15px/1.4 system-ui, sans-serif; margin: 0 auto; max-width: 640px; padding: 16px; }
+        .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+        button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid #888; background: #f4f4f4; cursor: pointer; }
+        button:disabled { opacity: .4; cursor: default; }
+        input { font: inherit; padding: 7px 10px; border-radius: 8px; border: 1px solid #888; }
+        #status { font-weight: 600; }
+        #log { background: #111; color: #ddd; padding: 12px; border-radius: 8px; height: 320px; overflow: auto; font: 12px/1.5 ui-monospace, monospace; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+<h1>Superwall KMP — web</h1>
+<p>Subscription status: <span id="status">Unknown</span></p>
+<div class="row">
+    <button id="configure">Configure</button>
+    <button id="register" disabled>Register campaign_trigger</button>
+    <button id="restore" disabled>Restore purchases</button>
+    <button id="reset" disabled>Reset</button>
+</div>
+<div class="row">
+    <input id="userId" placeholder="user id" value="kmp_web_user">
+    <button id="identify" disabled>Identify</button>
+</div>
+<div id="log"></div>
+<script type="module" src="webMinimal.mjs"></script>
+</body>
+</html>

@@ -1,6 +1,8 @@
 [versions]
 agp = "9.0.1"
-kotlin = "2.3.10"
+# >= 2.3.20: Compose Multiplatform 1.11's js artifacts (sample:webApp) use
+# kotlin.js.JsReference, which Kotlin/JS's stdlib only has from 2.3.20.
+kotlin = "2.3.21"
 android-minSdk = "26"
 android-compileSdk = "36"
 vanniktechMavenPublish = "0.36.0"
@@ -16,7 +18,7 @@ kotlinx-serialization = "1.7.2"
 # Sample app only (not used by the published :superwall-kmp module):
 # Compose Multiplatform 1.11.1 — latest stable on Maven Central; requires KGP >= 2.2.0
 # (verified in the plugin's own check) and its runtime klibs are built with Kotlin 2.2.20,
-# which the Kotlin 2.3.10 compiler consumes fine (newer compilers read older klibs).
+# which the Kotlin 2.3.21 compiler consumes fine (newer compilers read older klibs).
 # The Compose *compiler* comes from org.jetbrains.kotlin.plugin.compose at the Kotlin version.
 composeMultiplatform = "1.11.1"
 androidx-activityCompose = "1.12.4"

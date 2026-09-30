@@ -1,6 +1,6 @@
 # Superwall KMP — sample app
 
-A Compose Multiplatform port of the Flutter SDK's `test_app` (see `test_app/lib/` in the Superwall-Flutter repo), exercising the `:superwall-kmp` SDK on Android and iOS from a single shared UI.
+A Compose Multiplatform port of the Flutter SDK's `test_app` (see `test_app/lib/` in the Superwall-Flutter repo), exercising the `:superwall-kmp` SDK on Android, iOS and the web from a single shared UI. A separate minimal web sample (`sample/webMinimal`) shows the bare Kotlin/JS setup without Compose.
 
 ## What the app shows
 
@@ -20,6 +20,8 @@ Screens that need a configured SDK surface `SuperwallError.NotConfigured` in a d
 
 `superwallApiKey` is an expect/actual in `sample/shared/src/{commonMain,androidMain,iosMain}/kotlin/com/superwall/sdk/kmp/sample/ApiKey*.kt`. These are the **public test-app keys** shared with the Flutter SDK's `test_app` — safe to commit. Each key belongs to a dashboard platform-app, so the sample's app ids match those apps: Android applicationId `com.superwall.superapp`, iOS bundle id `com.superwall.Advanced`. Replace them with your own dashboard's Public API Key (Settings → Keys) to run against your campaigns; note iOS and Android normally use **different** keys per platform-app.
 
+The web key (`ApiKey.js.kt`, also in `sample/webMinimal`) is the public key of Superwall-Web's own example apps. Its campaign has `campaign_trigger`; the other placements the test screens use exist only in the mobile test apps and resolve as "placement not found" on web.
+
 ## Module layout
 
 | Module | What | Build |
@@ -27,8 +29,10 @@ Screens that need a configured SDK surface `SuperwallError.NotConfigured` in a d
 | `sample/shared` | KMP module: the Compose UI (commonMain), `setSampleAppContent()` activity host (androidMain), `MainViewController()` = `ComposeUIViewController { App() }` (iosMain). iOS targets export a **static** `SampleShared` framework (static is required — see the root README's iOS install notes). | Gradle (`:sample:shared`) |
 | `sample/androidApp` | Android application (applicationId `com.superwall.superapp`, namespace `com.superwall.sdk.kmp.sample`, minSdk 26, compileSdk 36). Uses AGP 9 **built-in Kotlin** — no `org.jetbrains.kotlin.android`, no Compose compiler; all `@Composable` code stays in `sample/shared`. | Gradle (`:sample:androidApp`) |
 | `sample/iosApp` | SwiftUI app embedding `MainViewController()` via `UIViewControllerRepresentable`. Not a Gradle module — an [xcodegen](https://github.com/yonaskolb/XcodeGen) project (`project.yml`). | xcodegen + Xcode (macOS) |
+| `sample/webApp` | Browser host: `main()` calls `startSampleApp()` (`sample/shared` jsMain), which renders `App()` on a canvas with `ComposeViewport`. No `@Composable` code of its own. | Gradle (`:sample:webApp`) |
+| `sample/webMinimal` | Standalone Kotlin/JS page — plain HTML buttons, an event log, no Compose. The smallest complete consumer setup. | Gradle (`:sample:webMinimal`) |
 
-Neither sample module is published.
+None of the sample modules are published.
 
 ## Running — Android
 
@@ -60,6 +64,17 @@ This mirrors the documented consumer setup (root README → Installation → iOS
 `sample/iosApp/Products.storekit` (copied from the Flutter test_app: subscriptions `superwall_pro_3999` and `superwall_diamond_8999`) is attached to the SampleApp scheme's **run action**. Without it the paywall resolves no products — it presents with an empty price and its CONTINUE button does nothing.
 
 It applies only when **Xcode** launches the app. A `simctl`-launched build (including anything Maestro starts) does not get it; `xcrun simctl` has no storekit option.
+
+## Running — Web
+
+```bash
+./gradlew :sample:webApp:jsBrowserDevelopmentRun      # the Compose sample
+./gradlew :sample:webMinimal:jsBrowserDevelopmentRun  # the minimal page
+```
+
+Each opens a webpack dev server in the browser. Both modules carry the consumer setup from the root README's "Web (Kotlin/JS)" section: an ES-module `js` target and `webpack.config.d/superwall.js`.
+
+On web, the purchase controller is ignored (the SDK logs a warning): purchases go through Superwall's built-in checkout, so the **Mock PC Test** screen's purchase/restore toggles have no effect there. Web checkout also only completes on a host allowed for the dashboard app, so on `localhost` the paywall's Continue button fails with a 403 — the paywall itself, closing it, and the feature callback all work.
 
 ## UI tests (Maestro)
 
