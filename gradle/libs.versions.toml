@@ -5,7 +5,7 @@ android-minSdk = "26"
 android-compileSdk = "36"
 vanniktechMavenPublish = "0.36.0"
 kotlinx-coroutines = "1.10.2"
-superwall-android = "2.8.0"
+superwall-android = "2.8.5"
 androidx-startup = "1.2.0"
 # Compile-only pins matching superwall-android 2.8.0's own (runtime-scoped) deps:
 android-billing = "9.1.0"

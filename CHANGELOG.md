@@ -2,6 +2,11 @@
 
 The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/superwall/Superwall-KMP/releases) on GitHub.
 
+## 0.1.2
+
+## Enhancements
+- Updates Android SDK to 2.8.5 [View Android SDK release notes](https://github.com/superwall/Superwall-Android/releases/tag/2.8.5).
+
 ## 0.1.1
 
 ## Enhancements
