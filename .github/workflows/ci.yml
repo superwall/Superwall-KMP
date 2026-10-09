@@ -24,6 +24,10 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        # The action's default also installs the legacy `tools` package, which
+        # Google has dropped from the SDK repository, so sdkmanager exits 1.
+        with:
+          packages: 'platform-tools'
 
       - name: Set up Gradle (with cache)
         uses: gradle/actions/setup-gradle@v4
