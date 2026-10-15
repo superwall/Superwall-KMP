@@ -2,6 +2,11 @@
 
 The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/superwall/Superwall-KMP/releases) on GitHub.
 
+## 0.1.2
+
+## Enhancements
+- Updates iOS SDK to 4.18.0 [View iOS SDK release notes](https://github.com/superwall/Superwall-iOS/releases/tag/4.18.0).
+
 ## 0.1.1
 
 ## Enhancements
