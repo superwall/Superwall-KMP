@@ -18,6 +18,7 @@ import com.superwall.sdk.kmp.models.entitlements.Entitlements
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
@@ -380,6 +381,15 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
      * read). The Flutter host's synthesized minimal stub is obsolete against
      * this SDK version.
      */
+    // superwall-android 2.8.0 has no granted entitlements (SuperwallKit iOS
+    // 4.17.0+ only): nothing is ever granted here, and a write is dropped
+    // loudly rather than faked, since it would never reach the status.
+    override fun getGrantedEntitlements(): Set<Entitlement> = emptySet()
+
+    override fun setGrantedEntitlements(entitlements: Set<Entitlement>) {
+        logError("grantedEntitlements is not supported by superwall-android and was ignored.", error = null)
+    }
+
     override suspend fun getCustomerInfo(): CustomerInfo = NativeSuperwall.instance.getCustomerInfo().toKmp()
 
     override suspend fun confirmAllAssignments(): Set<ConfirmedAssignment> =
@@ -486,6 +496,22 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
     }
 
     // ---- Products / misc ------------------------------------------------------
+
+    // superwall-android 2.8.0 has no Customer Center (SuperwallKit iOS 4.18.0+
+    // only). onDismiss is never invoked, matching iOS when nothing is presented.
+    override fun presentCustomerCenter(onDismiss: (() -> Unit)?) {
+        logError("presentCustomerCenter is not supported by superwall-android and was ignored.", error = null)
+    }
+
+    override suspend fun dismissCustomerCenter() = Unit
+
+    // superwall-android 2.8.0 has no ad consent API (SuperwallKit iOS 4.18.0+
+    // only); the granted defaults are what the native SDK effectively reports.
+    override fun getAdConsent(): AdConsent = AdConsent()
+
+    override fun setAdConsent(consent: AdConsent) {
+        logError("adConsent is not supported by superwall-android and was ignored.", error = null)
+    }
 
     override fun getOverrideProductsByName(): Map<String, String>? =
         NativeSuperwall.instance.overrideProductsByName.takeIf { it.isNotEmpty() }

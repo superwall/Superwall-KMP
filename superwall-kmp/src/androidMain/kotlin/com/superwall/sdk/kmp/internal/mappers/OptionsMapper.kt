@@ -28,7 +28,7 @@ import com.superwall.sdk.store.testmode.TestModeBehavior as NativeTestModeBehavi
  * - `enableExperimentalDeviceVariables` is actually wired (dead in the
  * Flutter layer).
  * - iOS-only options (`shouldBypassAppTransactionCheck`, `maxConfigRetryCount`,
- *   `shouldShowWebRestorationAlert`, `shouldShowWebPurchaseConfirmationAlert`,
+ *   `adConsent`, `devServer`, `shouldShowWebRestorationAlert`, `shouldShowWebPurchaseConfirmationAlert`,
  *   `transactionBackgroundView` semantics aside) are documented no-ops here
  *   because superwall-android 2.8.0 has no equivalent fields.
  *
@@ -63,8 +63,8 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
     native.shouldObservePurchases = shouldObservePurchases
     native.useMockReviews = useMockReviews
     native.logging = logging.toNative()
-    // shouldBypassAppTransactionCheck / maxConfigRetryCount: iOS-only, no
-    // superwall-android counterpart — documented no-op.
+    // shouldBypassAppTransactionCheck / maxConfigRetryCount / adConsent /
+    // devServer: iOS-only, no superwall-android counterpart — documented no-op.
     return native
 }
 

@@ -58,9 +58,10 @@ internal const val SWB_EVENT_TRACKING_BEHAVIOR_NONE: Long = 2 // SWBEventTrackin
 internal const val SWB_TRANSACTION_BACKGROUND_VIEW_SPINNER: Long = 0 // SWBTransactionBackgroundView.spinner
 internal const val SWB_TRANSACTION_BACKGROUND_VIEW_NONE: Long = 1 // SWBTransactionBackgroundView.none
 
-// SWBLogScope (SuperwallKMPBridge.swift). The bridge's two 4.16.x-only cases
-// (analytics = 22, webEntitlements = 23) have no common counterpart and are
-// never written by the mappers, so they are intentionally not declared.
+// SWBLogScope (SuperwallKMPBridge.swift). The bridge's iOS-only cases
+// (analytics = 22, webEntitlements = 23, grantedEntitlements = 24,
+// customerCenter = 25) have no common counterpart and are never written by the
+// mappers, so they are intentionally not declared.
 internal const val SWB_LOG_SCOPE_LOCALIZATION_MANAGER: Long = 0 // SWBLogScope.localizationManager
 internal const val SWB_LOG_SCOPE_BOUNCE_BUTTON: Long = 1 // SWBLogScope.bounceButton
 internal const val SWB_LOG_SCOPE_CORE_DATA: Long = 2 // SWBLogScope.coreData
@@ -83,3 +84,7 @@ internal const val SWB_LOG_SCOPE_TRANSACTIONS: Long = 18 // SWBLogScope.transact
 internal const val SWB_LOG_SCOPE_PAYWALL_VIEW_CONTROLLER: Long = 19 // SWBLogScope.paywallViewController
 internal const val SWB_LOG_SCOPE_CACHE: Long = 20 // SWBLogScope.cache
 internal const val SWB_LOG_SCOPE_ALL: Long = 21 // SWBLogScope.all
+
+// SWBAdConsentStatus (SuperwallKMPBridge.swift)
+internal const val SWB_AD_CONSENT_STATUS_GRANTED: Long = 0 // SWBAdConsentStatus.granted
+internal const val SWB_AD_CONSENT_STATUS_DENIED: Long = 1 // SWBAdConsentStatus.denied

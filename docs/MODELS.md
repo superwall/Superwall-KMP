@@ -202,3 +202,16 @@ Additions beyond the Pigeon contract picked up when the wrapper moved to the lat
 | Δ31 | — (absent) | `ProductStore.CUSTOM` | add | Present on both natives; previously degraded to `OTHER` on iOS and was unmappable on Android | APPROVED (ian@superwall.com, 2026-07-31) |
 | Δ32 | `purchase(activity, ProductDetails, …)` (Flutter host path) | Android adapter overrides 2.8.0's primary `purchase(activity, StoreProduct, …)` overload | add (behavior) | The `ProductDetails` overload is deprecated in 2.8.0 and its replacement's default implementation fails for custom-store products; overriding the new entry point routes Play AND custom products to the user's productId-based `purchaseFromGooglePlay` | APPROVED (ian@superwall.com, 2026-07-31) |
 | Δ33 | `PProduct` (paywall product slot: id, name, entitlements) | `PaywallProduct` | rename | Disambiguates from the store-level `StoreProduct` and avoids the StoreKit `Product` collision for future Swift consumers | APPROVED (ian@superwall.com, 2026-07-31) |
+
+### Native-version-bump additions (SuperwallKit iOS 4.18.0)
+
+Additions picked up when the iOS pin moved from 4.16.1 to 4.18.0. superwall-android 2.8.0 has none of these, so each is iOS-only (`@platform` KDoc) with a documented Android fallback. Same governance as above.
+
+| # | Pigeon shape | KMP shape | Category | Rationale | Sign-off |
+|---|---|---|---|---|---|
+| Δ34 | — (absent) | `Superwall.presentCustomerCenter(onDismiss)` / `suspend Superwall.dismissCustomerCenter()` | add | SuperwallKit 4.18.0 Customer Center, with the dashboard/default configuration. `CustomerCenterConfiguration` and `CustomerCenterDelegate` are not exposed yet. Android: logged warning, no-op | PENDING |
+| Δ35 | — (absent) | `AdConsent` / `AdConsentStatus`; `SuperwallOptions.adConsent: AdConsent? = null`; `Superwall.adConsent` | add | SuperwallKit 4.18.0 ad consent. The option is nullable because assigning it at all switches off the native TCF-banner fallback. Android: reads the granted defaults, ignores writes with a logged warning | PENDING |
+| Δ36 | — (absent) | `Superwall.grantedEntitlements: Set<Entitlement>` | add | SuperwallKit 4.17.0 backend-granted entitlements; only ids cross the bridge (native `Entitlement(id:)`). Android: empty set, writes ignored with a logged warning | PENDING |
+| Δ37 | — (absent) | `RedemptionInfo.userAttributes: Map<String, Any?>?` | add | SuperwallKit 4.17.0 web funnel answers; `null` on Android | PENDING |
+| Δ38 | — (absent) | `SuperwallOptions.devServer: DevServer?` (`Default` / `Url`), `PaywallInfo.isLocal: Boolean?` | add | SuperwallKit 4.17.0 `superwall dev` server for development builds; ignored on Android | PENDING |
+| Δ39 | — (absent) | `teleportOpen`/`teleportReturn`/`customerCenter*` events | add (behavior) | Delivered as `EventType.CUSTOM_PLACEMENT` with the native case name, like the other iOS-only events (`stripeCheckout*`, `paywallPageView`), rather than new `EventType` values | PENDING |

@@ -75,6 +75,7 @@ internal fun SWBRedemptionInfo.toModel(): RedemptionInfo =
         purchaserInfo = purchaserInfo().toModel(),
         paywallInfo = paywallInfo()?.toModel(),
         entitlements = entitlements().mapNotNull { (it as? SWBEntitlement)?.toModel() }.toSet(),
+        userAttributes = NSAnySanitizer.fromMapOrNull(userAttributes()),
     )
 
 internal fun SWBErrorInfo.toModel(): ErrorInfo = ErrorInfo(message = message())

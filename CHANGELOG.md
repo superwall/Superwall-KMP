@@ -6,6 +6,16 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 
 ## Enhancements
 - Updates iOS SDK to 4.18.0 [View iOS SDK release notes](https://github.com/superwall/Superwall-iOS/releases/tag/4.18.0).
+- Raises the minimum iOS version from iOS 14 to iOS 15, matching SuperwallKit 4.18.0. Building the iOS app now requires Xcode 26 (Swift 6.2) or later.
+- Adds `Superwall.presentCustomerCenter(onDismiss)` and `Superwall.dismissCustomerCenter()` to show the Customer Center, a self-service screen where users can view, restore, manage, cancel, refund and change their purchases, and contact support. iOS only; on Android these log a warning and do nothing.
+- Adds `SuperwallOptions.adConsent` and `Superwall.adConsent` to report a user's ad consent (`AdConsent` with `adUserData` and `adPersonalization`), which Superwall passes on with the conversions it uploads to Google Ads and Meta. Leave it unset to use an IAB TCF consent banner's stored answer. iOS only.
+- Adds `Superwall.grantedEntitlements` to grant entitlements from your own backend, which the SDK merges with device and web entitlements. iOS only.
+- Adds `userAttributes` to the `RedemptionInfo` passed to `didRedeemLink`, with the answers someone gave on your web paywall funnel. iOS only; `null` on Android.
+- Adds `SuperwallOptions.devServer` (`DevServer.Default` on a simulator, `DevServer.Url` on a device) to render paywalls from a running `superwall dev` server in development builds, and `PaywallInfo.isLocal`. iOS only.
+- Delivers the iOS Customer Center (`customerCenterOpen`, `customerCenterClose`, `customerCenterAction`, `customerCenterSurveyResponse`, `customerCenterRefundRequest`) and teleport (`teleportOpen`, `teleportReturn`) events to `SuperwallDelegate.handleSuperwallEvent` as `EventType.CUSTOM_PLACEMENT`, with the event name in `name` and its details in `params`.
+
+## Fixes
+- Fixes `null` values in iOS event and redemption payloads arriving as the string `"<null>"` instead of `null`.
 
 ## 0.1.1
 

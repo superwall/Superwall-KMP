@@ -9,6 +9,7 @@ import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.events.SuperwallEventInfo
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
@@ -291,6 +292,18 @@ internal interface SuperwallBridge {
     fun setSubscriptionStatus(status: SubscriptionStatus)
 
     /**
+     * The entitlements granted by the app's own backend, merged natively into
+     * the subscription status. Android returns an empty set.
+     */
+    fun getGrantedEntitlements(): Set<Entitlement>
+
+    /**
+     * Replaces the granted entitlements (empty revokes them). iOS keeps only
+     * the ids; Android ignores the call with a logged warning.
+     */
+    fun setGrantedEntitlements(entitlements: Set<Entitlement>)
+
+    /**
      * The latest subscription and entitlement info about the customer.
      * Android currently synthesizes a minimal value with a logged warning.
      */
@@ -352,7 +365,23 @@ internal interface SuperwallBridge {
     /** Toggles the loading spinner on the presented paywall. */
     fun togglePaywallSpinner(isHidden: Boolean)
 
+    /**
+     * Presents the native Customer Center. [onDismiss] is delivered on the
+     * main thread after it closes, and never when nothing was presented.
+     * Android logs a warning and does nothing.
+     */
+    fun presentCustomerCenter(onDismiss: (() -> Unit)?)
+
+    /** Dismisses the Customer Center, if presented, resuming when done. */
+    suspend fun dismissCustomerCenter()
+
     // ---- Products / misc ------------------------------------------------------
+
+    /** The user's ad consent. Android returns the granted defaults. */
+    fun getAdConsent(): AdConsent
+
+    /** Sets the user's ad consent. Android ignores it with a logged warning. */
+    fun setAdConsent(consent: AdConsent)
 
     /** The globally set product overrides by product name, if any. */
     fun getOverrideProductsByName(): Map<String, String>?
