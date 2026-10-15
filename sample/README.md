@@ -51,7 +51,7 @@ open SuperwallKMPSample.xcodeproj
 Select the SampleApp scheme + a simulator and Run. What happens on the first build:
 
 1. A pre-build script phase runs `./gradlew :sample:shared:embedAndSignAppleFrameworkForXcode`, which compiles the Kotlin `SampleShared` framework for the active configuration/SDK. Building `:superwall-kmp`'s cinterop on macOS also auto-builds `bridge/build/SuperwallKMPBridge.xcframework` from `bridge/` if missing (needs network for SPM resolution; takes several minutes once). A JDK must be visible to Xcode's build environment (`JAVA_HOME` or on `PATH`).
-2. SPM resolves the **local** `../../bridge` package (SuperwallKMPBridge built from source) and pins SuperwallKit `4.16.1` transitively. The sample uses the local source package rather than the repo-root `Package.swift` because that manifest's binary-target URL/checksum are placeholders until the first release publishes the XCFramework artifact. Do **not** add SuperwallKit separately.
+2. SPM resolves the **local** `../../bridge` package (SuperwallKMPBridge built from source) and pins SuperwallKit `4.18.0` transitively. The sample uses the local source package rather than the repo-root `Package.swift` because that manifest's binary-target URL/checksum are placeholders until the first release publishes the XCFramework artifact. Do **not** add SuperwallKit separately.
 
 This mirrors the documented consumer setup (root README → Installation → iOS): static Kotlin framework + the bridge SPM package supplying the binary the klib was compiled against.
 

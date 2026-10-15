@@ -54,6 +54,11 @@ enum SWBValueSanitizer {
       return arrayValue.compactMap { sanitizeValue($0) }
     case let setValue as Set<AnyHashable>:
       return Array(setValue).compactMap { sanitizeValue($0) }
+    case is NSNull:
+      // Kept as NSNull (→ Kotlin null), not stringified to "<null>": since
+      // SuperwallKit 4.17.0 RedemptionInfo.userAttributes uses it for a web
+      // funnel answer that was left blank.
+      return value
     default:
       return String(describing: value)
     }
@@ -315,7 +320,7 @@ public enum SWBPaywallPresentationRequestStatusReasonCase: Int {
   case subscriptionStatusTimeout = 8
 }
 
-/// Mirror of SuperwallKit.IntegrationAttribute (23 cases in SuperwallKit 4.16.1).
+/// Mirror of SuperwallKit.IntegrationAttribute (23 cases in SuperwallKit 4.18.0).
 @objc(SWBIntegrationAttribute)
 public enum SWBIntegrationAttribute: Int {
   case adjustId = 0
@@ -1012,6 +1017,8 @@ public final class SWBPaywallInfo: NSObject {
   @objc public let surveys: [SWBSurvey]
   /// Sanitized paywall state dictionary; nil when empty.
   @objc public let state: [String: Any]?
+  /// Whether the paywall was served from a local `superwall dev` server.
+  @objc public let isLocal: Bool
 
   @objc public init(
     identifier: String,
@@ -1044,7 +1051,8 @@ public final class SWBPaywallInfo: NSObject {
     localNotifications: [SWBLocalNotification],
     computedPropertyRequests: [SWBComputedPropertyRequest],
     surveys: [SWBSurvey],
-    state: [String: Any]?
+    state: [String: Any]?,
+    isLocal: Bool
   ) {
     self.identifier = identifier
     self.name = name
@@ -1077,6 +1085,7 @@ public final class SWBPaywallInfo: NSObject {
     self.computedPropertyRequests = computedPropertyRequests
     self.surveys = surveys
     self.state = state
+    self.isLocal = isLocal
     super.init()
   }
 
@@ -1121,7 +1130,8 @@ public final class SWBPaywallInfo: NSObject {
       localNotifications: native.localNotifications.map { SWBLocalNotification($0) },
       computedPropertyRequests: native.computedPropertyRequests.map { SWBComputedPropertyRequest($0) },
       surveys: native.surveys.map { SWBSurvey($0) },
-      state: native.state.isEmpty ? nil : SWBValueSanitizer.sanitize(native.state)
+      state: native.state.isEmpty ? nil : SWBValueSanitizer.sanitize(native.state),
+      isLocal: native.isLocal
     )
   }
 }
@@ -1759,17 +1769,21 @@ public final class SWBRedemptionInfo: NSObject {
   @objc public let purchaserInfo: SWBPurchaserInfo
   @objc public let paywallInfo: SWBRedemptionPaywallInfo?
   @objc public let entitlements: [SWBEntitlement]
+  /// Sanitized answers collected on the web paywall funnel; nil when it collected none.
+  @objc public let userAttributes: [String: Any]?
 
   @objc public init(
     ownership: SWBOwnership,
     purchaserInfo: SWBPurchaserInfo,
     paywallInfo: SWBRedemptionPaywallInfo?,
-    entitlements: [SWBEntitlement]
+    entitlements: [SWBEntitlement],
+    userAttributes: [String: Any]?
   ) {
     self.ownership = ownership
     self.purchaserInfo = purchaserInfo
     self.paywallInfo = paywallInfo
     self.entitlements = entitlements
+    self.userAttributes = userAttributes
     super.init()
   }
 
@@ -1830,7 +1844,8 @@ public final class SWBRedemptionInfo: NSObject {
       ownership: ownership,
       purchaserInfo: purchaserInfo,
       paywallInfo: paywallInfo,
-      entitlements: native.entitlements.map { SWBEntitlement($0) }
+      entitlements: native.entitlements.map { SWBEntitlement($0) },
+      userAttributes: SWBValueSanitizer.sanitize(native.userAttributes)
     )
   }
 }

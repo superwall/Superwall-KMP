@@ -32,6 +32,7 @@ import com.superwall.sdk.kmp.models.entitlements.Entitlements
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
@@ -264,6 +265,12 @@ internal class IosSuperwallBridge : SuperwallBridge {
         swb.setSubscriptionStatus(status.toSWB())
     }
 
+    override fun getGrantedEntitlements(): Set<Entitlement> = swb.grantedEntitlements().toEntitlementSet()
+
+    override fun setGrantedEntitlements(entitlements: Set<Entitlement>) {
+        swb.setGrantedEntitlements(entitlements.map { it.toSWB() })
+    }
+
     override suspend fun getCustomerInfo(): CustomerInfo =
         // The cinterop block signature is nullable although the Swift side
         // never passes nil; degrade an unexpected nil to an empty customer
@@ -364,7 +371,34 @@ internal class IosSuperwallBridge : SuperwallBridge {
         swb.togglePaywallSpinnerWithIsHidden(isHidden)
     }
 
+    override fun presentCustomerCenter(onDismiss: (() -> Unit)?) {
+        // SuperwallKit already calls onDismiss on main; the hop through the
+        // Main.immediate scope only adds the user-callback isolation.
+        val wrappedOnDismiss: (() -> Unit)? = onDismiss?.let { block ->
+            {
+                scope.launch {
+                    try {
+                        block()
+                    } catch (throwable: Throwable) {
+                        println("[Superwall] presentCustomerCenter onDismiss threw: $throwable")
+                    }
+                }
+            }
+        }
+        swb.presentCustomerCenterOnDismiss(wrappedOnDismiss)
+    }
+
+    override suspend fun dismissCustomerCenter() {
+        awaitVoidCompletion { swb.dismissCustomerCenter(it) }
+    }
+
     // ---- Products / misc ------------------------------------------------------
+
+    override fun getAdConsent(): AdConsent = swb.adConsent().toModel()
+
+    override fun setAdConsent(consent: AdConsent) {
+        swb.setAdConsent(consent.toSWB())
+    }
 
     override fun getOverrideProductsByName(): Map<String, String>? =
         swb.overrideProductsByName()?.entries?.mapNotNull { (key, value) ->

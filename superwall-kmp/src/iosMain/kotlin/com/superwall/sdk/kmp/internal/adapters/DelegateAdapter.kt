@@ -105,7 +105,8 @@ internal class DelegateAdapter(
     ) {
         // Unmappable native level/scope strings fall back to DEBUG/ALL with the
         // raw value preserved (BridgeListener contract). The bridge's
-        // 4.16.x-only scopes (analytics, webEntitlements) land here too.
+        // iOS-only scopes (analytics, webEntitlements, grantedEntitlements,
+        // customerCenter) land here too.
         val mappedLevel = logLevelFromRawName(level)
         val mappedScope = logScopeFromRawName(scope)
         val sanitizedInfo = NSAnySanitizer.fromMapOrNull(info).orEmpty().toMutableMap()

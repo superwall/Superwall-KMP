@@ -347,11 +347,44 @@ final class EnvelopeConstructionTests: XCTestCase {
       (.networkDecodingFail, .networkDecodingFail),
       (.customerInfoDidChange, .customerInfoDidChange),
       (.testModeModalOpen, .testModeModalOpen),
-      (.testModeModalClose, .testModeModalClose)
+      (.testModeModalClose, .testModeModalClose),
+      (.customerCenterClose, .customerCenterClose)
     ]
     for (event, expected) in cases {
       let envelope = SWBEventEnvelope(SuperwallEventInfo(event: event, params: [:]))
       XCTAssertEqual(envelope.eventType, expected, "\(event) mapped to \(envelope.eventType)")
+    }
+  }
+
+  func testTeleportReturnWithoutPaywallHasNoPaywallInfo() {
+    let envelope = SWBEventEnvelope(
+      SuperwallEventInfo(event: .teleportReturn(paywallInfo: nil), params: ["reason": "closed"])
+    )
+    XCTAssertEqual(envelope.eventType, .teleportReturn)
+    XCTAssertNil(envelope.paywallInfo)
+    XCTAssertEqual(envelope.params?["reason"] as? String, "closed")
+  }
+
+  func testCustomerCenterEventsKeepTheirPayloadInParams() {
+    let cases: [(SuperwallEvent, SWBEventType)] = [
+      (.customerCenterOpen(screen: .management, presentation: .sheet), .customerCenterOpen),
+      (.customerCenterAction(action: .refund, pathId: "refund", productId: "pro"), .customerCenterAction),
+      (
+        .customerCenterSurveyResponse(
+          surveyId: "why",
+          optionId: "price",
+          action: .manageSubscription,
+          pathId: "cancel",
+          productId: nil
+        ),
+        .customerCenterSurveyResponse
+      ),
+      (.customerCenterRefundRequest(productId: "pro", status: .success), .customerCenterRefundRequest)
+    ]
+    for (event, expected) in cases {
+      let envelope = SWBEventEnvelope(SuperwallEventInfo(event: event, params: ["path_id": "x"]))
+      XCTAssertEqual(envelope.eventType, expected, "\(event) mapped to \(envelope.eventType)")
+      XCTAssertEqual(envelope.params?["path_id"] as? String, "x")
     }
   }
 
@@ -398,6 +431,12 @@ final class ValueSanitizerTests: XCTestCase {
 
   func testNilInputStaysNil() {
     XCTAssertNil(SWBValueSanitizer.sanitize(nil))
+  }
+
+  func testNSNullStaysNSNull() {
+    let sanitized = SWBValueSanitizer.sanitize(["blank": NSNull(), "list": [NSNull(), "a"]])!
+    XCTAssertTrue(sanitized["blank"] is NSNull)
+    XCTAssertTrue((sanitized["list"] as? [Any])?.first is NSNull)
   }
 }
 
@@ -448,6 +487,37 @@ final class OptionsMappingTests: XCTestCase {
     XCTAssertEqual(native.logging.level, .error)
     XCTAssertEqual(native.logging.scopes, [.network])
   }
+
+  func testUnsetAdConsentAndDevServerKeepNativeDefaults() {
+    let native = SWBSuperwallOptions().native
+    XCTAssertEqual(native.adConsent.adUserData, .granted)
+    XCTAssertEqual(native.adConsent.adPersonalization, .granted)
+    XCTAssertNil(native.devServer)
+  }
+
+  func testAdConsentReachesNativeOptions() {
+    let options = SWBSuperwallOptions()
+    options.adConsent = SWBAdConsent(adUserData: .denied, adPersonalization: .granted)
+    let native = options.native
+    XCTAssertEqual(native.adConsent.adUserData, .denied)
+    XCTAssertEqual(native.adConsent.adPersonalization, .granted)
+  }
+
+  func testDevServerMapsToDefaultOrURL() {
+    let localhost = SWBSuperwallOptions()
+    localhost.devServerEnabled = NSNumber(value: true)
+    XCTAssertEqual(localhost.native.devServer, .default)
+
+    let device = SWBSuperwallOptions()
+    device.devServerEnabled = NSNumber(value: true)
+    device.devServerURL = "http://192.168.1.10:6100"
+    XCTAssertEqual(device.native.devServer, .url(URL(string: "http://192.168.1.10:6100")!))
+
+    let disabled = SWBSuperwallOptions()
+    disabled.devServerEnabled = NSNumber(value: false)
+    disabled.devServerURL = "http://192.168.1.10:6100"
+    XCTAssertNil(disabled.native.devServer)
+  }
 }
 
 final class ContractStabilityTests: XCTestCase {
@@ -460,7 +530,15 @@ final class ContractStabilityTests: XCTestCase {
     XCTAssertEqual(SWBEventType.transactionRestore.rawValue, 20)
     XCTAssertEqual(SWBEventType.attributionMatch.rawValue, 23)
     XCTAssertEqual(SWBEventType.paywallPageView.rawValue, 79)
+    XCTAssertEqual(SWBEventType.teleportOpen.rawValue, 80)
+    XCTAssertEqual(SWBEventType.customerCenterRefundRequest.rawValue, 86)
     XCTAssertEqual(SWBEventType.unknown.rawValue, 999)
+  }
+
+  func testAdConsentStatusRawValues() {
+    // Mirrored by SWB_AD_CONSENT_STATUS_* in SWBRawValues.kt.
+    XCTAssertEqual(SWBAdConsentStatus.granted.rawValue, 0)
+    XCTAssertEqual(SWBAdConsentStatus.denied.rawValue, 1)
   }
 
   func testStatusEnumRawValues() {
