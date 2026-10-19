@@ -12,6 +12,9 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import com.superwall.sdk.analytics.superwall.SuperwallEvent as NativeSuperwallEvent
 import com.superwall.sdk.analytics.superwall.SuperwallEventInfo as NativeSuperwallEventInfo
+import com.superwall.sdk.customercenter.CustomerCenterAction
+import com.superwall.sdk.customercenter.CustomerCenterRefundStatus
+import com.superwall.sdk.customercenter.CustomerCenterScreenType
 import com.superwall.sdk.models.customer.CustomerInfo as NativeCustomerInfo
 import com.superwall.sdk.models.triggers.Experiment as NativeExperiment
 import com.superwall.sdk.models.triggers.TriggerResult as NativeTriggerResult
@@ -299,5 +302,55 @@ class EventMapperTest {
         assertEquals(EventType.CUSTOM_PLACEMENT, denied.eventType)
         assertEquals("review_denied", denied.name)
         assertEquals(5L, denied.reviewRequestedCount)
+    }
+
+    // ---- Customer Center (superwall-android 2.8.5+) ------------------------------------
+
+    @Test
+    fun customerCenterEvents_useIosCaseNamesAndRawEventType() {
+        val expectations =
+            listOf<Pair<NativeSuperwallEvent, String>>(
+                NativeSuperwallEvent.CustomerCenterOpen(CustomerCenterScreenType.MANAGEMENT) to "customerCenterOpen",
+                NativeSuperwallEvent.CustomerCenterClose() to "customerCenterClose",
+                NativeSuperwallEvent.CustomerCenterAction(CustomerCenterAction.Restore, "path-1", null) to
+                    "customerCenterAction",
+                NativeSuperwallEvent.CustomerCenterSurveyResponse("s-1", "o-1", CustomerCenterAction.Refund, "path-1", "sku") to
+                    "customerCenterSurveyResponse",
+                NativeSuperwallEvent.CustomerCenterRefundRequest("sku", CustomerCenterRefundStatus.SUCCESS) to
+                    "customerCenterRefundRequest",
+            )
+
+        for ((native, expectedName) in expectations) {
+            val info = infoOf(native).toKmp()
+            assertEquals(EventType.CUSTOM_PLACEMENT, info.eventType)
+            assertEquals(expectedName, info.name)
+            assertEquals(expectedName, info.params?.get("rawEventType"))
+        }
+    }
+
+    @Test
+    fun customerCenterEvents_keepNativeParamsAndFillMissingPayload() {
+        val open =
+            infoOf(
+                NativeSuperwallEvent.CustomerCenterOpen(CustomerCenterScreenType.NO_PURCHASES),
+                params = mapOf("screen" to "no_purchases", "presentation" to "sheet"),
+            ).toKmp()
+        assertEquals("no_purchases", open.params?.get("screen"))
+        assertEquals("sheet", open.params?.get("presentation"))
+
+        // Native params empty: the typed payload backfills the iOS-shaped keys.
+        val refund =
+            infoOf(NativeSuperwallEvent.CustomerCenterRefundRequest("sku", CustomerCenterRefundStatus.USER_CANCELLED))
+                .toKmp()
+        assertEquals("sku", refund.params?.get("product_id"))
+        assertEquals("user_cancelled", refund.params?.get("status"))
+
+        val survey =
+            infoOf(NativeSuperwallEvent.CustomerCenterSurveyResponse("s-1", "o-1", CustomerCenterAction.Refund, "path-1", null))
+                .toKmp()
+        assertEquals("s-1", survey.params?.get("survey_id"))
+        assertEquals("o-1", survey.params?.get("option_id"))
+        assertEquals("path-1", survey.params?.get("path_id"))
+        assertNull(survey.params?.get("product_id"))
     }
 }

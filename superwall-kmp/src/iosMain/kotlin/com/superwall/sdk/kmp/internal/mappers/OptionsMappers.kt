@@ -74,8 +74,8 @@ import platform.Foundation.NSNumber
 // common options, so every SWB field is set explicitly; the SWB envelopes'
 // "nil = keep native default" convention is only exercised when the whole
 // options object is absent. Android-only members (preloadDeviceOverrides,
-// onBackPressed, passIdentifiersToPlayStore, useMockReviews) have no iOS
-// counterpart and are intentionally not mapped.
+// onBackPressed, presentationHost, passIdentifiersToPlayStore, useMockReviews)
+// have no iOS counterpart and are intentionally not mapped.
 // ---------------------------------------------------------------------------
 
 internal fun SuperwallOptions.toSWB(): SWBSuperwallOptions {

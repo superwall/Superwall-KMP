@@ -8,6 +8,7 @@ import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
 import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.AdConsentStatus
+import com.superwall.sdk.kmp.models.options.PresentationHost
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
 import com.superwall.sdk.kmp.models.results.PaywallResult
@@ -228,5 +229,11 @@ class ModelDefaultsTest {
         assertNull(info.closeReason)
         assertNull(info.state)
         assertNull(info.isLocal)
+        assertNull(info.presentationId)
+    }
+
+    @Test
+    fun paywallOptionsPresentationHostDefaultsToActivity() {
+        assertEquals(PresentationHost.ACTIVITY, SuperwallOptions().paywalls.presentationHost)
     }
 }

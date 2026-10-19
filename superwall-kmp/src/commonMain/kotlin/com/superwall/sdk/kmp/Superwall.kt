@@ -527,10 +527,13 @@ public object Superwall {
      * Only one Customer Center is presented at a time: calling this while one
      * is open is a no-op.
      *
-     * @platform iOS — on Android this logs a warning and does nothing
-     * (superwall-android has no Customer Center yet).
+     * On Android (superwall-android 2.8.5+) the Customer Center is its own
+     * activity, so the app must be in the foreground when you call this.
+     *
      * @param onDismiss Invoked on the main thread after the Customer Center is
-     * dismissed. Never invoked when nothing was presented.
+     * dismissed. On iOS it is never invoked when nothing was presented; on
+     * Android it is also invoked when the Customer Center's activity failed to
+     * start (for example when called from the background).
      */
     public fun presentCustomerCenter(onDismiss: (() -> Unit)? = null) {
         requireConfigured().presentCustomerCenter(onDismiss)

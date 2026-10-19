@@ -31,7 +31,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
 import com.superwall.sdk.Superwall as NativeSuperwall
 import com.superwall.sdk.config.models.ConfigurationStatus as NativeConfigurationStatus
 import com.superwall.sdk.config.options.SuperwallOptions as NativeSuperwallOptions
@@ -135,7 +137,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
      * Calls the static
      * `NativeSuperwall.configure(applicationContext, apiKey,
      * purchaseController, options, activityProvider, completion)`
-     * (verified signature: superwall-android 2.8.0 `Superwall.kt:526`).
+     * (verified signature: superwall-android 2.8.7 `Superwall.kt:568`).
      *
      * The `Application` comes from [ApplicationContextHolder]; when neither
      * the androidx.startup initializer nor `Superwall.androidSetup` ran, this
@@ -357,7 +359,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     /**
      * Calls the REAL native `Entitlements.byProductIds(Set<String>)` —
-     * verified present in superwall-android 2.8.0 (`store/Entitlements.kt:213`).
+     * verified present in superwall-android 2.8.7 (`store/Entitlements.kt:134`).
      * The Flutter host's local-filter stub ("Android SDK doesn't have
      * byProductIds yet") is obsolete against this SDK version.
      */
@@ -377,11 +379,11 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     /**
      * Returns the REAL native `Superwall.getCustomerInfo()` — verified present
-     * in superwall-android 2.8.0 (`Superwall.kt:245`, a synchronous StateFlow
+     * in superwall-android 2.8.7 (`Superwall.kt:286`, a synchronous StateFlow
      * read). The Flutter host's synthesized minimal stub is obsolete against
      * this SDK version.
      */
-    // superwall-android 2.8.0 has no granted entitlements (SuperwallKit iOS
+    // superwall-android 2.8.7 has no granted entitlements (SuperwallKit iOS
     // 4.17.0+ only): nothing is ever granted here, and a write is dropped
     // loudly rather than faked, since it would never reach the status.
     override fun getGrantedEntitlements(): Set<Entitlement> = emptySet()
@@ -497,15 +499,41 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     // ---- Products / misc ------------------------------------------------------
 
-    // superwall-android 2.8.0 has no Customer Center (SuperwallKit iOS 4.18.0+
-    // only). onDismiss is never invoked, matching iOS when nothing is presented.
+    /**
+     * superwall-android's `CustomerCenterManager` is main-thread-only (its
+     * session state is unsynchronized), so both calls hop onto the callback
+     * scope's `Main.immediate` — inline when the app already calls from main.
+     * The native onDismiss/completion fire on main (activity finish, or the
+     * 5 s attach timeout posted to the main looper); note that, unlike iOS,
+     * onDismiss also fires when the activity failed to start.
+     */
     override fun presentCustomerCenter(onDismiss: (() -> Unit)?) {
-        logError("presentCustomerCenter is not supported by superwall-android and was ignored.", error = null)
+        val wrappedOnDismiss =
+            onDismiss?.let { callback ->
+                {
+                    try {
+                        callback()
+                    } catch (throwable: Throwable) {
+                        logError("presentCustomerCenter onDismiss threw", throwable)
+                    }
+                }
+            }
+        callbackScope().launch {
+            NativeSuperwall.instance.presentCustomerCenter(onDismiss = wrappedOnDismiss)
+        }
     }
 
-    override suspend fun dismissCustomerCenter() = Unit
+    override suspend fun dismissCustomerCenter() {
+        withContext(Dispatchers.Main.immediate) {
+            suspendCancellableCoroutine { continuation ->
+                NativeSuperwall.instance.dismissCustomerCenter {
+                    if (continuation.isActive) continuation.resume(Unit)
+                }
+            }
+        }
+    }
 
-    // superwall-android 2.8.0 has no ad consent API (SuperwallKit iOS 4.18.0+
+    // superwall-android 2.8.7 has no ad consent API (SuperwallKit iOS 4.18.0+
     // only); the granted defaults are what the native SDK effectively reports.
     override fun getAdConsent(): AdConsent = AdConsent()
 
@@ -576,7 +604,7 @@ private fun Map<String, Any?>?.toNonNullParams(): Map<String, Any>? {
 /**
  * Maps the common [IntegrationAttribute] to the native
  * [NativeAttributionProvider], or `null` for the iOS-only
- * [IntegrationAttribute.FIREBASE_INSTALLATION_ID] (superwall-android 2.8.0
+ * [IntegrationAttribute.FIREBASE_INSTALLATION_ID] (superwall-android 2.8.7
  * has no counterpart — the caller skips it with a logged warning; the native
  * enum's extra values — META, AMPLITUDE, MIXPANEL, GOOGLE_ADS, GOOGLE_APP_SET,
  * CUSTOM — have no common counterpart and surface only through

@@ -367,8 +367,9 @@ internal interface SuperwallBridge {
 
     /**
      * Presents the native Customer Center. [onDismiss] is delivered on the
-     * main thread after it closes, and never when nothing was presented.
-     * Android logs a warning and does nothing.
+     * main thread after it closes, and never when nothing was presented
+     * (Android also delivers it when the Customer Center's activity failed to
+     * start).
      */
     fun presentCustomerCenter(onDismiss: (() -> Unit)?)
 

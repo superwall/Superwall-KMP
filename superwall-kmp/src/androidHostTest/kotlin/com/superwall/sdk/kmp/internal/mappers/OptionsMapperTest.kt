@@ -6,6 +6,7 @@ import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.Logging
 import com.superwall.sdk.kmp.models.options.NetworkEnvironment
 import com.superwall.sdk.kmp.models.options.PaywallOptions
+import com.superwall.sdk.kmp.models.options.PresentationHost
 import com.superwall.sdk.kmp.models.options.RestoreFailed
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
@@ -132,6 +133,15 @@ class OptionsMapperTest {
     }
 
     @Test
+    fun paywallOptions_presentationHost_defaultsToActivityAndMapsInWindow() {
+        assertEquals(NativePaywallOptions.PresentationHost.ACTIVITY, PaywallOptions().toNative().presentationHost)
+        assertEquals(
+            NativePaywallOptions.PresentationHost.IN_WINDOW,
+            PaywallOptions(presentationHost = PresentationHost.IN_WINDOW).toNative().presentationHost,
+        )
+    }
+
+    @Test
     fun paywallOptions_transactionBackgroundViewNone_mapsToNativeNull() {
         val native =
             PaywallOptions(transactionBackgroundView = TransactionBackgroundView.NONE).toNative()
@@ -255,6 +265,7 @@ class OptionsMapperTest {
             NativeLogScope.paywallTransactions,
             NativeLogScope.nativePurchaseController,
             NativeLogScope.deepLinks,
+            NativeLogScope.customerCenter,
         )
 
     @Test

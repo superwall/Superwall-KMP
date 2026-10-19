@@ -15,7 +15,7 @@ import com.superwall.sdk.paywall.presentation.CustomCallbackResult as NativeCust
 import com.superwall.sdk.paywall.presentation.PaywallPresentationHandler as NativePaywallPresentationHandler
 
 /**
- * A PER-REGISTRATION adapter mapping superwall-android 2.8.0's
+ * A PER-REGISTRATION adapter mapping superwall-android 2.8.7's
  * [NativePaywallPresentationHandler] callbacks onto the common
  * [PaywallPresentationHandler] closures.
  *

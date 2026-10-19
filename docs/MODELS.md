@@ -205,7 +205,7 @@ Additions beyond the Pigeon contract picked up when the wrapper moved to the lat
 
 ### Native-version-bump additions (SuperwallKit iOS 4.18.0)
 
-Additions picked up when the iOS pin moved from 4.16.1 to 4.18.0. superwall-android 2.8.0 has none of these, so each is iOS-only (`@platform` KDoc) with a documented Android fallback. Same governance as above.
+Additions picked up when the iOS pin moved from 4.16.1 to 4.18.0. superwall-android 2.8.0 had none of these, so each was added iOS-only (`@platform` KDoc) with a documented Android fallback; Δ34 and Δ39 gained Android implementations with the 2.8.7 bump below. Same governance as above.
 
 | # | Pigeon shape | KMP shape | Category | Rationale | Sign-off |
 |---|---|---|---|---|---|
@@ -215,3 +215,14 @@ Additions picked up when the iOS pin moved from 4.16.1 to 4.18.0. superwall-andr
 | Δ37 | — (absent) | `RedemptionInfo.userAttributes: Map<String, Any?>?` | add | SuperwallKit 4.17.0 web funnel answers; `null` on Android | PENDING |
 | Δ38 | — (absent) | `SuperwallOptions.devServer: DevServer?` (`Default` / `Url`), `PaywallInfo.isLocal: Boolean?` | add | SuperwallKit 4.17.0 `superwall dev` server for development builds; ignored on Android | PENDING |
 | Δ39 | — (absent) | `teleportOpen`/`teleportReturn`/`customerCenter*` events | add (behavior) | Delivered as `EventType.CUSTOM_PLACEMENT` with the native case name, like the other iOS-only events (`stripeCheckout*`, `paywallPageView`), rather than new `EventType` values | PENDING |
+
+### Native-version-bump additions (superwall-android 2.8.7)
+
+Additions picked up when the Android pin moved from 2.8.0 to 2.8.7. Same governance as above.
+
+| # | Pigeon shape | KMP shape | Category | Rationale | Sign-off |
+|---|---|---|---|---|---|
+| Δ40 | — (Android no-op, Δ34) | `presentCustomerCenter` / `dismissCustomerCenter` on Android | add (behavior) | superwall-android 2.8.5 ships the Customer Center; the Android bridge now calls it on the main thread. Unlike iOS, `onDismiss` also fires when the activity fails to start (native behaviour). `CustomerCenterConfiguration` / `CustomerCenterDelegate` still not exposed | PENDING |
+| Δ41 | — (Android fallback, Δ39) | Android `customerCenter*` events | add (behavior) | Mapped to `CUSTOM_PLACEMENT` with the **iOS** case names (`customerCenterOpen`, …) and `params["rawEventType"]` instead of the native snake_case `rawName`, so one handler covers both platforms; payload keys (`screen`, `action`, `path_id`, `product_id`, `survey_id`, `option_id`, `status`) match iOS | PENDING |
+| Δ42 | — (absent) | `PaywallOptions.presentationHost: PresentationHost` (`ACTIVITY` / `IN_WINDOW`) | add | superwall-android 2.8.6 experimental in-window hosting, for hosts that stop while covered (game engines). Android only; ignored on iOS | PENDING |
+| Δ43 | — (absent) | `PaywallInfo.presentationId: String?` | add | superwall-android 2.8.1 per-presentation id (`presentation_id`). Android only; `null` on iOS, whose bridge does not expose one | PENDING |
