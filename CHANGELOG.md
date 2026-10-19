@@ -13,6 +13,7 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 - Adds `userAttributes` to the `RedemptionInfo` passed to `didRedeemLink`, with the answers someone gave on your web paywall funnel. iOS only; `null` on Android.
 - Adds `SuperwallOptions.devServer` (`DevServer.Default` on a simulator, `DevServer.Url` on a device) to render paywalls from a running `superwall dev` server in development builds, and `PaywallInfo.isLocal`. iOS only.
 - Delivers the iOS Customer Center (`customerCenterOpen`, `customerCenterClose`, `customerCenterAction`, `customerCenterSurveyResponse`, `customerCenterRefundRequest`) and teleport (`teleportOpen`, `teleportReturn`) events to `SuperwallDelegate.handleSuperwallEvent` as `EventType.CUSTOM_PLACEMENT`, with the event name in `name` and its details in `params`.
+- Updates Android SDK to 2.8.7 [View Android SDK release notes](https://github.com/superwall/Superwall-Android/releases/tag/2.8.7).
 
 ## Fixes
 - Fixes `null` values in iOS event and redemption payloads arriving as the string `"<null>"` instead of `null`.
