@@ -233,4 +233,4 @@ Additions picked up when the Android pin moved from 2.8.7 to 2.8.8. Same governa
 
 | # | Pigeon shape | KMP shape | Category | Rationale | Sign-off |
 |---|---|---|---|---|---|
-| Δ44 | — (absent) | `IntegrationAttribute.AIRBRIDGE_ID` | add | superwall-android 2.8.8 `AttributionProvider.AIRBRIDGE_ID` (`airbridgeId`). Android-only (`@platform` KDoc): SuperwallKit iOS 4.18.1 has no counterpart, so iOS skips it with a logged warning | PENDING |
+| Δ44 | — (absent) | `IntegrationAttribute.AIRBRIDGE_ID` | add | superwall-android 2.8.8 `AttributionProvider.AIRBRIDGE_ID` (`airbridgeId`). Both platforms since SuperwallKit iOS 4.18.2 added `IntegrationAttribute.airbridgeId` (bridge `SWBIntegrationAttribute.airbridgeId` = 23); before that iOS skipped it with a logged warning | PENDING |

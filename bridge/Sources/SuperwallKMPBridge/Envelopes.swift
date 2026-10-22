@@ -320,7 +320,7 @@ public enum SWBPaywallPresentationRequestStatusReasonCase: Int {
   case subscriptionStatusTimeout = 8
 }
 
-/// Mirror of SuperwallKit.IntegrationAttribute (23 cases in SuperwallKit 4.18.1).
+/// Mirror of SuperwallKit.IntegrationAttribute (24 cases in SuperwallKit 4.18.2).
 @objc(SWBIntegrationAttribute)
 public enum SWBIntegrationAttribute: Int {
   case adjustId = 0
@@ -346,6 +346,7 @@ public enum SWBIntegrationAttribute: Int {
   case customerioId = 20
   case appstackId = 21
   case singularDeviceId = 22
+  case airbridgeId = 23
 
   /// The SuperwallKit counterpart.
   var native: IntegrationAttribute {
@@ -373,6 +374,7 @@ public enum SWBIntegrationAttribute: Int {
     case .customerioId: return .customerioId
     case .appstackId: return .appstackId
     case .singularDeviceId: return .singularDeviceId
+    case .airbridgeId: return .airbridgeId
     }
   }
 }

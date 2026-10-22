@@ -8,6 +8,7 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBEntitlementTypeServiceLevel
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEntitlements
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttribute
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeAdjustId
+import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeAirbridgeId
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeAirshipChannelId
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeAmplitudeDeviceId
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeAmplitudeUserId
@@ -267,15 +268,10 @@ internal fun SWBNonSubscriptionTransaction.toModel(): NonSubscriptionTransaction
 // Integration attributes.
 // ---------------------------------------------------------------------------
 
-/**
- * Maps a common [IntegrationAttribute] to the SWB raw value, or `null` for the
- * Android-only `AIRBRIDGE_ID` (superwall-android 2.8.8; SuperwallKit 4.18.1
- * has no counterpart, so the bridge has no case to send) — the caller skips it
- * with a logged warning.
- */
-internal fun integrationAttributeToSWB(attribute: IntegrationAttribute): SWBIntegrationAttribute? =
+/** Maps a common [IntegrationAttribute] to the SWB raw value. */
+internal fun integrationAttributeToSWB(attribute: IntegrationAttribute): SWBIntegrationAttribute =
     when (attribute) {
-        IntegrationAttribute.AIRBRIDGE_ID -> null
+        IntegrationAttribute.AIRBRIDGE_ID -> SWBIntegrationAttributeAirbridgeId
         IntegrationAttribute.FIREBASE_INSTALLATION_ID -> SWBIntegrationAttributeFirebaseInstallationId
         IntegrationAttribute.SINGULAR_DEVICE_ID -> SWBIntegrationAttributeSingularDeviceId
         IntegrationAttribute.ADJUST_ID -> SWBIntegrationAttributeAdjustId

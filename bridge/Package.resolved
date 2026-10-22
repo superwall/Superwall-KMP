@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/superwall/Superwall-iOS",
       "state" : {
-        "revision" : "897c3d1cfcc7e0343cdd7ba2631571ca1e7cef6e",
-        "version" : "4.18.1"
+        "revision" : "745b272d2715d2f4b88a086a0d4706637db73f7d",
+        "version" : "4.18.2"
       }
     }
   ],

@@ -400,6 +400,26 @@ final class EnvelopeConstructionTests: XCTestCase {
   }
 }
 
+final class IntegrationAttributeMappingTests: XCTestCase {
+  /// Raw values are contiguous from 0, so walking them covers the whole mirror;
+  /// a native case added without a mirror case fails here.
+  func testMirrorCoversEveryNativeCase() {
+    var natives: [IntegrationAttribute] = []
+    var raw = 0
+    while let attribute = SWBIntegrationAttribute(rawValue: raw) {
+      natives.append(attribute.native)
+      raw += 1
+    }
+    XCTAssertEqual(natives.count, IntegrationAttribute.allCases.count)
+    XCTAssertEqual(Set(natives), Set(IntegrationAttribute.allCases))
+  }
+
+  func testAirbridgeIdMapsToNative() {
+    XCTAssertEqual(SWBIntegrationAttribute.airbridgeId.rawValue, 23)
+    XCTAssertEqual(SWBIntegrationAttribute.airbridgeId.native, .airbridgeId)
+  }
+}
+
 final class ValueSanitizerTests: XCTestCase {
   func testPassThroughBasicTypes() {
     let sanitized = SWBValueSanitizer.sanitize([

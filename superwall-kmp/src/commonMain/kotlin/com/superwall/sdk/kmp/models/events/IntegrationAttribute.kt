@@ -12,8 +12,7 @@ public enum class IntegrationAttribute {
     /**
      * The Airbridge Device ID, from `Airbridge.fetchDeviceUUID`.
      *
-     * @platform Android-only: SuperwallKit iOS 4.18.1 has no counterpart;
-     * setting it on iOS is skipped with a logged warning.
+     * Kept when you reset or identify a different user.
      */
     AIRBRIDGE_ID,
 
