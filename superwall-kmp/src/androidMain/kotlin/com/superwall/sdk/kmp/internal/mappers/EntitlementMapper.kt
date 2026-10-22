@@ -21,7 +21,7 @@ import com.superwall.sdk.store.abstractions.product.receipt.LatestSubscriptionSt
 /**
  * Entitlement-family mappers. Unlike the Flutter host (which flattened
  * entitlements to `{id, type}` and hardcoded `isActive = true`), these map the
- * FULL superwall-android 2.8.7 [NativeEntitlement] — all 13 device-enriched
+ * FULL superwall-android 2.8.8 [NativeEntitlement] — all 13 device-enriched
  * fields — with epoch-millisecond `Date`s converted to [kotlin.time.Instant]
  *.
  */

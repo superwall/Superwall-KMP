@@ -137,7 +137,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
      * Calls the static
      * `NativeSuperwall.configure(applicationContext, apiKey,
      * purchaseController, options, activityProvider, completion)`
-     * (verified signature: superwall-android 2.8.7 `Superwall.kt:568`).
+     * (verified signature: superwall-android 2.8.8 `Superwall.kt:568`).
      *
      * The `Application` comes from [ApplicationContextHolder]; when neither
      * the androidx.startup initializer nor `Superwall.androidSetup` ran, this
@@ -359,7 +359,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     /**
      * Calls the REAL native `Entitlements.byProductIds(Set<String>)` —
-     * verified present in superwall-android 2.8.7 (`store/Entitlements.kt:134`).
+     * verified present in superwall-android 2.8.8 (`store/Entitlements.kt:134`).
      * The Flutter host's local-filter stub ("Android SDK doesn't have
      * byProductIds yet") is obsolete against this SDK version.
      */
@@ -379,11 +379,11 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     /**
      * Returns the REAL native `Superwall.getCustomerInfo()` — verified present
-     * in superwall-android 2.8.7 (`Superwall.kt:286`, a synchronous StateFlow
+     * in superwall-android 2.8.8 (`Superwall.kt:286`, a synchronous StateFlow
      * read). The Flutter host's synthesized minimal stub is obsolete against
      * this SDK version.
      */
-    // superwall-android 2.8.7 has no granted entitlements (SuperwallKit iOS
+    // superwall-android 2.8.8 has no granted entitlements (SuperwallKit iOS
     // 4.17.0+ only): nothing is ever granted here, and a write is dropped
     // loudly rather than faked, since it would never reach the status.
     override fun getGrantedEntitlements(): Set<Entitlement> = emptySet()
@@ -533,7 +533,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         }
     }
 
-    // superwall-android 2.8.7 has no ad consent API (SuperwallKit iOS 4.18.0+
+    // superwall-android 2.8.8 has no ad consent API (SuperwallKit iOS 4.18.0+
     // only); the granted defaults are what the native SDK effectively reports.
     override fun getAdConsent(): AdConsent = AdConsent()
 
@@ -604,17 +604,18 @@ private fun Map<String, Any?>?.toNonNullParams(): Map<String, Any>? {
 /**
  * Maps the common [IntegrationAttribute] to the native
  * [NativeAttributionProvider], or `null` for the iOS-only
- * [IntegrationAttribute.FIREBASE_INSTALLATION_ID] (superwall-android 2.8.7
+ * [IntegrationAttribute.FIREBASE_INSTALLATION_ID] (superwall-android 2.8.8
  * has no counterpart — the caller skips it with a logged warning; the native
  * enum's extra values — META, AMPLITUDE, MIXPANEL, GOOGLE_ADS, GOOGLE_APP_SET,
  * CUSTOM — have no common counterpart and surface only through
  * [toKmpIntegrationAttribute] as `null`).
  */
-private fun IntegrationAttribute.toNativeAttributionProvider(): NativeAttributionProvider? =
+internal fun IntegrationAttribute.toNativeAttributionProvider(): NativeAttributionProvider? =
     when (this) {
         IntegrationAttribute.FIREBASE_INSTALLATION_ID -> null
         IntegrationAttribute.SINGULAR_DEVICE_ID -> NativeAttributionProvider.SINGULAR_DEVICE_ID
         IntegrationAttribute.ADJUST_ID -> NativeAttributionProvider.ADJUST_ID
+        IntegrationAttribute.AIRBRIDGE_ID -> NativeAttributionProvider.AIRBRIDGE_ID
         IntegrationAttribute.AMPLITUDE_DEVICE_ID -> NativeAttributionProvider.AMPLITUDE_DEVICE_ID
         IntegrationAttribute.AMPLITUDE_USER_ID -> NativeAttributionProvider.AMPLITUDE_USER_ID
         IntegrationAttribute.APPSFLYER_ID -> NativeAttributionProvider.APPSFLYER_ID
@@ -642,10 +643,11 @@ private fun IntegrationAttribute.toNativeAttributionProvider(): NativeAttributio
  * Maps a native provider back to the common enum, or `null` when the native
  * value has no common counterpart (dropped — degrade, never crash).
  */
-private fun NativeAttributionProvider.toKmpIntegrationAttribute(): IntegrationAttribute? =
+internal fun NativeAttributionProvider.toKmpIntegrationAttribute(): IntegrationAttribute? =
     when (this) {
         NativeAttributionProvider.SINGULAR_DEVICE_ID -> IntegrationAttribute.SINGULAR_DEVICE_ID
         NativeAttributionProvider.ADJUST_ID -> IntegrationAttribute.ADJUST_ID
+        NativeAttributionProvider.AIRBRIDGE_ID -> IntegrationAttribute.AIRBRIDGE_ID
         NativeAttributionProvider.AMPLITUDE_DEVICE_ID -> IntegrationAttribute.AMPLITUDE_DEVICE_ID
         NativeAttributionProvider.AMPLITUDE_USER_ID -> IntegrationAttribute.AMPLITUDE_USER_ID
         NativeAttributionProvider.APPSFLYER_ID -> IntegrationAttribute.APPSFLYER_ID

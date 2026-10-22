@@ -14,7 +14,7 @@ import com.superwall.sdk.delegate.subscription_controller.PurchaseController as 
 import com.superwall.sdk.store.abstractions.product.StoreProduct as NativeStoreProduct
 
 /**
- * Adapts the user's common [PurchaseController] to superwall-android 2.8.7's
+ * Adapts the user's common [PurchaseController] to superwall-android 2.8.8's
  * [NativePurchaseController].
  *
  * Both sides are suspend functions, so — unlike the Flutter host's
@@ -36,7 +36,7 @@ internal class PurchaseControllerAdapter(
     private val log: (message: String, error: Throwable?) -> Unit,
 ) : NativePurchaseController {
     /**
-     * Overrides superwall-android 2.8.7's primary entry point (the
+     * Overrides superwall-android 2.8.8's primary entry point (the
      * `StoreProduct` overload). Its interface default fails for custom-store
      * products and routes Play products to the deprecated `ProductDetails`
      * overload — overriding here instead means BOTH Play and custom products

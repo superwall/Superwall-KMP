@@ -9,6 +9,14 @@ public enum class IntegrationAttribute {
     /** The unique Adjust identifier for the user. */
     ADJUST_ID,
 
+    /**
+     * The Airbridge Device ID, from `Airbridge.fetchDeviceUUID`.
+     *
+     * @platform Android-only: SuperwallKit iOS 4.18.1 has no counterpart;
+     * setting it on iOS is skipped with a logged warning.
+     */
+    AIRBRIDGE_ID,
+
     /** The Amplitude device identifier. */
     AMPLITUDE_DEVICE_ID,
 

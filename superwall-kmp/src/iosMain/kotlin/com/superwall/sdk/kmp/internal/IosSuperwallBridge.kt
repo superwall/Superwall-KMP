@@ -216,14 +216,29 @@ internal class IosSuperwallBridge : SuperwallBridge {
         attribute: IntegrationAttribute,
         value: String?,
     ) {
-        swb.setIntegrationAttribute(integrationAttributeToSWB(attribute), value)
+        val swbAttribute = integrationAttributeToSWB(attribute)
+        if (swbAttribute == null) {
+            warnUnsupportedIntegrationAttribute(attribute)
+            return
+        }
+        swb.setIntegrationAttribute(swbAttribute, value)
     }
 
     override fun setIntegrationAttributes(attributes: Map<IntegrationAttribute, String?>) {
-        val swbAttributes: Map<Any?, Any> = attributes.entries.associate { (attribute, value) ->
-            NSNumber(long = integrationAttributeToSWB(attribute)) as Any? to (value ?: NSNull())
+        val swbAttributes = LinkedHashMap<Any?, Any>()
+        for ((attribute, value) in attributes) {
+            val swbAttribute = integrationAttributeToSWB(attribute)
+            if (swbAttribute == null) {
+                warnUnsupportedIntegrationAttribute(attribute)
+                continue
+            }
+            swbAttributes[NSNumber(long = swbAttribute)] = value ?: NSNull()
         }
         swb.setIntegrationAttributes(swbAttributes)
+    }
+
+    private fun warnUnsupportedIntegrationAttribute(attribute: IntegrationAttribute) {
+        warn("Integration attribute ${attribute.name} is not supported by SuperwallKit and was skipped.")
     }
 
     override fun getIntegrationAttributes(): Map<IntegrationAttribute, String?> {

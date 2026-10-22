@@ -268,13 +268,14 @@ internal fun SWBNonSubscriptionTransaction.toModel(): NonSubscriptionTransaction
 // ---------------------------------------------------------------------------
 
 /**
- * Maps a common [IntegrationAttribute] to the SWB raw value. Every common
- * value has a SuperwallKit counterpart on iOS (including
- * `FIREBASE_INSTALLATION_ID` and `SINGULAR_DEVICE_ID`, which are Android-gaps
- * in the other direction).
+ * Maps a common [IntegrationAttribute] to the SWB raw value, or `null` for the
+ * Android-only `AIRBRIDGE_ID` (superwall-android 2.8.8; SuperwallKit 4.18.1
+ * has no counterpart, so the bridge has no case to send) — the caller skips it
+ * with a logged warning.
  */
-internal fun integrationAttributeToSWB(attribute: IntegrationAttribute): SWBIntegrationAttribute =
+internal fun integrationAttributeToSWB(attribute: IntegrationAttribute): SWBIntegrationAttribute? =
     when (attribute) {
+        IntegrationAttribute.AIRBRIDGE_ID -> null
         IntegrationAttribute.FIREBASE_INSTALLATION_ID -> SWBIntegrationAttributeFirebaseInstallationId
         IntegrationAttribute.SINGULAR_DEVICE_ID -> SWBIntegrationAttributeSingularDeviceId
         IntegrationAttribute.ADJUST_ID -> SWBIntegrationAttributeAdjustId

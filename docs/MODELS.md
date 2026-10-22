@@ -226,3 +226,11 @@ Additions picked up when the Android pin moved from 2.8.0 to 2.8.7. Same governa
 | Δ41 | — (Android fallback, Δ39) | Android `customerCenter*` events | add (behavior) | Mapped to `CUSTOM_PLACEMENT` with the **iOS** case names (`customerCenterOpen`, …) and `params["rawEventType"]` instead of the native snake_case `rawName`, so one handler covers both platforms; payload keys (`screen`, `action`, `path_id`, `product_id`, `survey_id`, `option_id`, `status`) match iOS | PENDING |
 | Δ42 | — (absent) | `PaywallOptions.presentationHost: PresentationHost` (`ACTIVITY` / `IN_WINDOW`) | add | superwall-android 2.8.6 experimental in-window hosting, for hosts that stop while covered (game engines). Android only; ignored on iOS | PENDING |
 | Δ43 | — (absent) | `PaywallInfo.presentationId: String?` | add | superwall-android 2.8.1 per-presentation id (`presentation_id`). Android only; `null` on iOS, whose bridge does not expose one | PENDING |
+
+### Native-version-bump additions (superwall-android 2.8.8)
+
+Additions picked up when the Android pin moved from 2.8.7 to 2.8.8. Same governance as above.
+
+| # | Pigeon shape | KMP shape | Category | Rationale | Sign-off |
+|---|---|---|---|---|---|
+| Δ44 | — (absent) | `IntegrationAttribute.AIRBRIDGE_ID` | add | superwall-android 2.8.8 `AttributionProvider.AIRBRIDGE_ID` (`airbridgeId`). Android-only (`@platform` KDoc): SuperwallKit iOS 4.18.1 has no counterpart, so iOS skips it with a logged warning | PENDING |
