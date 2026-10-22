@@ -6,8 +6,8 @@
 //  and the internal SuperwallDelegate that subscribes to Superwall.shared and forwards.
 //
 //  The event switch is a faithful port of the Flutter host's
-//  SuperwallDelegateHost.handleSuperwallEvent (~70 cases in 4.14; 80 in SuperwallKit
-// 4.16.2), with the Flutter mislabels FIXED per
+//  SuperwallDelegateHost.handleSuperwallEvent (~70 cases in 4.14; 87 in SuperwallKit
+// 4.18.2), with the Flutter mislabels FIXED per
 //  - transactionRestore is its own event type (Flutter mislabeled it transactionComplete)
 //  - transactionComplete carries transaction, product AND type (Flutter dropped type)
 //  - nonRecurringProductPurchase carries the TransactionProduct id (Flutter dropped it)
@@ -22,7 +22,7 @@ import SuperwallKit
 
 // MARK: - Event type
 
-/// One value per SuperwallKit.SuperwallEvent case (SuperwallKit 4.16.1: 80 cases),
+/// One value per SuperwallKit.SuperwallEvent case (SuperwallKit 4.18.2: 87 cases),
 /// plus `.unknown` for forward compatibility with future SDK cases
 /// (degrade-never-crash; the raw case description lands in `SWBEventEnvelope.name`).
 @objc(SWBEventType)
@@ -107,6 +107,13 @@ public enum SWBEventType: Int {
   case testModeModalOpen = 77
   case testModeModalClose = 78
   case paywallPageView = 79
+  case teleportOpen = 80
+  case teleportReturn = 81
+  case customerCenterOpen = 82
+  case customerCenterClose = 83
+  case customerCenterAction = 84
+  case customerCenterSurveyResponse = 85
+  case customerCenterRefundRequest = 86
   /// A SuperwallEvent case this bridge build does not know (forward compat).
   case unknown = 999
 }
@@ -124,7 +131,8 @@ public final class SWBEventEnvelope: NSObject {
   /// The sanitized analytics params of the event (SuperwallEventInfo.params).
   @objc public let params: [String: Any]?
   /// paywallOpen/Close/Decline, transaction*, subscriptionStart, freeTrialStart,
-  /// paywall*Load*, surveyResponse, customPlacement, stripeCheckout*, paywallPageView.
+  /// paywall*Load*, surveyResponse, customPlacement, stripeCheckout*, paywallPageView,
+  /// teleportOpen, teleportReturn (nil when no paywall was presented).
   @objc public let paywallInfo: SWBPaywallInfo?
   /// transactionComplete (may be nil when a PurchaseController hid the transaction).
   @objc public let transaction: SWBStoreTransaction?
@@ -637,6 +645,24 @@ public final class SWBEventEnvelope: NSObject {
         paywallInfo: SWBPaywallInfo(paywallInfo),
         pageViewData: SWBPageViewData(data)
       )
+    case .teleportOpen(let paywallInfo):
+      self.init(.teleportOpen, params: params, paywallInfo: SWBPaywallInfo(paywallInfo))
+    case .teleportReturn(let paywallInfo):
+      self.init(.teleportReturn, params: params, paywallInfo: paywallInfo.map { SWBPaywallInfo($0) })
+    // The Customer Center cases carry Swift-only payload types (CustomerCenterAction,
+    // CustomerCenterScreenType). SuperwallKit already flattens every associated value
+    // into `params` (screen, presentation, action, path_id, product_id, survey_id,
+    // option_id, status, url, custom_identifier), so the envelope adds no fields.
+    case .customerCenterOpen:
+      self.init(.customerCenterOpen, params: params)
+    case .customerCenterClose:
+      self.init(.customerCenterClose, params: params)
+    case .customerCenterAction:
+      self.init(.customerCenterAction, params: params)
+    case .customerCenterSurveyResponse:
+      self.init(.customerCenterSurveyResponse, params: params)
+    case .customerCenterRefundRequest:
+      self.init(.customerCenterRefundRequest, params: params)
     @unknown default:
       self.init(.unknown, params: params, name: String(describing: info.event))
     }

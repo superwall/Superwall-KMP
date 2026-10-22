@@ -58,7 +58,7 @@ public enum SWBTransactionBackgroundView: Int {
   case none = 1
 }
 
-/// Mirror of SuperwallKit.LogScope (all 24 cases in 4.16.1).
+/// Mirror of SuperwallKit.LogScope (all 26 cases in 4.18.2).
 @objc(SWBLogScope)
 public enum SWBLogScope: Int {
   case localizationManager = 0
@@ -85,6 +85,8 @@ public enum SWBLogScope: Int {
   case all = 21
   case analytics = 22
   case webEntitlements = 23
+  case grantedEntitlements = 24
+  case customerCenter = 25
 
   var native: LogScope {
     switch self {
@@ -112,7 +114,56 @@ public enum SWBLogScope: Int {
     case .all: return .all
     case .analytics: return .analytics
     case .webEntitlements: return .webEntitlements
+    case .grantedEntitlements: return .grantedEntitlements
+    case .customerCenter: return .customerCenter
     }
+  }
+}
+
+/// Mirror of SuperwallKit.AdConsentStatus.
+@objc(SWBAdConsentStatus)
+public enum SWBAdConsentStatus: Int {
+  case granted = 0
+  case denied = 1
+
+  var native: AdConsentStatus {
+    switch self {
+    case .granted: return .granted
+    case .denied: return .denied
+    }
+  }
+
+  init(_ native: AdConsentStatus) {
+    switch native {
+    case .granted: self = .granted
+    case .denied: self = .denied
+    @unknown default: self = .granted
+    }
+  }
+}
+
+/// Flat copy of SuperwallKit.AdConsent, used both as a configure option and for
+/// the runtime `adConsent` property.
+@objc(SWBAdConsent)
+public final class SWBAdConsent: NSObject {
+  @objc public let adUserData: SWBAdConsentStatus
+  @objc public let adPersonalization: SWBAdConsentStatus
+
+  @objc public init(adUserData: SWBAdConsentStatus, adPersonalization: SWBAdConsentStatus) {
+    self.adUserData = adUserData
+    self.adPersonalization = adPersonalization
+    super.init()
+  }
+
+  convenience init(_ native: AdConsent) {
+    self.init(
+      adUserData: SWBAdConsentStatus(native.adUserData),
+      adPersonalization: SWBAdConsentStatus(native.adPersonalization)
+    )
+  }
+
+  var native: AdConsent {
+    return AdConsent(adUserData: adUserData.native, adPersonalization: adPersonalization.native)
   }
 }
 
@@ -182,6 +233,15 @@ public final class SWBSuperwallOptions: NSObject {
   /// iOS-only option.
   @objc public var maxConfigRetryCount: NSNumber?
   @objc public var logging: SWBLoggingOptions?
+  /// nil = never assigned. Deliberately not defaulted: assigning SuperwallKit's
+  /// `adConsent` at all — even to the granted default — switches off its
+  /// fallback to a TCF consent banner's stored answer.
+  @objc public var adConsent: SWBAdConsent?
+  /// iOS-only option. Bool NSNumber; true connects to a `superwall dev` server —
+  /// at `devServerURL` when set, otherwise found on localhost (`.default`).
+  @objc public var devServerEnabled: NSNumber?
+  /// iOS-only option; read only when `devServerEnabled` is true.
+  @objc public var devServerURL: String?
 
   @objc public override init() {
     super.init()
@@ -290,6 +350,20 @@ public final class SWBSuperwallOptions: NSObject {
     }
     if let value = maxConfigRetryCount {
       options.maxConfigRetryCount = value.intValue
+    }
+    if let adConsent = adConsent {
+      options.adConsent = adConsent.native
+    }
+    if devServerEnabled?.boolValue == true {
+      if let devServerURL = devServerURL {
+        // An unparseable URL leaves the dev server off rather than silently
+        // falling back to localhost discovery, which would hide the typo.
+        if let url = URL(string: devServerURL) {
+          options.devServer = .url(url)
+        }
+      } else {
+        options.devServer = .default
+      }
     }
     if let logging = logging {
       if let level = logging.level,
@@ -627,7 +701,9 @@ public final class SWBSuperwallBridge: NSObject {
   }
 
   /// Subscribes to subscription-status changes via Combine. Emits the current
-  /// value immediately, then every change, on the publisher's queue (main).
+  /// value immediately, then every change. Since SuperwallKit 4.18.0 emissions
+  /// arrive on the thread that changed the status, often a background one —
+  /// the Kotlin side writes them into a thread-safe StateFlow, so no hop here.
   /// Cancel via the returned token; the token is retained by the caller.
   @objc public func observeSubscriptionStatus(
     _ onChange: @escaping (SWBSubscriptionStatus) -> Void
@@ -637,6 +713,21 @@ public final class SWBSuperwallBridge: NSObject {
         onChange(SWBSubscriptionStatus(status))
       }
     return SWBObservation { cancellable.cancel() }
+  }
+
+  /// Entitlements granted by the app's own backend, merged by SuperwallKit into
+  /// the subscription status. Only ids survive the round-trip in (the native
+  /// `Entitlement(id:)` initializer — active, service level), like
+  /// setSubscriptionStatus.
+  @objc public var grantedEntitlements: [SWBEntitlement] {
+    get { return Superwall.shared.grantedEntitlements.map { SWBEntitlement($0) } }
+    set { Superwall.shared.grantedEntitlements = Set(newValue.map { Entitlement(id: $0.id) }) }
+  }
+
+  /// The user's advertising consent, reported with uploaded conversions.
+  @objc public var adConsent: SWBAdConsent {
+    get { return SWBAdConsent(Superwall.shared.adConsent) }
+    set { Superwall.shared.adConsent = newValue.native }
   }
 
   /// Async snapshot of the customer info.
@@ -768,6 +859,27 @@ public final class SWBSuperwallBridge: NSObject {
   /// Preloads paywalls for the given placement names.
   @objc public func preloadPaywalls(placements: [String]) {
     Superwall.shared.preloadPaywalls(forPlacements: Set(placements))
+  }
+
+  /// Presents the Customer Center from the top-most view controller, configured
+  /// by SuperwallKit's default `SuperwallOptions.customerCenter`. A no-op (and
+  /// `onDismiss` never fires) when one is already presented or there is no view
+  /// controller to present from. `onDismiss` fires on main after dismissal.
+  @objc(presentCustomerCenterOnDismiss:)
+  public func presentCustomerCenter(onDismiss: (() -> Void)?) {
+    // presentCustomerCenter is @MainActor and Kotlin may call from any thread.
+    Task { @MainActor in
+      Superwall.shared.presentCustomerCenter(onDismiss: onDismiss)
+    }
+  }
+
+  /// Dismisses the Customer Center, if presented. Completion always fires (on
+  /// main), immediately when none is presented.
+  @objc(dismissCustomerCenter:)
+  public func dismissCustomerCenter(_ completion: (() -> Void)?) {
+    Task { @MainActor in
+      Superwall.shared.dismissCustomerCenter(completion: completion)
+    }
   }
 
   /// Shows/hides the paywall's transaction spinner.

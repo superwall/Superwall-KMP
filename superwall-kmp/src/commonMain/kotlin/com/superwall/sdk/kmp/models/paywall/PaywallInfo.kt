@@ -76,4 +76,15 @@ public data class PaywallInfo(
      * dynamic state information from the paywall.
      */
     val state: Map<String, Any?>? = null,
+    /**
+     * Whether the paywall was served from a local `superwall dev` server (see
+     * `SuperwallOptions.devServer`). iOS only — always `null` on Android.
+     */
+    val isLocal: Boolean? = null,
+    /**
+     * A unique id minted for each presentation of this paywall, carried by every
+     * paywall event between one `paywall_open` and the next (`presentation_id`).
+     * Android only (superwall-android 2.8.1+) — always `null` on iOS.
+     */
+    val presentationId: String? = null,
 )

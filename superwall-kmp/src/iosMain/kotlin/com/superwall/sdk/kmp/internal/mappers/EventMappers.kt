@@ -19,6 +19,11 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeConfigFail
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeConfigRefresh
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeConfirmAllAssignments
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeCustomPlacement
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeCustomerCenterAction
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeCustomerCenterClose
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeCustomerCenterOpen
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeCustomerCenterRefundRequest
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeCustomerCenterSurveyResponse
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeCustomerInfoDidChange
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeDeepLink
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeDeviceAttributes
@@ -75,6 +80,8 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeSubscriptionStart
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeSubscriptionStatusDidChange
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeSurveyClose
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeSurveyResponse
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeTeleportOpen
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeTeleportReturn
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeTestModeModalClose
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeTestModeModalOpen
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeTouchesBegan
@@ -96,7 +103,7 @@ import platform.Foundation.NSNumber
 
 /**
  * Maps the typed `SWBEventEnvelope` — the Swift bridge's destructuring of all
- * 80 SuperwallKit 4.16.1 event cases — into the common [SuperwallEventInfo].
+ * 87 SuperwallKit 4.18.2 event cases — into the common [SuperwallEventInfo].
  *
  * The envelope is flat and sparse, so the payload copy is uniform; only the
  * event-type discriminator needs a mapping. Two fidelity notes:
@@ -105,7 +112,8 @@ import platform.Foundation.NSNumber
  *   transactionProductId, permissionName, paywallIdentifier, paywallCount,
  *   attributionMatch, pageViewData) are preserved inside [SuperwallEventInfo.params].
  * - SWB event types with no common [EventType] counterpart (attributionMatch,
- *   stripeCheckout*, testModeModal*, paywallPageView, unknown) degrade to
+ *   stripeCheckout*, testModeModal*, paywallPageView, teleportOpen/Return,
+ *   customerCenter*, unknown) degrade to
  *   [EventType.CUSTOM_PLACEMENT] — the common surface's generic named-event
  *   envelope — with the raw case name in [SuperwallEventInfo.name] and under
  * `params["rawEventType"]` (degrade, never crash).
@@ -235,7 +243,7 @@ internal fun eventTypeFromSWB(value: SWBEventType): EventType? =
         SWBEventTypePermissionDenied -> EventType.PERMISSION_DENIED
         SWBEventTypePaywallPreloadStart -> EventType.PAYWALL_PRELOAD_START
         SWBEventTypePaywallPreloadComplete -> EventType.PAYWALL_PRELOAD_COMPLETE
-        // No common EventType counterpart (4.16.x-only cases + forward-compat
+        // No common EventType counterpart (iOS-only cases + forward-compat
         // unknown): fall through to the CUSTOM_PLACEMENT gap handling.
         else -> null
     }
@@ -251,6 +259,15 @@ private fun rawEventNameForSWB(value: SWBEventType, envelopeName: String?): Stri
         SWBEventTypeTestModeModalOpen -> "testModeModalOpen"
         SWBEventTypeTestModeModalClose -> "testModeModalClose"
         SWBEventTypePaywallPageView -> "paywallPageView"
+        SWBEventTypeTeleportOpen -> "teleportOpen"
+        SWBEventTypeTeleportReturn -> "teleportReturn"
+        // The Customer Center payload (screen, action, path_id, survey_id,
+        // status, …) is already flattened into params by SuperwallKit.
+        SWBEventTypeCustomerCenterOpen -> "customerCenterOpen"
+        SWBEventTypeCustomerCenterClose -> "customerCenterClose"
+        SWBEventTypeCustomerCenterAction -> "customerCenterAction"
+        SWBEventTypeCustomerCenterSurveyResponse -> "customerCenterSurveyResponse"
+        SWBEventTypeCustomerCenterRefundRequest -> "customerCenterRefundRequest"
         else -> envelopeName ?: "unknown"
     }
 

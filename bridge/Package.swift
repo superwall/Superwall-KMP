@@ -8,7 +8,9 @@ import PackageDescription
 let package = Package(
   name: "SuperwallKMPBridge",
   platforms: [
-    .iOS(.v14)
+    // SuperwallKit 4.18.2 requires iOS 15; SPM rejects a dependent that
+    // declares a lower minimum than its dependency.
+    .iOS(.v15)
   ],
   products: [
     .library(
@@ -23,7 +25,7 @@ let package = Package(
   dependencies: [
     // Exact pin — consumers must not be able to drift SuperwallKit independently
     // of the bridge.
-    .package(url: "https://github.com/superwall/Superwall-iOS", exact: "4.16.1")
+    .package(url: "https://github.com/superwall/Superwall-iOS", exact: "4.18.2")
   ],
   targets: [
     .target(

@@ -25,7 +25,8 @@ import PackageDescription
 let package = Package(
     name: "SuperwallKMPBridge",
     platforms: [
-        .iOS(.v14)
+        // SuperwallKit 4.18.2 requires iOS 15; must not be lower than that.
+        .iOS(.v15)
     ],
     products: [
         .library(
@@ -37,7 +38,7 @@ let package = Package(
         // Exact pin — MUST stay in lockstep with bridge/Package.swift so the
         // binary artifact and the transitively-resolved SuperwallKit can never
         // drift apart ("Version pins, two layers").
-        .package(url: "https://github.com/superwall/Superwall-iOS", exact: "4.16.1")
+        .package(url: "https://github.com/superwall/Superwall-iOS", exact: "4.18.2")
     ],
     targets: [
         // The prebuilt @objc bridge, attached to each GitHub release.

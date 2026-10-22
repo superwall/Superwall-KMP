@@ -7,6 +7,7 @@ import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.Logging
 import com.superwall.sdk.kmp.models.options.NetworkEnvironment
 import com.superwall.sdk.kmp.models.options.PaywallOptions
+import com.superwall.sdk.kmp.models.options.PresentationHost
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.options.TestModeBehavior
 import com.superwall.sdk.kmp.models.options.TransactionBackgroundView
@@ -28,9 +29,9 @@ import com.superwall.sdk.store.testmode.TestModeBehavior as NativeTestModeBehavi
  * - `enableExperimentalDeviceVariables` is actually wired (dead in the
  * Flutter layer).
  * - iOS-only options (`shouldBypassAppTransactionCheck`, `maxConfigRetryCount`,
- *   `shouldShowWebRestorationAlert`, `shouldShowWebPurchaseConfirmationAlert`,
+ *   `adConsent`, `devServer`, `shouldShowWebRestorationAlert`, `shouldShowWebPurchaseConfirmationAlert`,
  *   `transactionBackgroundView` semantics aside) are documented no-ops here
- *   because superwall-android 2.8.0 has no equivalent fields.
+ *   because superwall-android 2.8.8 has no equivalent fields.
  *
  * `PaywallOptions.onBackPressed` is deliberately NOT wired here: the bridge
  * installs an `OnBackPressedAdapter` on the returned native options so the
@@ -46,7 +47,7 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
                 NativeSuperwallOptions.NetworkEnvironment.ReleaseCandidate()
             NetworkEnvironment.DEVELOPER -> NativeSuperwallOptions.NetworkEnvironment.Developer()
         }
-    // Native 2.8.0 derives isExternalDataCollectionEnabled FROM
+    // Native 2.8.8 derives isExternalDataCollectionEnabled FROM
     // eventTrackingBehavior (the boolean setter rewrites the behavior), so
     // order and precedence matter: apply the deprecated boolean first, then
     // let a non-default typed behavior win. ALL is the common default and is
@@ -63,8 +64,8 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
     native.shouldObservePurchases = shouldObservePurchases
     native.useMockReviews = useMockReviews
     native.logging = logging.toNative()
-    // shouldBypassAppTransactionCheck / maxConfigRetryCount: iOS-only, no
-    // superwall-android counterpart — documented no-op.
+    // shouldBypassAppTransactionCheck / maxConfigRetryCount / adConsent /
+    // devServer: iOS-only, no superwall-android counterpart — documented no-op.
     return native
 }
 
@@ -90,6 +91,7 @@ internal fun PaywallOptions.toNative(): NativePaywallOptions {
             TransactionBackgroundView.NONE -> null
         }
     native.overrideProductsByName = overrideProductsByName ?: emptyMap()
+    native.presentationHost = presentationHost.toNative()
     // onBackPressed: installed by the bridge via OnBackPressedAdapter (see KDoc above).
     // shouldShowWebRestorationAlert / shouldShowWebPurchaseConfirmationAlert:
     // iOS-only, no superwall-android counterpart — documented no-op.
@@ -107,6 +109,14 @@ internal fun Logging.toNative(): NativeSuperwallOptions.Logging {
     }
     return native
 }
+
+// ---- PresentationHost -------------------------------------------------------
+
+internal fun PresentationHost.toNative(): NativePaywallOptions.PresentationHost =
+    when (this) {
+        PresentationHost.ACTIVITY -> NativePaywallOptions.PresentationHost.ACTIVITY
+        PresentationHost.IN_WINDOW -> NativePaywallOptions.PresentationHost.IN_WINDOW
+    }
 
 // ---- TestModeBehavior -------------------------------------------------------
 
@@ -228,9 +238,9 @@ internal fun LogScope.toNative(): NativeLogScope =
 
 /**
  * Maps a native [NativeLogScope] to the common [LogScope], or `null` when the
- * native scope has no common counterpart (superwall-android 2.8.0 carries
+ * native scope has no common counterpart (superwall-android 2.8.8 carries
  * `webEntitlements`, `customerInfo`, `jsEvaluator`, `paywallTransactions`,
- * `nativePurchaseController`, `deepLinks`, which the 22-value common enum
+ * `nativePurchaseController`, `deepLinks`, `customerCenter`, which the 22-value common enum
  * lacks). Callers apply the documented degrade rule ([LogScope.ALL] +
  * `info["rawScope"]`).
  */
@@ -265,6 +275,7 @@ internal fun NativeLogScope.toKmp(): LogScope? =
         NativeLogScope.paywallTransactions,
         NativeLogScope.nativePurchaseController,
         NativeLogScope.deepLinks,
+        NativeLogScope.customerCenter,
         -> null
     }
 

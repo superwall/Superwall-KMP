@@ -18,6 +18,7 @@ import com.superwall.sdk.kmp.models.entitlements.Entitlements
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
@@ -30,7 +31,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
 import com.superwall.sdk.Superwall as NativeSuperwall
 import com.superwall.sdk.config.models.ConfigurationStatus as NativeConfigurationStatus
 import com.superwall.sdk.config.options.SuperwallOptions as NativeSuperwallOptions
@@ -134,7 +137,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
      * Calls the static
      * `NativeSuperwall.configure(applicationContext, apiKey,
      * purchaseController, options, activityProvider, completion)`
-     * (verified signature: superwall-android 2.8.0 `Superwall.kt:526`).
+     * (verified signature: superwall-android 2.8.8 `Superwall.kt:568`).
      *
      * The `Application` comes from [ApplicationContextHolder]; when neither
      * the androidx.startup initializer nor `Superwall.androidSetup` ran, this
@@ -356,7 +359,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     /**
      * Calls the REAL native `Entitlements.byProductIds(Set<String>)` —
-     * verified present in superwall-android 2.8.0 (`store/Entitlements.kt:213`).
+     * verified present in superwall-android 2.8.8 (`store/Entitlements.kt:134`).
      * The Flutter host's local-filter stub ("Android SDK doesn't have
      * byProductIds yet") is obsolete against this SDK version.
      */
@@ -376,10 +379,19 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     /**
      * Returns the REAL native `Superwall.getCustomerInfo()` — verified present
-     * in superwall-android 2.8.0 (`Superwall.kt:245`, a synchronous StateFlow
+     * in superwall-android 2.8.8 (`Superwall.kt:286`, a synchronous StateFlow
      * read). The Flutter host's synthesized minimal stub is obsolete against
      * this SDK version.
      */
+    // superwall-android 2.8.8 has no granted entitlements (SuperwallKit iOS
+    // 4.17.0+ only): nothing is ever granted here, and a write is dropped
+    // loudly rather than faked, since it would never reach the status.
+    override fun getGrantedEntitlements(): Set<Entitlement> = emptySet()
+
+    override fun setGrantedEntitlements(entitlements: Set<Entitlement>) {
+        logError("grantedEntitlements is not supported by superwall-android and was ignored.", error = null)
+    }
+
     override suspend fun getCustomerInfo(): CustomerInfo = NativeSuperwall.instance.getCustomerInfo().toKmp()
 
     override suspend fun confirmAllAssignments(): Set<ConfirmedAssignment> =
@@ -487,6 +499,48 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     // ---- Products / misc ------------------------------------------------------
 
+    /**
+     * superwall-android's `CustomerCenterManager` is main-thread-only (its
+     * session state is unsynchronized), so both calls hop onto the callback
+     * scope's `Main.immediate` — inline when the app already calls from main.
+     * The native onDismiss/completion fire on main (activity finish, or the
+     * 5 s attach timeout posted to the main looper); note that, unlike iOS,
+     * onDismiss also fires when the activity failed to start.
+     */
+    override fun presentCustomerCenter(onDismiss: (() -> Unit)?) {
+        val wrappedOnDismiss =
+            onDismiss?.let { callback ->
+                {
+                    try {
+                        callback()
+                    } catch (throwable: Throwable) {
+                        logError("presentCustomerCenter onDismiss threw", throwable)
+                    }
+                }
+            }
+        callbackScope().launch {
+            NativeSuperwall.instance.presentCustomerCenter(onDismiss = wrappedOnDismiss)
+        }
+    }
+
+    override suspend fun dismissCustomerCenter() {
+        withContext(Dispatchers.Main.immediate) {
+            suspendCancellableCoroutine { continuation ->
+                NativeSuperwall.instance.dismissCustomerCenter {
+                    if (continuation.isActive) continuation.resume(Unit)
+                }
+            }
+        }
+    }
+
+    // superwall-android 2.8.8 has no ad consent API (SuperwallKit iOS 4.18.0+
+    // only); the granted defaults are what the native SDK effectively reports.
+    override fun getAdConsent(): AdConsent = AdConsent()
+
+    override fun setAdConsent(consent: AdConsent) {
+        logError("adConsent is not supported by superwall-android and was ignored.", error = null)
+    }
+
     override fun getOverrideProductsByName(): Map<String, String>? =
         NativeSuperwall.instance.overrideProductsByName.takeIf { it.isNotEmpty() }
 
@@ -550,17 +604,18 @@ private fun Map<String, Any?>?.toNonNullParams(): Map<String, Any>? {
 /**
  * Maps the common [IntegrationAttribute] to the native
  * [NativeAttributionProvider], or `null` for the iOS-only
- * [IntegrationAttribute.FIREBASE_INSTALLATION_ID] (superwall-android 2.8.0
+ * [IntegrationAttribute.FIREBASE_INSTALLATION_ID] (superwall-android 2.8.8
  * has no counterpart — the caller skips it with a logged warning; the native
  * enum's extra values — META, AMPLITUDE, MIXPANEL, GOOGLE_ADS, GOOGLE_APP_SET,
  * CUSTOM — have no common counterpart and surface only through
  * [toKmpIntegrationAttribute] as `null`).
  */
-private fun IntegrationAttribute.toNativeAttributionProvider(): NativeAttributionProvider? =
+internal fun IntegrationAttribute.toNativeAttributionProvider(): NativeAttributionProvider? =
     when (this) {
         IntegrationAttribute.FIREBASE_INSTALLATION_ID -> null
         IntegrationAttribute.SINGULAR_DEVICE_ID -> NativeAttributionProvider.SINGULAR_DEVICE_ID
         IntegrationAttribute.ADJUST_ID -> NativeAttributionProvider.ADJUST_ID
+        IntegrationAttribute.AIRBRIDGE_ID -> NativeAttributionProvider.AIRBRIDGE_ID
         IntegrationAttribute.AMPLITUDE_DEVICE_ID -> NativeAttributionProvider.AMPLITUDE_DEVICE_ID
         IntegrationAttribute.AMPLITUDE_USER_ID -> NativeAttributionProvider.AMPLITUDE_USER_ID
         IntegrationAttribute.APPSFLYER_ID -> NativeAttributionProvider.APPSFLYER_ID
@@ -588,10 +643,11 @@ private fun IntegrationAttribute.toNativeAttributionProvider(): NativeAttributio
  * Maps a native provider back to the common enum, or `null` when the native
  * value has no common counterpart (dropped — degrade, never crash).
  */
-private fun NativeAttributionProvider.toKmpIntegrationAttribute(): IntegrationAttribute? =
+internal fun NativeAttributionProvider.toKmpIntegrationAttribute(): IntegrationAttribute? =
     when (this) {
         NativeAttributionProvider.SINGULAR_DEVICE_ID -> IntegrationAttribute.SINGULAR_DEVICE_ID
         NativeAttributionProvider.ADJUST_ID -> IntegrationAttribute.ADJUST_ID
+        NativeAttributionProvider.AIRBRIDGE_ID -> IntegrationAttribute.AIRBRIDGE_ID
         NativeAttributionProvider.AMPLITUDE_DEVICE_ID -> IntegrationAttribute.AMPLITUDE_DEVICE_ID
         NativeAttributionProvider.AMPLITUDE_USER_ID -> IntegrationAttribute.AMPLITUDE_USER_ID
         NativeAttributionProvider.APPSFLYER_ID -> IntegrationAttribute.APPSFLYER_ID
