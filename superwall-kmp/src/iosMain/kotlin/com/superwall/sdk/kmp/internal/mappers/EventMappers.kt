@@ -103,7 +103,7 @@ import platform.Foundation.NSNumber
 
 /**
  * Maps the typed `SWBEventEnvelope` — the Swift bridge's destructuring of all
- * 87 SuperwallKit 4.18.0 event cases — into the common [SuperwallEventInfo].
+ * 87 SuperwallKit 4.18.1 event cases — into the common [SuperwallEventInfo].
  *
  * The envelope is flat and sparse, so the payload copy is uniform; only the
  * event-type discriminator needs a mapping. Two fidelity notes:

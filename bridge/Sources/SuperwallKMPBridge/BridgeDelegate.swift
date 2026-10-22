@@ -7,7 +7,7 @@
 //
 //  The event switch is a faithful port of the Flutter host's
 //  SuperwallDelegateHost.handleSuperwallEvent (~70 cases in 4.14; 87 in SuperwallKit
-// 4.18.0), with the Flutter mislabels FIXED per
+// 4.18.1), with the Flutter mislabels FIXED per
 //  - transactionRestore is its own event type (Flutter mislabeled it transactionComplete)
 //  - transactionComplete carries transaction, product AND type (Flutter dropped type)
 //  - nonRecurringProductPurchase carries the TransactionProduct id (Flutter dropped it)
@@ -22,7 +22,7 @@ import SuperwallKit
 
 // MARK: - Event type
 
-/// One value per SuperwallKit.SuperwallEvent case (SuperwallKit 4.18.0: 87 cases),
+/// One value per SuperwallKit.SuperwallEvent case (SuperwallKit 4.18.1: 87 cases),
 /// plus `.unknown` for forward compatibility with future SDK cases
 /// (degrade-never-crash; the raw case description lands in `SWBEventEnvelope.name`).
 @objc(SWBEventType)

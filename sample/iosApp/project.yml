@@ -17,7 +17,7 @@
 #      would use the repo-root Package.swift binary target instead, but its
 #      url/checksum are PLACEHOLDERS until the first release publishes an
 #      XCFramework artifact — so the sample links the source package. SPM pins
-#      SuperwallKit (exact 4.18.0) transitively through the bridge manifest;
+#      SuperwallKit (exact 4.18.1) transitively through the bridge manifest;
 #      do not add SuperwallKit separately.
 # =============================================================================
 name: SuperwallKMPSample
