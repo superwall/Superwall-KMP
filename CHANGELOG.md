@@ -5,7 +5,7 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 ## 0.1.2
 
 ## Enhancements
-- Updates iOS SDK to 4.18.0 [View iOS SDK release notes](https://github.com/superwall/Superwall-iOS/releases/tag/4.18.0).
+- Updates iOS SDK to 4.18.1 [View iOS SDK release notes](https://github.com/superwall/Superwall-iOS/releases/tag/4.18.1).
 - Raises the minimum iOS version from iOS 14 to iOS 15, matching SuperwallKit 4.18.0. Building the iOS app now requires Xcode 26 (Swift 6.2) or later.
 - Adds `Superwall.presentCustomerCenter(onDismiss)` and `Superwall.dismissCustomerCenter()` to show the Customer Center, a self-service screen where users can view, restore, manage, cancel, refund and change their purchases, and contact support. Works on both platforms. On Android, `onDismiss` is also called if the Customer Center couldn't open, for example when called while the app is in the background.
 - Adds `SuperwallOptions.adConsent` and `Superwall.adConsent` to report a user's ad consent (`AdConsent` with `adUserData` and `adPersonalization`), which Superwall passes on with the conversions it uploads to Google Ads and Meta. Leave it unset to use an IAB TCF consent banner's stored answer. iOS only.
