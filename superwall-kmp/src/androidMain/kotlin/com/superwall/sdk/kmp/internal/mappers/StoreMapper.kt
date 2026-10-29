@@ -1,11 +1,13 @@
 package com.superwall.sdk.kmp.internal.mappers
 
+import com.superwall.sdk.kmp.models.store.ProductReplacement
 import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.store.StoreTransaction
 import java.util.Date
 import java.util.Locale
 import kotlin.time.Instant
 import com.superwall.sdk.analytics.superwall.TransactionProduct as NativeTransactionProduct
+import com.superwall.sdk.store.ProductReplacement as NativeProductReplacement
 import com.superwall.sdk.store.abstractions.product.StoreProductType as NativeStoreProductType
 import com.superwall.sdk.store.abstractions.transactions.StoreTransaction as NativeStoreTransaction
 import com.superwall.sdk.store.abstractions.transactions.StoreTransactionType as NativeStoreTransactionType
@@ -177,3 +179,19 @@ private fun NativeStoreTransactionType.toKmpTransaction(
         offerId = offerId,
         revocationDate = revocationDate?.toKmpInstant(),
     )
+
+// ---- ProductReplacement (superwall-android 2.9.0+) ----------------------------
+
+internal fun NativeProductReplacement.toKmp(): ProductReplacement =
+    ProductReplacement(
+        mode = mode.toKmp(),
+        oldProductId = oldProductId,
+        oldPurchaseToken = oldPurchaseToken,
+    )
+
+internal fun NativeProductReplacement.Mode.toKmp(): ProductReplacement.Mode =
+    when (this) {
+        NativeProductReplacement.Mode.DEFAULT -> ProductReplacement.Mode.DEFAULT
+        NativeProductReplacement.Mode.CHARGE_PRORATED -> ProductReplacement.Mode.CHARGE_PRORATED
+        NativeProductReplacement.Mode.CHARGE_FULL_PRICE -> ProductReplacement.Mode.CHARGE_FULL_PRICE
+    }

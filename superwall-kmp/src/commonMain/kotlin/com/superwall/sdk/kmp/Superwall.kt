@@ -571,9 +571,8 @@ public object Superwall {
      * are reported as denied while event tracking is
      * [com.superwall.sdk.kmp.models.options.EventTrackingBehavior.NONE].
      *
-     * @platform iOS — on Android, reading returns the granted defaults and
-     * setting is ignored with a logged warning (superwall-android has no
-     * counterpart yet).
+     * Reading it before consent has been set returns the granted defaults on
+     * both platforms.
      */
     public var adConsent: AdConsent
         get() = requireConfigured().getAdConsent()

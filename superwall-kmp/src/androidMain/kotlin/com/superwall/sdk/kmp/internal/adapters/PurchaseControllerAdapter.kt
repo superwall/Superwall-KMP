@@ -2,6 +2,7 @@ package com.superwall.sdk.kmp.internal.adapters
 
 import android.app.Activity
 import com.superwall.sdk.kmp.PurchaseController
+import com.superwall.sdk.kmp.internal.mappers.toKmp
 import com.superwall.sdk.kmp.internal.mappers.toNative
 import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
@@ -11,10 +12,11 @@ import kotlinx.coroutines.withContext
 import com.superwall.sdk.delegate.PurchaseResult as NativePurchaseResult
 import com.superwall.sdk.delegate.RestorationResult as NativeRestorationResult
 import com.superwall.sdk.delegate.subscription_controller.PurchaseController as NativePurchaseController
+import com.superwall.sdk.store.ProductReplacement as NativeProductReplacement
 import com.superwall.sdk.store.abstractions.product.StoreProduct as NativeStoreProduct
 
 /**
- * Adapts the user's common [PurchaseController] to superwall-android 2.8.8's
+ * Adapts the user's common [PurchaseController] to superwall-android 2.9.0's
  * [NativePurchaseController].
  *
  * Both sides are suspend functions, so — unlike the Flutter host's
@@ -36,18 +38,21 @@ internal class PurchaseControllerAdapter(
     private val log: (message: String, error: Throwable?) -> Unit,
 ) : NativePurchaseController {
     /**
-     * Overrides superwall-android 2.8.8's primary entry point (the
-     * `StoreProduct` overload). Its interface default fails for custom-store
-     * products and routes Play products to the deprecated `ProductDetails`
-     * overload — overriding here instead means BOTH Play and custom products
-     * reach the user's [PurchaseController.purchaseFromGooglePlay], which is
-     * productId-based and store-agnostic.
+     * Overrides superwall-android 2.9.0's primary entry point (the
+     * `StoreProduct` + `ProductReplacement` overload), which the SDK calls for
+     * every purchase. Its interface default chains down to the `ProductDetails`
+     * overload, which fails for custom-store products — overriding here instead
+     * means BOTH Play and custom products reach the user's
+     * [PurchaseController.purchaseFromGooglePlay], which is productId-based and
+     * store-agnostic. The common overload's default drops [replacement] and calls
+     * the three-argument one, so controllers that predate 2.9.0 are unaffected.
      */
     override suspend fun purchase(
         activity: Activity,
         product: NativeStoreProduct,
         basePlanId: String?,
         offerId: String?,
+        replacement: NativeProductReplacement?,
     ): NativePurchaseResult {
         val result =
             try {
@@ -56,6 +61,7 @@ internal class PurchaseControllerAdapter(
                         productId = product.productIdentifier,
                         basePlanId = basePlanId,
                         offerId = offerId,
+                        replacement = replacement?.toKmp(),
                     )
                 }
             } catch (cancellation: CancellationException) {
@@ -69,6 +75,16 @@ internal class PurchaseControllerAdapter(
             }
         return result.toNative()
     }
+
+    // 2.9.0's InternalPurchaseController still forwards this overload directly
+    // when it's invoked, so it stays overridden; otherwise its default would
+    // route to the ProductDetails overload and miss custom-store products.
+    override suspend fun purchase(
+        activity: Activity,
+        product: NativeStoreProduct,
+        basePlanId: String?,
+        offerId: String?,
+    ): NativePurchaseResult = purchase(activity, product, basePlanId, offerId, replacement = null)
 
     override suspend fun restorePurchases(): NativeRestorationResult {
         val result =

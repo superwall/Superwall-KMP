@@ -205,7 +205,7 @@ Additions beyond the Pigeon contract picked up when the wrapper moved to the lat
 
 ### Native-version-bump additions (SuperwallKit iOS 4.18.0)
 
-Additions picked up when the iOS pin moved from 4.16.1 to 4.18.0. superwall-android 2.8.0 had none of these, so each was added iOS-only (`@platform` KDoc) with a documented Android fallback; Δ34 and Δ39 gained Android implementations with the 2.8.7 bump below. Same governance as above.
+Additions picked up when the iOS pin moved from 4.16.1 to 4.18.0. superwall-android 2.8.0 had none of these, so each was added iOS-only (`@platform` KDoc) with a documented Android fallback; Δ34 and Δ39 gained Android implementations with the 2.8.7 bump below, and Δ35 with the 2.9.0 bump. Same governance as above.
 
 | # | Pigeon shape | KMP shape | Category | Rationale | Sign-off |
 |---|---|---|---|---|---|
@@ -234,3 +234,13 @@ Additions picked up when the Android pin moved from 2.8.7 to 2.8.8. Same governa
 | # | Pigeon shape | KMP shape | Category | Rationale | Sign-off |
 |---|---|---|---|---|---|
 | Δ44 | — (absent) | `IntegrationAttribute.AIRBRIDGE_ID` | add | superwall-android 2.8.8 `AttributionProvider.AIRBRIDGE_ID` (`airbridgeId`). Both platforms since SuperwallKit iOS 4.18.2 added `IntegrationAttribute.airbridgeId` (bridge `SWBIntegrationAttribute.airbridgeId` = 23); before that iOS skipped it with a logged warning | PENDING |
+
+### Native-version-bump additions (superwall-android 2.9.0)
+
+Additions picked up when the Android pin moved from 2.8.8 to 2.9.0. Same governance as above.
+
+| # | Pigeon shape | KMP shape | Category | Rationale | Sign-off |
+|---|---|---|---|---|---|
+| Δ45 | — (Android fallback, Δ35) | `SuperwallOptions.adConsent` / `Superwall.adConsent` on Android | add (behavior) | superwall-android 2.9.0 ships `AdConsent.Unspecified` / `AdConsent.Custom`. A `null` option leaves the native `Unspecified` (TCF-banner fallback on); any value becomes `Custom`. Reading native `Unspecified` returns the granted defaults, as on iOS | PENDING |
+| Δ46 | — (absent) | `ProductReplacement` (`Mode`: `DEFAULT` / `CHARGE_PRORATED` / `CHARGE_FULL_PRICE`); `PurchaseController.purchaseFromGooglePlay(productId, basePlanId, offerId, replacement)` with a default that calls the three-argument overload | add | superwall-android 2.9.0 subscription replacement. The Android adapter now overrides the native five-argument `purchase(activity, StoreProduct, basePlanId, offerId, replacement)`. Android only; SuperwallKit iOS has no counterpart, so iOS never calls it | PENDING |
+| Δ47 | — (Android fallback) | Android `attributionMatch` event | add (behavior) | superwall-android 2.9.0 `SuperwallEvent.AttributionMatch`. Mapped to `CUSTOM_PLACEMENT` with the iOS case name, `params["rawEventType"]` and the iOS-shaped `params["attributionMatch"]` map, instead of the native `attribution_match` rawName fallback | PENDING |

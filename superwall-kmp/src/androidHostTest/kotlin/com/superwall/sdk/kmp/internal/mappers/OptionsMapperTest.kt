@@ -1,5 +1,7 @@
 package com.superwall.sdk.kmp.internal.mappers
 
+import com.superwall.sdk.kmp.models.options.AdConsent
+import com.superwall.sdk.kmp.models.options.AdConsentStatus
 import com.superwall.sdk.kmp.models.options.DeviceTier
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
@@ -14,9 +16,12 @@ import com.superwall.sdk.kmp.models.options.TestModeBehavior
 import com.superwall.sdk.kmp.models.options.TransactionBackgroundView
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import com.superwall.sdk.analytics.Tier as NativeTier
+import com.superwall.sdk.config.options.AdConsent as NativeAdConsent
+import com.superwall.sdk.config.options.AdConsentStatus as NativeAdConsentStatus
 import com.superwall.sdk.config.options.PaywallOptions as NativePaywallOptions
 import com.superwall.sdk.config.options.SuperwallOptions as NativeSuperwallOptions
 import com.superwall.sdk.logger.LogLevel as NativeLogLevel
@@ -295,5 +300,36 @@ class OptionsMapperTest {
         assertNull(logScopeFromNativeString("someBrandNewScope"))
         // A real native scope with no common counterpart also returns null.
         assertNull(logScopeFromNativeString("webEntitlements"))
+    }
+
+    // ---- AdConsent (superwall-android 2.9.0+) -----------------------------------
+
+    @Test
+    fun adConsent_unsetOption_leavesNativeUnspecifiedSoTcfFallbackStaysOn() {
+        assertEquals(NativeAdConsent.Unspecified, SuperwallOptions().toNative().adConsent)
+    }
+
+    @Test
+    fun adConsent_setOption_mapsToNativeCustomEvenWhenAllGranted() {
+        val granted = assertIs<NativeAdConsent.Custom>(SuperwallOptions(adConsent = AdConsent()).toNative().adConsent)
+        assertEquals(NativeAdConsentStatus.Granted, granted.adUserData)
+        assertEquals(NativeAdConsentStatus.Granted, granted.adPersonalization)
+
+        val mixed =
+            SuperwallOptions(
+                adConsent = AdConsent(adUserData = AdConsentStatus.DENIED, adPersonalization = AdConsentStatus.GRANTED),
+            ).toNative().adConsent
+        assertEquals(NativeAdConsent.Custom(NativeAdConsentStatus.Denied, NativeAdConsentStatus.Granted), mixed)
+    }
+
+    @Test
+    fun adConsent_roundTripsAndUnspecifiedReadsAsGranted() {
+        for (userData in AdConsentStatus.entries) {
+            for (personalization in AdConsentStatus.entries) {
+                val consent = AdConsent(userData, personalization)
+                assertEquals(consent, consent.toNative().toKmp())
+            }
+        }
+        assertEquals(AdConsent(), NativeAdConsent.Unspecified.toKmp())
     }
 }

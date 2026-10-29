@@ -137,7 +137,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
      * Calls the static
      * `NativeSuperwall.configure(applicationContext, apiKey,
      * purchaseController, options, activityProvider, completion)`
-     * (verified signature: superwall-android 2.8.8 `Superwall.kt:568`).
+     * (verified signature: superwall-android 2.9.0 `Superwall.kt:611`).
      *
      * The `Application` comes from [ApplicationContextHolder]; when neither
      * the androidx.startup initializer nor `Superwall.androidSetup` ran, this
@@ -359,7 +359,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     /**
      * Calls the REAL native `Entitlements.byProductIds(Set<String>)` —
-     * verified present in superwall-android 2.8.8 (`store/Entitlements.kt:134`).
+     * verified present in superwall-android 2.9.0 (`store/Entitlements.kt:134`).
      * The Flutter host's local-filter stub ("Android SDK doesn't have
      * byProductIds yet") is obsolete against this SDK version.
      */
@@ -379,11 +379,11 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     /**
      * Returns the REAL native `Superwall.getCustomerInfo()` — verified present
-     * in superwall-android 2.8.8 (`Superwall.kt:286`, a synchronous StateFlow
+     * in superwall-android 2.9.0 (`Superwall.kt:330`, a synchronous StateFlow
      * read). The Flutter host's synthesized minimal stub is obsolete against
      * this SDK version.
      */
-    // superwall-android 2.8.8 has no granted entitlements (SuperwallKit iOS
+    // superwall-android 2.9.0 has no granted entitlements (SuperwallKit iOS
     // 4.17.0+ only): nothing is ever granted here, and a write is dropped
     // loudly rather than faked, since it would never reach the status.
     override fun getGrantedEntitlements(): Set<Entitlement> = emptySet()
@@ -533,12 +533,10 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         }
     }
 
-    // superwall-android 2.8.8 has no ad consent API (SuperwallKit iOS 4.18.0+
-    // only); the granted defaults are what the native SDK effectively reports.
-    override fun getAdConsent(): AdConsent = AdConsent()
+    override fun getAdConsent(): AdConsent = NativeSuperwall.instance.adConsent.toKmp()
 
     override fun setAdConsent(consent: AdConsent) {
-        logError("adConsent is not supported by superwall-android and was ignored.", error = null)
+        NativeSuperwall.instance.adConsent = consent.toNative()
     }
 
     override fun getOverrideProductsByName(): Map<String, String>? =
@@ -604,7 +602,7 @@ private fun Map<String, Any?>?.toNonNullParams(): Map<String, Any>? {
 /**
  * Maps the common [IntegrationAttribute] to the native
  * [NativeAttributionProvider], or `null` for the iOS-only
- * [IntegrationAttribute.FIREBASE_INSTALLATION_ID] (superwall-android 2.8.8
+ * [IntegrationAttribute.FIREBASE_INSTALLATION_ID] (superwall-android 2.9.0
  * has no counterpart — the caller skips it with a logged warning; the native
  * enum's extra values — META, AMPLITUDE, MIXPANEL, GOOGLE_ADS, GOOGLE_APP_SET,
  * CUSTOM — have no common counterpart and surface only through

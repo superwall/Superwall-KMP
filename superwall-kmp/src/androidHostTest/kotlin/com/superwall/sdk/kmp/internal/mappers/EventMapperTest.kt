@@ -10,6 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import com.superwall.sdk.analytics.superwall.AttributionMatchInfo as NativeAttributionMatchInfo
 import com.superwall.sdk.analytics.superwall.SuperwallEvent as NativeSuperwallEvent
 import com.superwall.sdk.analytics.superwall.SuperwallEventInfo as NativeSuperwallEventInfo
 import com.superwall.sdk.customercenter.CustomerCenterAction
@@ -302,6 +303,56 @@ class EventMapperTest {
         assertEquals(EventType.CUSTOM_PLACEMENT, denied.eventType)
         assertEquals("review_denied", denied.name)
         assertEquals(5L, denied.reviewRequestedCount)
+    }
+
+    // ---- Install attribution (superwall-android 2.9.0+) --------------------------------
+
+    @Test
+    fun attributionMatch_usesIosCaseNameAndCarriesInfoWithIosKeys() {
+        val event =
+            NativeSuperwallEvent.AttributionMatch(
+                NativeAttributionMatchInfo(
+                    provider = NativeAttributionMatchInfo.Provider.MMP,
+                    matched = true,
+                    source = "google_ads",
+                    confidence = NativeAttributionMatchInfo.Confidence.HIGH,
+                    matchScore = 0.92,
+                ),
+            )
+        val info = infoOf(event, params = mapOf("provider" to "mmp", "match_score" to 0.92)).toKmp()
+
+        assertEquals(EventType.CUSTOM_PLACEMENT, info.eventType)
+        assertEquals("attributionMatch", info.name)
+        assertEquals("attributionMatch", info.params?.get("rawEventType"))
+        assertEquals(0.92, info.params?.get("match_score"))
+        assertEquals(
+            mapOf(
+                "provider" to "mmp",
+                "matched" to true,
+                "source" to "google_ads",
+                "confidence" to "high",
+                "matchScore" to 0.92,
+            ),
+            info.params?.get("attributionMatch"),
+        )
+    }
+
+    @Test
+    fun attributionMatch_unmatchedOmitsAbsentFields() {
+        val event =
+            NativeSuperwallEvent.AttributionMatch(
+                NativeAttributionMatchInfo(
+                    provider = NativeAttributionMatchInfo.Provider.MMP,
+                    matched = false,
+                    reason = "no_match",
+                ),
+            )
+        val info = infoOf(event).toKmp()
+
+        assertEquals(
+            mapOf("provider" to "mmp", "matched" to false, "reason" to "no_match"),
+            info.params?.get("attributionMatch"),
+        )
     }
 
     // ---- Customer Center (superwall-android 2.8.5+) ------------------------------------

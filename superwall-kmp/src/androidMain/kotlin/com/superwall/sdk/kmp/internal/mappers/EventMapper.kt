@@ -27,8 +27,9 @@ import com.superwall.sdk.store.transactions.TransactionError as NativeTransactio
  * `TestModeModalOpen/Close`, `ReviewGranted/Denied`, the SDK-internal events,
  * and anything added after this SDK version) degrade to the Flutter host's
  * fallback: [EventType.CUSTOM_PLACEMENT] with `name = rawName` — degrade,
- * never crash. The Customer Center events are the exception: they use the
- * iOS case names and `params["rawEventType"]`, matching the iOS mapper.
+ * never crash. The Customer Center events and `AttributionMatch` are the
+ * exception: they use the iOS case names and `params["rawEventType"]`,
+ * matching the iOS mapper.
  */
 @Suppress("DEPRECATION") // IntegrationProps + PaywallWebviewLoadTimeout are deprecated-but-live native cases.
 internal fun NativeSuperwallEventInfo.toKmp(): SuperwallEventInfo {
@@ -410,8 +411,30 @@ internal fun NativeSuperwallEventInfo.toKmp(): SuperwallEventInfo {
                 put("product_id", event.productId)
                 put("status", event.status.name.lowercase())
             }
+        // Install attribution (2.9.0+): no common EventType counterpart. Shaped
+        // like the iOS mapper's attributionMatch gap event — iOS case name,
+        // params["rawEventType"] and the info under params["attributionMatch"]
+        // with iOS's camelCase keys — so one handler covers both platforms. The
+        // native snake_case audience-filter params stay alongside.
+        is NativeSuperwallEvent.AttributionMatch -> {
+            val info = event.info
+            val match =
+                buildMap<String, Any?> {
+                    put("provider", info.provider.rawName)
+                    put("matched", info.matched)
+                    info.source?.let { put("source", it) }
+                    info.confidence?.let { put("confidence", it.rawName) }
+                    info.matchScore?.let { put("matchScore", it) }
+                    info.reason?.let { put("reason", it) }
+                }
+            SuperwallEventInfo(
+                eventType = EventType.CUSTOM_PLACEMENT,
+                name = "attributionMatch",
+                params = (params ?: emptyMap()) + mapOf("attributionMatch" to match, "rawEventType" to "attributionMatch"),
+            )
+        }
         // TestModeModalOpen/Close, the SDK-internal events (ErrorThrown,
-        // ExpressionResult) and any case newer than superwall-android 2.8.8:
+        // ExpressionResult) and any case newer than superwall-android 2.9.0:
         // Flutter-host fallback shape.
         else ->
             SuperwallEventInfo(

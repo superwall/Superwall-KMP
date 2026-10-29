@@ -18,7 +18,6 @@ public enum class AdConsentStatus {
  * Set it at configure time via [SuperwallOptions.adConsent] or at runtime via
  * `Superwall.adConsent`.
  *
- * @platform iOS — superwall-android does not support ad consent yet.
  * @property adUserData Consent to send user data to ad networks for advertising.
  * @property adPersonalization Consent for them to use that data for
  * personalized advertising.

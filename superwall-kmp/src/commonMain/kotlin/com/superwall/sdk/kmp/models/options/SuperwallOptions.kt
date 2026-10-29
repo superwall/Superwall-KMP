@@ -79,7 +79,7 @@ public data class SuperwallOptions(
      * when GDPR applies, and otherwise defaults to granted. Setting it — even
      * to the granted defaults — replaces that fallback. Apps with users in the
      * EEA, UK or Switzerland that don't use a TCF banner should set it from
-     * their consent flow. Defaults to `null`. iOS only.
+     * their consent flow. Defaults to `null`.
      */
     val adConsent: AdConsent? = null,
     /**
