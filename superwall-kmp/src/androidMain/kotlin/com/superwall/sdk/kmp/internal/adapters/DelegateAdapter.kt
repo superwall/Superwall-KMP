@@ -18,7 +18,7 @@ import com.superwall.sdk.models.internal.RedemptionResult as NativeRedemptionRes
 import com.superwall.sdk.paywall.presentation.PaywallInfo as NativePaywallInfo
 
 /**
- * The always-installed native delegate: implements superwall-android 2.8.0's
+ * The always-installed native delegate: implements superwall-android 2.9.0's
  * [NativeSuperwallDelegate] in full and forwards every hook — payloads mapped
  * to common model types — to the common [BridgeListener] (the
  * `DelegateMultiplexer`) **on the thread the native SDK called from**. Port of
@@ -29,7 +29,7 @@ import com.superwall.sdk.paywall.presentation.PaywallInfo as NativePaywallInfo
  * ## Delegate-hook audit
  *
  * Verified against `/home/user/refs/superwall-android-src/com/superwall/sdk/
- * delegate/SuperwallDelegate.kt` (superwall-android 2.8.0):
+ * delegate/SuperwallDelegate.kt` (superwall-android 2.9.0):
  *
  * - `customerInfoDidChange(from, to)` — **present natively**; wired below.
  *   It also feeds `Superwall.customerInfoFlow` through the multiplexer, so the
@@ -49,7 +49,7 @@ import com.superwall.sdk.paywall.presentation.PaywallInfo as NativePaywallInfo
  * This adapter adds NO dispatch of its own. It maps on the calling thread and
  * calls [listener] there, so the delegate inherits superwall-android's own
  * threading — which already splits along exactly the line that matters
- * (verified against the 2.8.0 sources):
+ * (verified against the 2.9.0 sources):
  *
  * | Hook | Native thread |
  * |---|---|
@@ -57,7 +57,7 @@ import com.superwall.sdk.paywall.presentation.PaywallInfo as NativePaywallInfo
  * | `handleCustomPaywallAction`, `paywallWillOpenURL`, `paywallWillOpenDeepLink` | main — `Superwall.eventDidOccur` wraps them in `mainScope.launchWithTracking` |
  * | `subscriptionStatusDidChange`, `customerInfoDidChange`, `userAttributesDidChange` | `ioScope` collectors |
  * | `handleSuperwallEvent` | `track()`, i.e. IO |
- * | `handleLog` | any thread — `Logger.debug` calls it inline from wherever it logs |
+ * | `handleLog` | the native `LogQueue`'s single background thread (since 2.8.2; previously inline on whatever thread logged) |
  *
  * Every UI-shaped hook is already on main; every analytics-shaped one is
  * already off it. The previous `Dispatchers.Main.immediate` hop therefore did
@@ -252,7 +252,7 @@ internal class DelegateAdapter(
         deliver { listener.customerInfoDidChange(mappedFrom, mappedTo) }
     }
 
-    // NOTE (platform gap): superwall-android 2.8.0's SuperwallDelegate has no
+    // NOTE (platform gap): superwall-android 2.9.0's SuperwallDelegate has no
     // handleSuperwallDeepLink hook, so BridgeListener.handleSuperwallDeepLink
     // is never invoked from this adapter. See the class KDoc.
 

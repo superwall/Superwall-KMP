@@ -16,6 +16,13 @@ import com.superwall.sdk.kmp.models.store.StoreTransaction
  * A flat envelope: [eventType] identifies the event and only the fields relevant
  * to that event are non-null. Delivered to `SuperwallDelegate.handleSuperwallEvent`.
  *
+ * Native events with no [EventType] counterpart — on iOS the Customer Center
+ * (`customerCenterOpen`, `customerCenterClose`, `customerCenterAction`,
+ * `customerCenterSurveyResponse`, `customerCenterRefundRequest`), the teleport
+ * (`teleportOpen`, `teleportReturn`), Stripe checkout, test-mode and page-view
+ * events — arrive as [EventType.CUSTOM_PLACEMENT] with the native case name in
+ * [name] and in `params["rawEventType"]`; their payload is in [params].
+ *
  * @property eventType The type of the event.
  * @property params Parameters associated with the event.
  * @property placementName The name of the placement, where applicable.

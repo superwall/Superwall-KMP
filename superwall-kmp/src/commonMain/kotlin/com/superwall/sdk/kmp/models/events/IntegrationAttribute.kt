@@ -9,6 +9,13 @@ public enum class IntegrationAttribute {
     /** The unique Adjust identifier for the user. */
     ADJUST_ID,
 
+    /**
+     * The Airbridge Device ID, from `Airbridge.fetchDeviceUUID`.
+     *
+     * Kept when you reset or identify a different user.
+     */
+    AIRBRIDGE_ID,
+
     /** The Amplitude device identifier. */
     AMPLITUDE_DEVICE_ID,
 

@@ -27,7 +27,9 @@ import com.superwall.sdk.store.transactions.TransactionError as NativeTransactio
  * `TestModeModalOpen/Close`, `ReviewGranted/Denied`, the SDK-internal events,
  * and anything added after this SDK version) degrade to the Flutter host's
  * fallback: [EventType.CUSTOM_PLACEMENT] with `name = rawName` — degrade,
- * never crash.
+ * never crash. The Customer Center events and `AttributionMatch` are the
+ * exception: they use the iOS case names and `params["rawEventType"]`,
+ * matching the iOS mapper.
  */
 @Suppress("DEPRECATION") // IntegrationProps + PaywallWebviewLoadTimeout are deprecated-but-live native cases.
 internal fun NativeSuperwallEventInfo.toKmp(): SuperwallEventInfo {
@@ -382,8 +384,57 @@ internal fun NativeSuperwallEventInfo.toKmp(): SuperwallEventInfo {
                 paywallInfo = event.paywallInfo.toKmp(),
                 params = params,
             )
+        // Customer Center (2.8.5+): no common EventType counterpart. Named
+        // with the iOS case names (not the native snake_case rawName) and
+        // tagged with params["rawEventType"], so one `when (info.name)` handles
+        // both platforms. The snake_case payload keys match iOS too.
+        is NativeSuperwallEvent.CustomerCenterOpen ->
+            customerCenterEvent("customerCenterOpen", params) {
+                put("screen", event.screen.name.lowercase())
+            }
+        is NativeSuperwallEvent.CustomerCenterClose ->
+            customerCenterEvent("customerCenterClose", params) {}
+        is NativeSuperwallEvent.CustomerCenterAction ->
+            customerCenterEvent("customerCenterAction", params) {
+                put("path_id", event.pathId)
+                event.productId?.let { put("product_id", it) }
+            }
+        is NativeSuperwallEvent.CustomerCenterSurveyResponse ->
+            customerCenterEvent("customerCenterSurveyResponse", params) {
+                put("survey_id", event.surveyId)
+                put("option_id", event.optionId)
+                put("path_id", event.pathId)
+                event.productId?.let { put("product_id", it) }
+            }
+        is NativeSuperwallEvent.CustomerCenterRefundRequest ->
+            customerCenterEvent("customerCenterRefundRequest", params) {
+                put("product_id", event.productId)
+                put("status", event.status.name.lowercase())
+            }
+        // Install attribution (2.9.0+): no common EventType counterpart. Shaped
+        // like the iOS mapper's attributionMatch gap event — iOS case name,
+        // params["rawEventType"] and the info under params["attributionMatch"]
+        // with iOS's camelCase keys — so one handler covers both platforms. The
+        // native snake_case audience-filter params stay alongside.
+        is NativeSuperwallEvent.AttributionMatch -> {
+            val info = event.info
+            val match =
+                buildMap<String, Any?> {
+                    put("provider", info.provider.rawName)
+                    put("matched", info.matched)
+                    info.source?.let { put("source", it) }
+                    info.confidence?.let { put("confidence", it.rawName) }
+                    info.matchScore?.let { put("matchScore", it) }
+                    info.reason?.let { put("reason", it) }
+                }
+            SuperwallEventInfo(
+                eventType = EventType.CUSTOM_PLACEMENT,
+                name = "attributionMatch",
+                params = (params ?: emptyMap()) + mapOf("attributionMatch" to match, "rawEventType" to "attributionMatch"),
+            )
+        }
         // TestModeModalOpen/Close, the SDK-internal events (ErrorThrown,
-        // ExpressionResult) and any case newer than superwall-android 2.8.0:
+        // ExpressionResult) and any case newer than superwall-android 2.9.0:
         // Flutter-host fallback shape.
         else ->
             SuperwallEventInfo(
@@ -392,4 +443,22 @@ internal fun NativeSuperwallEventInfo.toKmp(): SuperwallEventInfo {
                 params = params,
             )
     }
+}
+
+/**
+ * Builds the CUSTOM_PLACEMENT envelope for a Customer Center event. The native
+ * params normally already carry the payload; [fallbacks] only fills keys they
+ * lack (e.g. when the SDK-param merge changes), and never overwrites them.
+ */
+private inline fun customerCenterEvent(
+    name: String,
+    params: Map<String, Any?>?,
+    fallbacks: MutableMap<String, Any?>.() -> Unit,
+): SuperwallEventInfo {
+    val merged = buildMap<String, Any?> { fallbacks() } + (params ?: emptyMap()) + ("rawEventType" to name)
+    return SuperwallEventInfo(
+        eventType = EventType.CUSTOM_PLACEMENT,
+        name = name,
+        params = merged,
+    )
 }

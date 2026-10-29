@@ -28,8 +28,11 @@ public data class CustomerInfo(
  * @property isInGracePeriod Indicates whether the subscription is in a billing grace period state.
  * @property isInBillingRetryPeriod Indicates whether the subscription is in a billing retry
  * period state.
- * @property isActive Indicates whether the subscription is active.
- * @property expirationDate The date that the subscription expires, or `null` if non-renewing.
+ * @property isActive Indicates whether the subscription is active. On iOS this stays `true`
+ * during a billing grace period, when Apple keeps the subscriber's access even though the renewal
+ * payment failed.
+ * @property expirationDate The date that the subscription expires, or `null` if non-renewing. On
+ * iOS, during a billing grace period this is the date the grace period ends.
  * @property offerType The type of offer that applies to the subscription transaction.
  * @property subscriptionGroupId The subscription group identifier.
  * @property store The store from which this transaction originated.

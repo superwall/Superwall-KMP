@@ -3,6 +3,8 @@
 package com.superwall.sdk.kmp.internal.mappers
 
 import com.superwall.sdk.kmp.internal.InterfaceStyle
+import com.superwall.sdk.kmp.internal.interop.SWB_AD_CONSENT_STATUS_DENIED
+import com.superwall.sdk.kmp.internal.interop.SWB_AD_CONSENT_STATUS_GRANTED
 import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_ALL
 import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_NONE
 import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_SUPERWALL_ONLY
@@ -37,6 +39,7 @@ import com.superwall.sdk.kmp.internal.interop.SWB_TEST_MODE_BEHAVIOR_NEVER
 import com.superwall.sdk.kmp.internal.interop.SWB_TEST_MODE_BEHAVIOR_WHEN_ENABLED_FOR_USER
 import com.superwall.sdk.kmp.internal.interop.SWB_TRANSACTION_BACKGROUND_VIEW_NONE
 import com.superwall.sdk.kmp.internal.interop.SWB_TRANSACTION_BACKGROUND_VIEW_SPINNER
+import com.superwall.sdk.kmp.internal.ios.interop.SWBAdConsent
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIdentityOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBInterfaceStyle
 import com.superwall.sdk.kmp.internal.ios.interop.SWBInterfaceStyleAutomatic
@@ -53,6 +56,9 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBRestoreFailedOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBSuperwallOptions
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
+import com.superwall.sdk.kmp.models.options.AdConsentStatus
+import com.superwall.sdk.kmp.models.options.DevServer
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
@@ -68,8 +74,8 @@ import platform.Foundation.NSNumber
 // common options, so every SWB field is set explicitly; the SWB envelopes'
 // "nil = keep native default" convention is only exercised when the whole
 // options object is absent. Android-only members (preloadDeviceOverrides,
-// onBackPressed, passIdentifiersToPlayStore, useMockReviews) have no iOS
-// counterpart and are intentionally not mapped.
+// onBackPressed, presentationHost, passIdentifiersToPlayStore, useMockReviews)
+// have no iOS counterpart and are intentionally not mapped.
 // ---------------------------------------------------------------------------
 
 internal fun SuperwallOptions.toSWB(): SWBSuperwallOptions {
@@ -96,8 +102,44 @@ internal fun SuperwallOptions.toSWB(): SWBSuperwallOptions {
             swbLogging.setScopes(logging.scopes.map { NSNumber(long = logScopeToSWB(it)) })
         },
     )
+    // Unlike the fields above, null must stay unset: assigning SuperwallKit's
+    // adConsent at all switches off its TCF-banner fallback.
+    adConsent?.let { options.setAdConsent(it.toSWB()) }
+    when (val server = devServer) {
+        null -> Unit
+        DevServer.Default -> options.setDevServerEnabled(NSNumber(bool = true))
+        is DevServer.Url -> {
+            options.setDevServerEnabled(NSNumber(bool = true))
+            options.setDevServerURL(server.url)
+        }
+    }
     return options
 }
+
+internal fun AdConsent.toSWB(): SWBAdConsent =
+    SWBAdConsent(
+        adConsentStatusToSWB(adUserData),
+        adConsentStatusToSWB(adPersonalization),
+    )
+
+internal fun SWBAdConsent.toModel(): AdConsent =
+    AdConsent(
+        adUserData = adConsentStatusFromSWB(adUserData()),
+        adPersonalization = adConsentStatusFromSWB(adPersonalization()),
+    )
+
+private fun adConsentStatusToSWB(status: AdConsentStatus): Long =
+    when (status) {
+        AdConsentStatus.GRANTED -> SWB_AD_CONSENT_STATUS_GRANTED
+        AdConsentStatus.DENIED -> SWB_AD_CONSENT_STATUS_DENIED
+    }
+
+private fun adConsentStatusFromSWB(raw: Long): AdConsentStatus =
+    when (raw) {
+        SWB_AD_CONSENT_STATUS_DENIED -> AdConsentStatus.DENIED
+        // GRANTED, and the native default for an unknown future case.
+        else -> AdConsentStatus.GRANTED
+    }
 
 internal fun PaywallOptions.toSWB(): SWBPaywallOptions {
     val options = SWBPaywallOptions()
@@ -188,9 +230,10 @@ internal fun logLevelFromSWB(level: SWBLogLevel): LogLevel =
 
 /**
  * Maps a common [LogScope] to the SWB raw value (the `SWBLogScope` raw Int —
- * carried as an NSNumber across the bridge). The bridge's two 4.16.x-only
- * scopes (`analytics`, `webEntitlements`) have no common counterpart and only
- * appear in the read direction ([logScopeFromRawName]).
+ * carried as an NSNumber across the bridge). The bridge's iOS-only scopes
+ * (`analytics`, `webEntitlements`, `grantedEntitlements`, `customerCenter`)
+ * have no common counterpart and only appear in the read direction
+ * ([logScopeFromRawName]).
  */
 internal fun logScopeToSWB(scope: LogScope): Long =
     when (scope) {
@@ -231,7 +274,8 @@ internal fun logLevelFromRawName(raw: String): LogLevel? {
 /**
  * Maps the raw native scope string delivered by `handleLog` (camelCase, e.g.
  * `"paywallPresentation"`) to a common [LogScope], or `null` when unmappable
- * (including the 4.16.x-only `analytics`/`webEntitlements` scopes) — the
+ * (including the iOS-only `analytics`/`webEntitlements`/`grantedEntitlements`/
+ * `customerCenter` scopes) — the
  * caller falls back to [LogScope.ALL] and preserves `info["rawScope"]`.
  */
 internal fun logScopeFromRawName(raw: String): LogScope? {

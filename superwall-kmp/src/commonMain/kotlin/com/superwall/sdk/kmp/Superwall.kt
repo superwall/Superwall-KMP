@@ -10,6 +10,7 @@ import com.superwall.sdk.kmp.models.entitlements.Entitlements
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
@@ -362,6 +363,29 @@ public object Superwall {
         }
 
     /**
+     * Entitlements granted by your own backend that Superwall can't observe —
+     * a promotional grant or a comped account, say. The SDK merges them into
+     * [subscriptionStatus] alongside device and web entitlements, so setting
+     * [subscriptionStatus] to inactive does not remove them.
+     *
+     * Each assignment replaces the previous value; assign an empty set to
+     * revoke. Only the entitlement ids are used — each is granted as an active
+     * entitlement. Don't use this if you compute the full picture in a
+     * [PurchaseController]; set [subscriptionStatus] instead.
+     *
+     * This persists across app launches, [reset] and [identify]: set it again
+     * right after either if the new user shouldn't inherit the grants.
+     *
+     * @platform iOS — on Android, reading returns an empty set and setting is
+     * ignored with a logged warning (superwall-android has no counterpart yet).
+     */
+    public var grantedEntitlements: Set<Entitlement>
+        get() = requireConfigured().getGrantedEntitlements()
+        set(value) {
+            requireConfigured().setGrantedEntitlements(value)
+        }
+
+    /**
      * A [StateFlow] of the user's subscription status.
      *
      * Guard-exempt: collectable before [configure], seeded with
@@ -494,6 +518,36 @@ public object Superwall {
     }
 
     /**
+     * Presents the Customer Center, a self-service screen where users can
+     * view, restore, manage, cancel, refund and change their purchases, and
+     * contact support. It is configured by the Superwall dashboard defaults;
+     * its analytics arrive through [SuperwallDelegate.handleSuperwallEvent] as
+     * `customerCenter*` events.
+     *
+     * Only one Customer Center is presented at a time: calling this while one
+     * is open is a no-op.
+     *
+     * On Android (superwall-android 2.8.5+) the Customer Center is its own
+     * activity, so the app must be in the foreground when you call this.
+     *
+     * @param onDismiss Invoked on the main thread after the Customer Center is
+     * dismissed. On iOS it is never invoked when nothing was presented; on
+     * Android it is also invoked when the Customer Center's activity failed to
+     * start (for example when called from the background).
+     */
+    public fun presentCustomerCenter(onDismiss: (() -> Unit)? = null) {
+        requireConfigured().presentCustomerCenter(onDismiss)
+    }
+
+    /**
+     * Dismisses the Customer Center presented by [presentCustomerCenter],
+     * resuming when done. Returns immediately when none is presented.
+     */
+    public suspend fun dismissCustomerCenter() {
+        requireConfigured().dismissCustomerCenter()
+    }
+
+    /**
      * Handles a deep link to preview paywalls or redeem web-checkout codes.
      *
      * Guard-EXEMPT: callable before/around [configure] on both platforms —
@@ -505,6 +559,26 @@ public object Superwall {
     public fun handleDeepLink(url: String): Boolean = bridge.handleDeepLink(url)
 
     // ---- Products / misc ------------------------------------------------------
+
+    /**
+     * The user's consent for how their data is used for advertising, which
+     * Superwall passes on with the conversions it uploads to Google Ads and
+     * Meta. Set it from your consent flow; to set it before the first
+     * session, use [SuperwallOptions.adConsent].
+     *
+     * Until it is set, the SDK uses the consent stored by an IAB TCF consent
+     * banner when GDPR applies, and otherwise reports granted. Both purposes
+     * are reported as denied while event tracking is
+     * [com.superwall.sdk.kmp.models.options.EventTrackingBehavior.NONE].
+     *
+     * Reading it before consent has been set returns the granted defaults on
+     * both platforms.
+     */
+    public var adConsent: AdConsent
+        get() = requireConfigured().getAdConsent()
+        set(value) {
+            requireConfigured().setAdConsent(value)
+        }
 
     /**
      * Globally overrides products by product name for all paywalls, e.g.

@@ -2,6 +2,7 @@ package com.superwall.sdk.kmp
 
 import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.ProductReplacement
 
 /**
  * The interface that handles Superwall's subscription-related logic.
@@ -47,6 +48,35 @@ public interface PurchaseController {
         basePlanId: String?,
         offerId: String?,
     ): PurchaseResult
+
+    /**
+     * Called on Android for every purchase, in place of the three-argument
+     * [purchaseFromGooglePlay]. [replacement] is non-null only when the
+     * paywall's Purchase action is set to replace an existing subscription and
+     * the user has an active subscription that shares an entitlement with the
+     * product. To perform the replacement, pass [ProductReplacement.oldPurchaseToken]
+     * and [ProductReplacement.mode] to the billing flow's `SubscriptionUpdateParams`
+     * (or your billing library's equivalent, such as RevenueCat's `oldProductId`
+     * and `googleReplacementMode`).
+     *
+     * The default implementation ignores [replacement] and calls the
+     * three-argument [purchaseFromGooglePlay], so existing implementations keep
+     * working; the purchase is then a normal one bought alongside the old
+     * subscription.
+     *
+     * @platform Android — never called on iOS.
+     * @param productId The product identifier of the product the user would like to purchase.
+     * @param basePlanId An optional base plan identifier of the product that's being purchased.
+     * @param offerId An optional offer identifier of the product that's being purchased.
+     * @param replacement The existing subscription this purchase replaces, if any.
+     * @return The [PurchaseResult] of your purchase logic.
+     */
+    public suspend fun purchaseFromGooglePlay(
+        productId: String,
+        basePlanId: String?,
+        offerId: String?,
+        replacement: ProductReplacement?,
+    ): PurchaseResult = purchaseFromGooglePlay(productId, basePlanId, offerId)
 
     /**
      * Called when the user initiates a restore.

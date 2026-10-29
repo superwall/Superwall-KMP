@@ -3,7 +3,7 @@ appId: ${APP_ID}
 # Dismiss a presented PAYWALL (not an app screen — for that use back.yaml).
 #
 # The paywall is native UI with no "Back" button of the app's own:
-#   * Android: hardware back does NOT work. superwall-android 2.8.0 forwards the
+#   * Android: hardware back does NOT work. superwall-android 2.9.0 forwards the
 #     system back press into the paywall as a `back_button_input` message rather
 #     than dismissing it, and paywalls built on runtimes predating that message
 #     ignore it entirely — the press is simply swallowed and the paywall stays.
