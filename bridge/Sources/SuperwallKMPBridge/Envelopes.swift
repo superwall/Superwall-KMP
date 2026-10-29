@@ -320,7 +320,7 @@ public enum SWBPaywallPresentationRequestStatusReasonCase: Int {
   case subscriptionStatusTimeout = 8
 }
 
-/// Mirror of SuperwallKit.IntegrationAttribute (24 cases in SuperwallKit 4.18.2).
+/// Mirror of SuperwallKit.IntegrationAttribute (24 cases in SuperwallKit 4.18.3).
 @objc(SWBIntegrationAttribute)
 public enum SWBIntegrationAttribute: Int {
   case adjustId = 0

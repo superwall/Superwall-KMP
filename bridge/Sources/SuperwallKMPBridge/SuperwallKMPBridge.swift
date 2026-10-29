@@ -58,7 +58,7 @@ public enum SWBTransactionBackgroundView: Int {
   case none = 1
 }
 
-/// Mirror of SuperwallKit.LogScope (all 26 cases in 4.18.2).
+/// Mirror of SuperwallKit.LogScope (all 26 cases in 4.18.3).
 @objc(SWBLogScope)
 public enum SWBLogScope: Int {
   case localizationManager = 0

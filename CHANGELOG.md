@@ -20,6 +20,7 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 - On Android, a paywall whose webview can't load is now dismissed as declined with `PaywallCloseReason.WEB_VIEW_FAILED_TO_LOAD`, matching iOS. Your `PaywallPresentationHandler` gets `onDismiss`, then the feature block for a non-gated placement or `onError` for a gated one.
 
 ## Fixes
+- On iOS, entitlements now stay active while an App Store subscription is in a billing grace period, when using StoreKit 2. During the grace period, `SubscriptionTransaction.isActive` is `true` and `expirationDate` is when the grace period ends (from SuperwallKit 4.18.3).
 - Fixes `null` values in iOS event and redemption payloads arriving as the string `"<null>"` instead of `null`.
 
 ## 0.1.1

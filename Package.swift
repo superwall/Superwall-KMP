@@ -25,7 +25,7 @@ import PackageDescription
 let package = Package(
     name: "SuperwallKMPBridge",
     platforms: [
-        // SuperwallKit 4.18.2 requires iOS 15; must not be lower than that.
+        // SuperwallKit 4.18.3 requires iOS 15; must not be lower than that.
         .iOS(.v15)
     ],
     products: [
