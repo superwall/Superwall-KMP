@@ -244,3 +244,12 @@ Additions picked up when the Android pin moved from 2.8.8 to 2.9.0. Same governa
 | Δ45 | — (Android fallback, Δ35) | `SuperwallOptions.adConsent` / `Superwall.adConsent` on Android | add (behavior) | superwall-android 2.9.0 ships `AdConsent.Unspecified` / `AdConsent.Custom`. A `null` option leaves the native `Unspecified` (TCF-banner fallback on); any value becomes `Custom`. Reading native `Unspecified` returns the granted defaults, as on iOS | PENDING |
 | Δ46 | — (absent) | `ProductReplacement` (`Mode`: `DEFAULT` / `CHARGE_PRORATED` / `CHARGE_FULL_PRICE`); `PurchaseController.purchaseFromGooglePlay(productId, basePlanId, offerId, replacement)` with a default that calls the three-argument overload | add | superwall-android 2.9.0 subscription replacement. The Android adapter now overrides the native five-argument `purchase(activity, StoreProduct, basePlanId, offerId, replacement)`. Android only; SuperwallKit iOS has no counterpart, so iOS never calls it | PENDING |
 | Δ47 | — (Android fallback) | Android `attributionMatch` event | add (behavior) | superwall-android 2.9.0 `SuperwallEvent.AttributionMatch`. Mapped to `CUSTOM_PLACEMENT` with the iOS case name, `params["rawEventType"]` and the iOS-shaped `params["attributionMatch"]` map, instead of the native `attribution_match` rawName fallback | PENDING |
+
+### Native-version-bump additions (superwall-android 2.10.0)
+
+Changes picked up when the Android pin moved from 2.9.0 to 2.10.0. Same governance as above.
+
+| # | Pigeon shape | KMP shape | Category | Rationale | Sign-off |
+|---|---|---|---|---|---|
+| Δ48 | — (Android mapping) | `LogScope.STORE_KIT_MANAGER` on Android | change (behavior) | superwall-android 2.10.0 adds `LogScope.billing` and deprecates `storeKitManager`. Common `STORE_KIT_MANAGER` writes the native `billing` scope; native `billing` and `storeKitManager` both read as `STORE_KIT_MANAGER`, so one common scope names the store layer on both platforms | PENDING |
+| Δ49 | — (Android mapping) | `PaywallOptions.restoreFailed` on Android | change (behavior) | superwall-android 2.10.0 localizes restore-failed alert texts the app never assigns. The mapper now assigns only texts that differ from the common English defaults, so default texts get localized | PENDING |

@@ -24,6 +24,8 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 ## Fixes
 - On iOS, entitlements now stay active while an App Store subscription is in a billing grace period, when using StoreKit 2. During the grace period, `SubscriptionTransaction.isActive` is `true` and `expirationDate` is when the grace period ends (from SuperwallKit 4.18.3).
 - Fixes `null` values in iOS event and redemption payloads arriving as the string `"<null>"` instead of `null`.
+- On Android, `LogScope.STORE_KIT_MANAGER` keeps turning on and receiving the Google Play Billing logs, which superwall-android 2.10.0 reports under its new `billing` scope. `SuperwallDelegate.handleLog` gets them as `LogScope.STORE_KIT_MANAGER`, as before.
+- On Android, the restore failed alert is now shown in the device's language when you leave `RestoreFailed`'s texts at their defaults (from superwall-android 2.10.0). Texts you set to anything other than the English default are shown as set.
 
 ## 0.1.1
 

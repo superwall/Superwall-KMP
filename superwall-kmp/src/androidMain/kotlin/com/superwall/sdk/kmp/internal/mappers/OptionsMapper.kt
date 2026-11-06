@@ -11,6 +11,7 @@ import com.superwall.sdk.kmp.models.options.NetworkEnvironment
 import com.superwall.sdk.kmp.models.options.PaywallOptions
 import com.superwall.sdk.kmp.models.options.PresentationHost
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
+import com.superwall.sdk.kmp.models.options.RestoreFailed
 import com.superwall.sdk.kmp.models.options.TestModeBehavior
 import com.superwall.sdk.kmp.models.options.TransactionBackgroundView
 import java.util.EnumSet
@@ -35,7 +36,7 @@ import com.superwall.sdk.store.testmode.TestModeBehavior as NativeTestModeBehavi
  * - iOS-only options (`shouldBypassAppTransactionCheck`, `maxConfigRetryCount`,
  *   `devServer`, `shouldShowWebRestorationAlert`, `shouldShowWebPurchaseConfirmationAlert`,
  *   `transactionBackgroundView` semantics aside) are documented no-ops here
- *   because superwall-android 2.9.0 has no equivalent fields.
+ *   because superwall-android 2.10.0 has no equivalent fields.
  *
  * `PaywallOptions.onBackPressed` is deliberately NOT wired here: the bridge
  * installs an `OnBackPressedAdapter` on the returned native options so the
@@ -51,7 +52,7 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
                 NativeSuperwallOptions.NetworkEnvironment.ReleaseCandidate()
             NetworkEnvironment.DEVELOPER -> NativeSuperwallOptions.NetworkEnvironment.Developer()
         }
-    // Native 2.9.0 derives isExternalDataCollectionEnabled FROM
+    // Native 2.10.0 derives isExternalDataCollectionEnabled FROM
     // eventTrackingBehavior (the boolean setter rewrites the behavior), so
     // order and precedence matter: apply the deprecated boolean first, then
     // let a non-default typed behavior win. ALL is the common default and is
@@ -80,11 +81,18 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
 internal fun PaywallOptions.toNative(): NativePaywallOptions {
     val native = NativePaywallOptions()
     native.isHapticFeedbackEnabled = isHapticFeedbackEnabled
+    // superwall-android 2.10.0 localizes each alert text the app never assigns,
+    // and any assignment (even the English default) opts that text out. So only
+    // texts that differ from the common defaults are assigned; the rest stay
+    // unset and are shown in the device's language.
+    val defaultAlert = RestoreFailed()
     native.restoreFailed =
         NativePaywallOptions.RestoreFailed().also { alert ->
-            alert.title = restoreFailed.title
-            alert.message = restoreFailed.message
-            alert.closeButtonTitle = restoreFailed.closeButtonTitle
+            if (restoreFailed.title != defaultAlert.title) alert.title = restoreFailed.title
+            if (restoreFailed.message != defaultAlert.message) alert.message = restoreFailed.message
+            if (restoreFailed.closeButtonTitle != defaultAlert.closeButtonTitle) {
+                alert.closeButtonTitle = restoreFailed.closeButtonTitle
+            }
         }
     native.shouldShowPurchaseFailureAlert = shouldShowPurchaseFailureAlert
     native.shouldPreload = shouldPreload
@@ -264,7 +272,10 @@ internal fun LogScope.toNative(): NativeLogScope =
         LogScope.NETWORK -> NativeLogScope.network
         LogScope.PAYWALL_EVENTS -> NativeLogScope.paywallEvents
         LogScope.PRODUCTS_MANAGER -> NativeLogScope.productsManager
-        LogScope.STORE_KIT_MANAGER -> NativeLogScope.storeKitManager
+        // superwall-android 2.10.0 renamed its billing scope to `billing` and
+        // deprecated `storeKitManager`. Mapping to the new scope keeps the
+        // Google Play Billing logs on without relying on the deprecated alias.
+        LogScope.STORE_KIT_MANAGER -> NativeLogScope.billing
         LogScope.PLACEMENTS -> NativeLogScope.placements
         LogScope.RECEIPTS -> NativeLogScope.receipts
         LogScope.SUPERWALL_CORE -> NativeLogScope.superwallCore
@@ -277,12 +288,13 @@ internal fun LogScope.toNative(): NativeLogScope =
 
 /**
  * Maps a native [NativeLogScope] to the common [LogScope], or `null` when the
- * native scope has no common counterpart (superwall-android 2.9.0 carries
+ * native scope has no common counterpart (superwall-android 2.10.0 carries
  * `webEntitlements`, `customerInfo`, `jsEvaluator`, `paywallTransactions`,
  * `nativePurchaseController`, `deepLinks`, `customerCenter`, which the 22-value common enum
  * lacks). Callers apply the documented degrade rule ([LogScope.ALL] +
  * `info["rawScope"]`).
  */
+@Suppress("DEPRECATION") // NativeLogScope.storeKitManager, kept for exhaustiveness
 internal fun NativeLogScope.toKmp(): LogScope? =
     when (this) {
         NativeLogScope.localizationManager -> LogScope.LOCALIZATION_MANAGER
@@ -298,7 +310,12 @@ internal fun NativeLogScope.toKmp(): LogScope? =
         NativeLogScope.network -> LogScope.NETWORK
         NativeLogScope.paywallEvents -> LogScope.PAYWALL_EVENTS
         NativeLogScope.productsManager -> LogScope.PRODUCTS_MANAGER
-        NativeLogScope.storeKitManager -> LogScope.STORE_KIT_MANAGER
+        // Both name the store/billing layer: iOS reports StoreKit logs as
+        // storeKitManager, superwall-android 2.10.0+ reports Play Billing logs
+        // as billing. One common scope keeps handleLog filters cross-platform.
+        NativeLogScope.storeKitManager,
+        NativeLogScope.billing,
+        -> LogScope.STORE_KIT_MANAGER
         NativeLogScope.placements -> LogScope.PLACEMENTS
         NativeLogScope.receipts -> LogScope.RECEIPTS
         NativeLogScope.superwallCore -> LogScope.SUPERWALL_CORE

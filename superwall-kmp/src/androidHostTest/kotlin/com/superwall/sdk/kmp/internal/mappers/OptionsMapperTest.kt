@@ -274,10 +274,15 @@ class OptionsMapperTest {
         )
 
     @Test
+    @Suppress("DEPRECATION")
     fun logScope_nativeToCommonCoversEveryNativeCase() {
         for (native in NativeLogScope.entries) {
             val mapped = native.toKmp()
-            if (native in unmappedNativeScopes) {
+            if (native == NativeLogScope.storeKitManager) {
+                // Deprecated alias (superwall-android 2.10.0): reads as the common
+                // store scope, which writes back as the native billing scope.
+                assertEquals(LogScope.STORE_KIT_MANAGER, mapped)
+            } else if (native in unmappedNativeScopes) {
                 // No common counterpart: null so the caller degrades to ALL + rawScope.
                 assertNull(mapped, "expected $native to be unmapped")
             } else {
@@ -296,10 +301,49 @@ class OptionsMapperTest {
     }
 
     @Test
+    fun logScope_storeKitManagerMapsToNativeBillingScope() {
+        // superwall-android 2.10.0 reports Play Billing logs as `billing`.
+        assertEquals(NativeLogScope.billing, LogScope.STORE_KIT_MANAGER.toNative())
+        assertEquals(LogScope.STORE_KIT_MANAGER, NativeLogScope.billing.toKmp())
+        assertEquals(LogScope.STORE_KIT_MANAGER, logScopeFromNativeString("billing"))
+        assertEquals(LogScope.STORE_KIT_MANAGER, logScopeFromNativeString("storeKitManager"))
+        assertEquals(
+            setOf(NativeLogScope.billing),
+            Logging(scopes = setOf(LogScope.STORE_KIT_MANAGER)).toNative().scopes.toSet(),
+        )
+    }
+
+    @Test
     fun logScopeFromNativeString_unknownOrUnmappedReturnsNullSoCallerCanDegrade() {
         assertNull(logScopeFromNativeString("someBrandNewScope"))
         // A real native scope with no common counterpart also returns null.
         assertNull(logScopeFromNativeString("webEntitlements"))
+    }
+
+    // ---- RestoreFailed localization (superwall-android 2.10.0+) -----------------
+
+    // The native "app assigned this text" fields are module-internal, so the
+    // tests read their backing fields reflectively.
+    private fun Any.assigned(field: String): Any? =
+        javaClass.getDeclaredField(field).apply { isAccessible = true }.get(this)
+
+    @Test
+    fun restoreFailed_defaultTextsAreLeftUnsetSoNativeLocalizesThem() {
+        val native = PaywallOptions().toNative().restoreFailed
+        // Native shows a text localized only while the app never assigned it;
+        // its getters still read the English default.
+        assertNull(native.assigned("customTitle"))
+        assertNull(native.assigned("customMessage"))
+        assertNull(native.assigned("customCloseButtonTitle"))
+        assertEquals(RestoreFailed().title, native.title)
+    }
+
+    @Test
+    fun restoreFailed_onlyCustomizedTextsAreAssigned() {
+        val native = PaywallOptions(restoreFailed = RestoreFailed(message = "custom")).toNative().restoreFailed
+        assertNull(native.assigned("customTitle"))
+        assertEquals("custom", native.assigned("customMessage"))
+        assertNull(native.assigned("customCloseButtonTitle"))
     }
 
     // ---- AdConsent (superwall-android 2.9.0+) -----------------------------------
