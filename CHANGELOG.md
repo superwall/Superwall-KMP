@@ -26,6 +26,7 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 - Fixes `null` values in iOS event and redemption payloads arriving as the string `"<null>"` instead of `null`.
 - On Android, `LogScope.STORE_KIT_MANAGER` keeps turning on and receiving the Google Play Billing logs, which superwall-android 2.10.0 reports under its new `billing` scope. `SuperwallDelegate.handleLog` gets them as `LogScope.STORE_KIT_MANAGER`, as before.
 - On Android, the restore failed alert is now shown in the device's language when you leave `RestoreFailed`'s texts at their defaults (from superwall-android 2.10.0). Texts you set to anything other than the English default are shown as set.
+- On Android, a `:sw-none` product is no longer bought with a free trial when its base plan has a trial offer, and a one-time `:sw-none` product is no longer bought with a discount offer (from superwall-android 2.10.1). This affected apps without a `PurchaseController`. If you use a `PurchaseController`, a `null` `offerId` in `purchaseFromGooglePlay` means the base plan with no offer; don't pick a trial or other offer yourself.
 
 ## 0.1.1
 

@@ -16,7 +16,7 @@ import com.superwall.sdk.store.ProductReplacement as NativeProductReplacement
 import com.superwall.sdk.store.abstractions.product.StoreProduct as NativeStoreProduct
 
 /**
- * Adapts the user's common [PurchaseController] to superwall-android 2.10.0's
+ * Adapts the user's common [PurchaseController] to superwall-android 2.10.1's
  * [NativePurchaseController].
  *
  * Both sides are suspend functions, so — unlike the Flutter host's
@@ -38,7 +38,7 @@ internal class PurchaseControllerAdapter(
     private val log: (message: String, error: Throwable?) -> Unit,
 ) : NativePurchaseController {
     /**
-     * Overrides superwall-android 2.10.0's primary entry point (the
+     * Overrides superwall-android 2.10.1's primary entry point (the
      * `StoreProduct` + `ProductReplacement` overload), which the SDK calls for
      * every purchase. Its interface default chains down to the `ProductDetails`
      * overload, which fails for custom-store products — overriding here instead
@@ -76,7 +76,7 @@ internal class PurchaseControllerAdapter(
         return result.toNative()
     }
 
-    // 2.10.0's InternalPurchaseController still forwards this overload directly
+    // 2.10.1's InternalPurchaseController still forwards this overload directly
     // when it's invoked, so it stays overridden; otherwise its default would
     // route to the ProductDetails overload and miss custom-store products.
     override suspend fun purchase(

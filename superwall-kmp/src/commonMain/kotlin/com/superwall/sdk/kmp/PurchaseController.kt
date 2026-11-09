@@ -40,7 +40,9 @@ public interface PurchaseController {
      *
      * @param productId The product identifier of the product the user would like to purchase.
      * @param basePlanId An optional base plan identifier of the product that's being purchased.
-     * @param offerId An optional offer identifier of the product that's being purchased.
+     * @param offerId The identifier of the offer to buy, already chosen by the SDK from the
+     * paywall's product (including `sw-auto` resolution). `null` means buy the base plan with
+     * no offer: don't pick a free trial or other offer yourself.
      * @return The [PurchaseResult] of your purchase logic.
      */
     public suspend fun purchaseFromGooglePlay(
@@ -67,7 +69,9 @@ public interface PurchaseController {
      * @platform Android — never called on iOS.
      * @param productId The product identifier of the product the user would like to purchase.
      * @param basePlanId An optional base plan identifier of the product that's being purchased.
-     * @param offerId An optional offer identifier of the product that's being purchased.
+     * @param offerId The identifier of the offer to buy, already chosen by the SDK from the
+     * paywall's product (including `sw-auto` resolution). `null` means buy the base plan with
+     * no offer: don't pick a free trial or other offer yourself.
      * @param replacement The existing subscription this purchase replaces, if any.
      * @return The [PurchaseResult] of your purchase logic.
      */
