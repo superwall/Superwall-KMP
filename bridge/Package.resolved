@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/superwall/superscript-ios-next",
       "state" : {
-        "revision" : "abb2c8c96e958aabe11a84df67860ad7bbef3b68",
-        "version" : "1.0.14"
+        "revision" : "6388170521587bdad417485ba82bffe05d4d2a30",
+        "version" : "1.0.18"
       }
     },
     {
@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/superwall/Superwall-iOS",
       "state" : {
-        "revision" : "3c360d5512d9ac1aa4805c63c19c274f8d8ce958",
-        "version" : "4.16.1"
+        "revision" : "035d7d093b4f7ae837ae9b80b4ab9fd2b72f1e92",
+        "version" : "4.19.1"
       }
     }
   ],

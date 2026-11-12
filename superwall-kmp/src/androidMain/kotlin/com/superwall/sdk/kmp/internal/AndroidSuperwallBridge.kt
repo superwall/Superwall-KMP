@@ -46,7 +46,7 @@ import com.superwall.sdk.paywall.presentation.register as nativeRegister
 /**
  * The Android [SuperwallBridge]: a port of the Flutter plugin's
  * `SuperwallHost.kt` minus all Pigeon transport, calling superwall-android
- * 2.7.11 directly (every native symbol verified against the 2.7.11 sources).
+ * directly (written against 2.7.11, now compiled against 2.10.2).
  *
  * Deliberate fixes over the Flutter host
  * - `configure`'s completion forwards the REAL native `Result<Unit>` instead
@@ -55,10 +55,10 @@ import com.superwall.sdk.paywall.presentation.register as nativeRegister
  * - `registerPlacement` creates a fresh [PresentationHandlerAdapter] per call
  *   — no placement-keyed registry, no one-handler-per-placement aliasing.
  * - `getEntitlementsByProductIds` calls the REAL native
- *   `Entitlements.byProductIds` (present in 2.7.11; the Flutter host's
+ *   `Entitlements.byProductIds` (present since 2.7.11; the Flutter host's
  *   "Android SDK doesn't have it" local-filter stub is obsolete).
  * - `getCustomerInfo` returns the REAL native `Superwall.getCustomerInfo()`
- *   (present in 2.7.11; the Flutter host synthesized a minimal stub).
+ *   (present since 2.7.11; the Flutter host synthesized a minimal stub).
  * - Integration attributes use the native
  *   `setIntegrationAttributes(Map<AttributionProvider, String>)` API instead
  *   of the Flutter host's `$`-prefixed user-attribute workaround, with
@@ -134,7 +134,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
      * Calls the static
      * `NativeSuperwall.configure(applicationContext, apiKey,
      * purchaseController, options, activityProvider, completion)`
-     * (verified signature: superwall-android 2.8.0 `Superwall.kt:526`).
+     * (verified signature: superwall-android 2.10.2 `Superwall.kt:479`).
      *
      * The `Application` comes from [ApplicationContextHolder]; when neither
      * the androidx.startup initializer nor `Superwall.androidSetup` ran, this
@@ -239,7 +239,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
      * is invisible to app code and has no business occupying the looper.
      *
      * `customerInfo` is deliberately NOT collected here: superwall-android
-     * 2.7.11's `SuperwallDelegate.customerInfoDidChange` hook exists and is
+     * `SuperwallDelegate.customerInfoDidChange` hook exists and is
      * wired in [DelegateAdapter], and the common `DelegateMultiplexer` already
      * feeds `StreamHolder.customerInfo` from that hook — collecting the native
      * `Superwall.instance.customerInfo` StateFlow here as well would
@@ -356,7 +356,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     /**
      * Calls the REAL native `Entitlements.byProductIds(Set<String>)` —
-     * verified present in superwall-android 2.8.0 (`store/Entitlements.kt:213`).
+     * verified present in superwall-android 2.10.2 (`store/Entitlements.kt:134`).
      * The Flutter host's local-filter stub ("Android SDK doesn't have
      * byProductIds yet") is obsolete against this SDK version.
      */
@@ -376,7 +376,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     /**
      * Returns the REAL native `Superwall.getCustomerInfo()` — verified present
-     * in superwall-android 2.8.0 (`Superwall.kt:245`, a synchronous StateFlow
+     * in superwall-android 2.10.2 (`Superwall.kt:275`, a synchronous StateFlow
      * read). The Flutter host's synthesized minimal stub is obsolete against
      * this SDK version.
      */
@@ -550,10 +550,10 @@ private fun Map<String, Any?>?.toNonNullParams(): Map<String, Any>? {
 /**
  * Maps the common [IntegrationAttribute] to the native
  * [NativeAttributionProvider], or `null` for the iOS-only
- * [IntegrationAttribute.FIREBASE_INSTALLATION_ID] (superwall-android 2.8.0
+ * [IntegrationAttribute.FIREBASE_INSTALLATION_ID] (superwall-android
  * has no counterpart — the caller skips it with a logged warning; the native
  * enum's extra values — META, AMPLITUDE, MIXPANEL, GOOGLE_ADS, GOOGLE_APP_SET,
- * CUSTOM — have no common counterpart and surface only through
+ * CUSTOM, AIRBRIDGE_ID — have no common counterpart and surface only through
  * [toKmpIntegrationAttribute] as `null`).
  */
 private fun IntegrationAttribute.toNativeAttributionProvider(): NativeAttributionProvider? =
@@ -619,5 +619,6 @@ private fun NativeAttributionProvider.toKmpIntegrationAttribute(): IntegrationAt
         NativeAttributionProvider.GOOGLE_ADS,
         NativeAttributionProvider.GOOGLE_APP_SET,
         NativeAttributionProvider.CUSTOM,
+        NativeAttributionProvider.AIRBRIDGE_ID,
         -> null
     }

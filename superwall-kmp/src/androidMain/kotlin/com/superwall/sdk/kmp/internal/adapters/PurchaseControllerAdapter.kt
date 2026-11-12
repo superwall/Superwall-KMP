@@ -14,7 +14,7 @@ import com.superwall.sdk.delegate.subscription_controller.PurchaseController as 
 import com.superwall.sdk.store.abstractions.product.StoreProduct as NativeStoreProduct
 
 /**
- * Adapts the user's common [PurchaseController] to superwall-android 2.8.0's
+ * Adapts the user's common [PurchaseController] to superwall-android's
  * [NativePurchaseController].
  *
  * Both sides are suspend functions, so — unlike the Flutter host's
@@ -36,12 +36,18 @@ internal class PurchaseControllerAdapter(
     private val log: (message: String, error: Throwable?) -> Unit,
 ) : NativePurchaseController {
     /**
-     * Overrides superwall-android 2.8.0's primary entry point (the
-     * `StoreProduct` overload). Its interface default fails for custom-store
-     * products and routes Play products to the deprecated `ProductDetails`
-     * overload — overriding here instead means BOTH Play and custom products
-     * reach the user's [PurchaseController.purchaseFromGooglePlay], which is
-     * productId-based and store-agnostic.
+     * Overrides the `StoreProduct` overload. Its interface default fails for
+     * custom-store products and routes Play products to the deprecated
+     * `ProductDetails` overload — overriding here instead means BOTH Play and
+     * custom products reach the user's [PurchaseController.purchaseFromGooglePlay],
+     * which is productId-based and store-agnostic.
+     *
+     * Since superwall-android 2.9.0 the SDK calls the five-argument overload
+     * that adds a `ProductReplacement`; its interface default forwards here
+     * without the replacement. So a purchase that should upgrade or downgrade
+     * an existing subscription reaches [PurchaseController.purchaseFromGooglePlay]
+     * as a plain purchase: the common controller has no way to receive the
+     * replacement mode or old purchase token yet.
      */
     override suspend fun purchase(
         activity: Activity,

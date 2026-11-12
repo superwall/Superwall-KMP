@@ -255,6 +255,8 @@ class OptionsMapperTest {
             NativeLogScope.paywallTransactions,
             NativeLogScope.nativePurchaseController,
             NativeLogScope.deepLinks,
+            NativeLogScope.customerCenter,
+            NativeLogScope.billing,
         )
 
     @Test

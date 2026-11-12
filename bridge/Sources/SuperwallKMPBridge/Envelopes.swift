@@ -315,7 +315,8 @@ public enum SWBPaywallPresentationRequestStatusReasonCase: Int {
   case subscriptionStatusTimeout = 8
 }
 
-/// Mirror of SuperwallKit.IntegrationAttribute (23 cases in SuperwallKit 4.16.1).
+/// Mirror of SuperwallKit.IntegrationAttribute: the 23 cases SuperwallKit 4.16.1 had.
+/// `airbridgeId` (4.18.2) is not mirrored yet.
 @objc(SWBIntegrationAttribute)
 public enum SWBIntegrationAttribute: Int {
   case adjustId = 0
@@ -1947,7 +1948,7 @@ public final class SWBCustomCallbackResult: NSObject {
   }
 }
 
-// MARK: - Attribution / page view (new in SuperwallKit 4.16.x)
+// MARK: - Attribution / page view
 
 /// Flat copy of SuperwallKit.AttributionMatchInfo.
 @objc(SWBAttributionMatchInfo)

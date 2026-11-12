@@ -58,7 +58,8 @@ public enum SWBTransactionBackgroundView: Int {
   case none = 1
 }
 
-/// Mirror of SuperwallKit.LogScope (all 24 cases in 4.16.1).
+/// Mirror of SuperwallKit.LogScope: the 24 cases SuperwallKit 4.16.1 had.
+/// `grantedEntitlements` and `customerCenter` (4.17/4.18) are not mirrored yet.
 @objc(SWBLogScope)
 public enum SWBLogScope: Int {
   case localizationManager = 0

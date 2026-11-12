@@ -230,8 +230,8 @@ internal class IosSuperwallBridge : SuperwallBridge {
         val result = LinkedHashMap<IntegrationAttribute, String?>()
         for ((key, value) in wire) {
             val name = key as? String ?: continue
-            // Wire names without a common counterpart (e.g. the 4.16.x-only
-            // firebaseInstallationId / singularDeviceId) are skipped.
+            // Wire names without a common counterpart (e.g. airbridgeId) are
+            // skipped.
             val attribute = integrationAttributeFromWireName(name) ?: continue
             result[attribute] = value as? String
         }

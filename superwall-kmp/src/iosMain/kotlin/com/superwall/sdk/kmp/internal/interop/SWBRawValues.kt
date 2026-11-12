@@ -58,7 +58,7 @@ internal const val SWB_EVENT_TRACKING_BEHAVIOR_NONE: Long = 2 // SWBEventTrackin
 internal const val SWB_TRANSACTION_BACKGROUND_VIEW_SPINNER: Long = 0 // SWBTransactionBackgroundView.spinner
 internal const val SWB_TRANSACTION_BACKGROUND_VIEW_NONE: Long = 1 // SWBTransactionBackgroundView.none
 
-// SWBLogScope (SuperwallKMPBridge.swift). The bridge's two 4.16.x-only cases
+// SWBLogScope (SuperwallKMPBridge.swift). The bridge's two extra cases
 // (analytics = 22, webEntitlements = 23) have no common counterpart and are
 // never written by the mappers, so they are intentionally not declared.
 internal const val SWB_LOG_SCOPE_LOCALIZATION_MANAGER: Long = 0 // SWBLogScope.localizationManager

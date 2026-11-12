@@ -2,6 +2,15 @@
 
 The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/superwall/Superwall-KMP/releases) on GitHub.
 
+## 0.2.0
+
+## Breaking Changes
+- iOS: the minimum deployment target is now iOS 15, and the iOS side must be built with Xcode 26 (Swift 6.2) or later. SuperwallKit 4.18.0 raised both, and the `SuperwallKMPBridge` Swift package now declares iOS 15 and swift-tools-version 6.2 to match. Set your app's iOS deployment target to 15.0 or higher.
+
+## Enhancements
+- Updates Android SDK to 2.10.2 [View Android SDK release notes](https://github.com/superwall/Superwall-Android/releases/tag/2.10.2).
+- Updates iOS SDK to 4.19.1 [View iOS SDK release notes](https://github.com/superwall/Superwall-iOS/releases/tag/4.19.1).
+
 ## 0.1.1
 
 ## Enhancements

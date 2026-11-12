@@ -17,7 +17,7 @@ implementation("com.superwall.sdk:superwall-kmp:<version>")
 
 ### iOS
 
-Two steps:
+Two steps (iOS 15+, built with Xcode 26 or later):
 
 1. Add the same Gradle dependency (above) to your shared module, and export the framework as **static**:
 
@@ -37,7 +37,7 @@ Two steps:
    https://github.com/superwall/Superwall-KMP
    ```
 
-   In Xcode: File → Add Package Dependencies… → paste the URL → add the `SuperwallKMPBridge` product to your app target. The package pins SuperwallKit iOS (exact `4.16.1`) transitively — do not add SuperwallKit separately.
+   In Xcode: File → Add Package Dependencies… → paste the URL → add the `SuperwallKMPBridge` product to your app target. The package pins SuperwallKit iOS (exact `4.19.1`) transitively — do not add SuperwallKit separately.
 
    The Kotlin side compiles against the bridge's ObjC headers only (compile-only cinterop); your app supplies the binary by linking the SPM package. If it is missing you'll get a link error at app build time, not at runtime.
 
@@ -77,7 +77,7 @@ There is no pre-configure call queue: most members throw `SuperwallError.NotConf
 ## Targets
 
 - Android (`minSdk 26`, matching the native superwall-android SDK)
-- iOS 14+ (`iosArm64`, `iosSimulatorArm64`, `iosX64`)
+- iOS 15+ (`iosArm64`, `iosSimulatorArm64`, `iosX64`), built with Xcode 26 or later
 
 ## Development
 

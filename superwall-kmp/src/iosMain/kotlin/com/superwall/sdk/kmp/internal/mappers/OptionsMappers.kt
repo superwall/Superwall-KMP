@@ -188,7 +188,7 @@ internal fun logLevelFromSWB(level: SWBLogLevel): LogLevel =
 
 /**
  * Maps a common [LogScope] to the SWB raw value (the `SWBLogScope` raw Int —
- * carried as an NSNumber across the bridge). The bridge's two 4.16.x-only
+ * carried as an NSNumber across the bridge). The bridge's two extra
  * scopes (`analytics`, `webEntitlements`) have no common counterpart and only
  * appear in the read direction ([logScopeFromRawName]).
  */
@@ -231,7 +231,7 @@ internal fun logLevelFromRawName(raw: String): LogLevel? {
 /**
  * Maps the raw native scope string delivered by `handleLog` (camelCase, e.g.
  * `"paywallPresentation"`) to a common [LogScope], or `null` when unmappable
- * (including the 4.16.x-only `analytics`/`webEntitlements` scopes) — the
+ * (including the `analytics`/`webEntitlements` scopes) — the
  * caller falls back to [LogScope.ALL] and preserves `info["rawScope"]`.
  */
 internal fun logScopeFromRawName(raw: String): LogScope? {
