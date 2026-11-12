@@ -88,6 +88,37 @@ class OptionsMapperTest {
 
     // ---- PaywallOptions --------------------------------------------------------
 
+    /**
+     * Reads the native RestoreFailed's "set by the app" backing field: only
+     * strings left unset there are localized by superwall-android.
+     */
+    private fun NativePaywallOptions.RestoreFailed.customValue(field: String): String? =
+        NativePaywallOptions.RestoreFailed::class.java
+            .getDeclaredField(field)
+            .apply { isAccessible = true }
+            .get(this) as String?
+
+    @Test
+    fun restoreFailed_defaultTextIsLeftUnsetSoTheNativeSdkLocalizesIt() {
+        val native = PaywallOptions().toNative().restoreFailed
+
+        assertNull(native.customValue("customTitle"))
+        assertNull(native.customValue("customMessage"))
+        assertNull(native.customValue("customCloseButtonTitle"))
+    }
+
+    @Test
+    fun restoreFailed_customTextIsSetAndTheRestLeftUnset() {
+        val native =
+            PaywallOptions(restoreFailed = RestoreFailed(title = "Nothing to restore"))
+                .toNative()
+                .restoreFailed
+
+        assertEquals("Nothing to restore", native.customValue("customTitle"))
+        assertNull(native.customValue("customMessage"))
+        assertNull(native.customValue("customCloseButtonTitle"))
+    }
+
     @Test
     fun paywallOptions_nonDefaultValues_mapToNativeFields() {
         val common =

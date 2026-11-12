@@ -17,6 +17,7 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 - iOS: permission events now have the permission name in `SuperwallEventInfo.name`, as on Android.
 - iOS: fixes `Superwall.customerInfoFlow` emitting every customer info change twice, plus the current value when the SDK finished configuring. It now emits once per change, as on Android. Use `getCustomerInfo()` for the current value.
 - iOS: exceptions thrown by your `PurchaseController`, your `PaywallPresentationHandler` callbacks or the `register` feature block are now reported to `SuperwallDelegate.handleLog` at `LogLevel.ERROR`, as on Android. They were only printed to the console.
+- Android: fixes the restore-failed alert always showing English text. `RestoreFailed` fields left at their defaults are no longer passed to the Android SDK, so it shows them in the device's language.
 - An event newer than the SDK still arrives as `CUSTOM_PLACEMENT` with its native name in `name`; on Android that name is now also in `params["rawEventType"]`, as on iOS.
 
 ## 0.1.1

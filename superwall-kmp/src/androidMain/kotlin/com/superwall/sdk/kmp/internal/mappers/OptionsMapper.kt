@@ -7,6 +7,7 @@ import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.Logging
 import com.superwall.sdk.kmp.models.options.NetworkEnvironment
 import com.superwall.sdk.kmp.models.options.PaywallOptions
+import com.superwall.sdk.kmp.models.options.RestoreFailed
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.options.TestModeBehavior
 import com.superwall.sdk.kmp.models.options.TransactionBackgroundView
@@ -72,11 +73,23 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
 internal fun PaywallOptions.toNative(): NativePaywallOptions {
     val native = NativePaywallOptions()
     native.isHapticFeedbackEnabled = isHapticFeedbackEnabled
+    // superwall-android localizes each restore-failed string the app leaves
+    // unset (2.9.0+). The common defaults are the English strings, so writing
+    // them would pin every device to English: only text that differs from the
+    // default is set. An app that passes the English default explicitly gets
+    // the localized string too, which reads the same in English.
+    val defaultRestoreFailed = RestoreFailed()
     native.restoreFailed =
         NativePaywallOptions.RestoreFailed().also { alert ->
-            alert.title = restoreFailed.title
-            alert.message = restoreFailed.message
-            alert.closeButtonTitle = restoreFailed.closeButtonTitle
+            if (restoreFailed.title != defaultRestoreFailed.title) {
+                alert.title = restoreFailed.title
+            }
+            if (restoreFailed.message != defaultRestoreFailed.message) {
+                alert.message = restoreFailed.message
+            }
+            if (restoreFailed.closeButtonTitle != defaultRestoreFailed.closeButtonTitle) {
+                alert.closeButtonTitle = restoreFailed.closeButtonTitle
+            }
         }
     native.shouldShowPurchaseFailureAlert = shouldShowPurchaseFailureAlert
     native.shouldPreload = shouldPreload
