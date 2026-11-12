@@ -183,8 +183,10 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
             },
         )
 
-        // The native singleton exists synchronously after configure; install
-        // the delegate now so no early event is missed.
+        // The native singleton exists synchronously after configure; report the
+        // wrapper before the first config request goes out, and install the
+        // delegate now so no early event is missed.
+        NativeSuperwall.instance.setPlatformWrapper(PLATFORM_WRAPPER, SDK_VERSION)
         installNativeDelegateIfPossible()
     }
 

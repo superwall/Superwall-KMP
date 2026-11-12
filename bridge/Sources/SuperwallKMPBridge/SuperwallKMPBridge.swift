@@ -379,9 +379,10 @@ extension SWBLogLevel {
 /// handler wrappers, observations) is owned here so Kotlin-side references stay thin.
 @objc(SWBSuperwallBridge)
 public final class SWBSuperwallBridge: NSObject {
-  /// The bridge version, asserted by the klib at configure time against the
-  /// constant it was compiled against. Bumped in lockstep with
-  /// the superwall-kmp release that ships this bridge.
+  /// The bridge version: the superwall-kmp release that ships this bridge.
+  /// Informational only, nothing checks it at runtime; bump it with
+  /// version.env. (The version reported to SuperwallKit comes from Kotlin, see
+  /// `setPlatformWrapper`.)
   @objc public static let bridgeVersion: String = SWBBridgeVersion
 
   /// NSError domain used for all bridge-synthesized errors.
@@ -481,6 +482,15 @@ public final class SWBSuperwallBridge: NSObject {
     @unknown default:
       return (.pending, nil)
     }
+  }
+
+  /// Reports the wrapper SDK and its version to SuperwallKit, which sends them
+  /// with its requests and device attributes. Kotlin calls this right after
+  /// `configure` with the superwall-kmp version. A no-op before configure, where
+  /// `Superwall.shared` would be a throwaway instance.
+  @objc public func setPlatformWrapper(_ wrapper: String, version: String) {
+    guard Superwall.isInitialized else { return }
+    Superwall.shared.setPlatformWrapper(wrapper, version: version)
   }
 
   /// Installs (or clears, with nil) the Kotlin-implemented delegate.
@@ -814,6 +824,5 @@ public final class SWBSuperwallBridge: NSObject {
   }
 }
 
-/// Swift-side version constant (mirrored @objc as SWBSuperwallBridge.bridgeVersion,
-/// which is what the Kotlin klib asserts against at configure).
-public let SWBBridgeVersion = "0.1.0"
+/// Swift-side version constant, mirrored @objc as SWBSuperwallBridge.bridgeVersion.
+public let SWBBridgeVersion = "0.2.0"

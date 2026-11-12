@@ -20,6 +20,14 @@ import com.superwall.sdk.kmp.models.results.RestorationResult
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 
 /**
+ * The wrapper name both bridges pass, with [SDK_VERSION], to the native
+ * `setPlatformWrapper` at configure. The native SDKs send it with their
+ * requests and device attributes, as the Flutter, React Native and Expo
+ * wrappers do with their own names.
+ */
+internal const val PLATFORM_WRAPPER: String = "KMP"
+
+/**
  * The interface style the paywall UI should adopt.
  *
  * Internal for now: the bridge forwards it to the native SDKs; it is promoted

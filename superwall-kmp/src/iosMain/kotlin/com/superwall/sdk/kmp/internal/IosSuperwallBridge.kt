@@ -122,9 +122,10 @@ internal class IosSuperwallBridge : SuperwallBridge {
         }
 
         // The native Superwall singleton exists synchronously once configure
-        // has been called, so the deferred delegate install is safe now
-        // (setting it earlier would hit SuperwallKit's throwaway pre-configure
-        // instance and be lost).
+        // has been called, so reporting the wrapper and the deferred delegate
+        // install are safe now (doing either earlier would hit SuperwallKit's
+        // throwaway pre-configure instance and be lost).
+        swb.setPlatformWrapper(PLATFORM_WRAPPER, version = SDK_VERSION)
         installPendingDelegate()
     }
 
