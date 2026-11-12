@@ -2,8 +2,10 @@ package com.superwall.sdk.kmp.internal.mappers
 
 import com.superwall.sdk.kmp.models.events.EventType
 import com.superwall.sdk.kmp.models.events.SuperwallEventInfo
+import com.superwall.sdk.analytics.superwall.AttributionMatchInfo as NativeAttributionMatchInfo
 import com.superwall.sdk.analytics.superwall.SuperwallEvent as NativeSuperwallEvent
 import com.superwall.sdk.analytics.superwall.SuperwallEventInfo as NativeSuperwallEventInfo
+import com.superwall.sdk.paywall.view.webview.messaging.PageViewData as NativePageViewData
 import com.superwall.sdk.store.transactions.TransactionError as NativeTransactionError
 
 /**
@@ -12,7 +14,7 @@ import com.superwall.sdk.store.transactions.TransactionError as NativeTransactio
  *
  * Port of the Flutter host's `EventMapper.toPigeonEventInfo`
  * (utils/EventMapper.kt) covering EVERY public case of superwall-android
- * 2.7.11's `SuperwallEvent`, with these deliberate deltas:
+ * 2.10.2's `SuperwallEvent`, with these deliberate deltas:
  *
  * - `PaywallWebviewLoadFail` no longer stringifies a null `WebviewError` into
  *   `"null"` — it maps to a null error.
@@ -23,11 +25,16 @@ import com.superwall.sdk.store.transactions.TransactionError as NativeTransactio
  *   `ReviewRequested` and the permission events map to their real event types
  * with their payloads (the six silently-dropped fields of).
  *
- * Native cases with no common [EventType] counterpart (`PaywallPageView`,
- * `TestModeModalOpen/Close`, `ReviewGranted/Denied`, the SDK-internal events,
- * and anything added after this SDK version) degrade to the Flutter host's
- * fallback: [EventType.CUSTOM_PLACEMENT] with `name = rawName` — degrade,
- * never crash.
+ * Payload fields with no [SuperwallEventInfo] counterpart travel in
+ * [SuperwallEventInfo.params] under the same keys the iOS mapper uses
+ * (`permissionName`, `paywallIdentifier`, `paywallCount`, `pageViewData`,
+ * `attributionMatch`), plus the Android-only `url` (resource load failures)
+ * and `duration` (shimmer view completion).
+ *
+ * Only the SDK-internal events (`ErrorThrown`, `ExpressionResult`) and any
+ * case newer than this SDK version reach the fallback:
+ * [EventType.CUSTOM_PLACEMENT] with `name = rawName` and
+ * `params["rawEventType"] = rawName` — degrade, never crash.
  */
 @Suppress("DEPRECATION") // IntegrationProps + PaywallWebviewLoadTimeout are deprecated-but-live native cases.
 internal fun NativeSuperwallEventInfo.toKmp(): SuperwallEventInfo {
@@ -266,7 +273,7 @@ internal fun NativeSuperwallEventInfo.toKmp(): SuperwallEventInfo {
             SuperwallEventInfo(
                 eventType = EventType.PAYWALL_RESOURCE_LOAD_FAIL,
                 error = event.error,
-                params = params,
+                params = params.with("url" to event.url),
             )
         is NativeSuperwallEvent.PaywallPresentationRequest ->
             SuperwallEventInfo(
@@ -304,7 +311,10 @@ internal fun NativeSuperwallEventInfo.toKmp(): SuperwallEventInfo {
         is NativeSuperwallEvent.ShimmerViewStart ->
             SuperwallEventInfo(eventType = EventType.SHIMMER_VIEW_START, params = params)
         is NativeSuperwallEvent.ShimmerViewComplete ->
-            SuperwallEventInfo(eventType = EventType.SHIMMER_VIEW_COMPLETE, params = params)
+            SuperwallEventInfo(
+                eventType = EventType.SHIMMER_VIEW_COMPLETE,
+                params = params.with("duration" to event.duration),
+            )
         is NativeSuperwallEvent.RedemptionStart ->
             SuperwallEventInfo(eventType = EventType.REDEMPTION_START, params = params)
         is NativeSuperwallEvent.RedemptionComplete ->
@@ -334,19 +344,15 @@ internal fun NativeSuperwallEventInfo.toKmp(): SuperwallEventInfo {
                 reviewRequestedCount = event.count.toLong(),
                 params = params,
             )
-        // ReviewGranted / ReviewDenied have no common EventType counterpart —
-        // degrade to the fallback shape, keeping the count.
         is NativeSuperwallEvent.ReviewGranted ->
             SuperwallEventInfo(
-                eventType = EventType.CUSTOM_PLACEMENT,
-                name = event.rawName,
+                eventType = EventType.REVIEW_GRANTED,
                 reviewRequestedCount = event.count.toLong(),
                 params = params,
             )
         is NativeSuperwallEvent.ReviewDenied ->
             SuperwallEventInfo(
-                eventType = EventType.CUSTOM_PLACEMENT,
-                name = event.rawName,
+                eventType = EventType.REVIEW_DENIED,
                 reviewRequestedCount = event.count.toLong(),
                 params = params,
             )
@@ -356,40 +362,102 @@ internal fun NativeSuperwallEventInfo.toKmp(): SuperwallEventInfo {
             SuperwallEventInfo(
                 eventType = EventType.PERMISSION_REQUESTED,
                 name = event.permissionName,
-                params = params,
+                params = params.withPermission(event.permissionName, event.paywallIdentifier),
             )
         is NativeSuperwallEvent.PermissionGranted ->
             SuperwallEventInfo(
                 eventType = EventType.PERMISSION_GRANTED,
                 name = event.permissionName,
-                params = params,
+                params = params.withPermission(event.permissionName, event.paywallIdentifier),
             )
         is NativeSuperwallEvent.PermissionDenied ->
             SuperwallEventInfo(
                 eventType = EventType.PERMISSION_DENIED,
                 name = event.permissionName,
-                params = params,
+                params = params.withPermission(event.permissionName, event.paywallIdentifier),
             )
         is NativeSuperwallEvent.PaywallPreloadStart ->
-            SuperwallEventInfo(eventType = EventType.PAYWALL_PRELOAD_START, params = params)
+            SuperwallEventInfo(
+                eventType = EventType.PAYWALL_PRELOAD_START,
+                params = params.with("paywallCount" to event.paywallCount.toLong()),
+            )
         is NativeSuperwallEvent.PaywallPreloadComplete ->
-            SuperwallEventInfo(eventType = EventType.PAYWALL_PRELOAD_COMPLETE, params = params)
-        // No common EventType counterpart, but the paywall payload is kept.
+            SuperwallEventInfo(
+                eventType = EventType.PAYWALL_PRELOAD_COMPLETE,
+                params = params.with("paywallCount" to event.paywallCount.toLong()),
+            )
         is NativeSuperwallEvent.PaywallPageView ->
             SuperwallEventInfo(
-                eventType = EventType.CUSTOM_PLACEMENT,
-                name = event.rawName,
+                eventType = EventType.PAYWALL_PAGE_VIEW,
                 paywallInfo = event.paywallInfo.toKmp(),
-                params = params,
+                params = params.with("pageViewData" to event.data.toParamsMap()),
             )
-        // TestModeModalOpen/Close, the SDK-internal events (ErrorThrown,
-        // ExpressionResult) and any case newer than superwall-android 2.8.0:
-        // Flutter-host fallback shape.
+        is NativeSuperwallEvent.AttributionMatch ->
+            SuperwallEventInfo(
+                eventType = EventType.ATTRIBUTION_MATCH,
+                params = params.with("attributionMatch" to event.info.toParamsMap()),
+            )
+        is NativeSuperwallEvent.TestModeModalOpen ->
+            SuperwallEventInfo(eventType = EventType.TEST_MODE_MODAL_OPEN, params = params)
+        is NativeSuperwallEvent.TestModeModalClose ->
+            SuperwallEventInfo(eventType = EventType.TEST_MODE_MODAL_CLOSE, params = params)
+        // The Customer Center payloads (screen, action, path, survey, refund
+        // status) have no common fields yet; the native analytics params are
+        // kept.
+        is NativeSuperwallEvent.CustomerCenterOpen ->
+            SuperwallEventInfo(eventType = EventType.CUSTOMER_CENTER_OPEN, params = params)
+        is NativeSuperwallEvent.CustomerCenterClose ->
+            SuperwallEventInfo(eventType = EventType.CUSTOMER_CENTER_CLOSE, params = params)
+        is NativeSuperwallEvent.CustomerCenterAction ->
+            SuperwallEventInfo(eventType = EventType.CUSTOMER_CENTER_ACTION, params = params)
+        is NativeSuperwallEvent.CustomerCenterSurveyResponse ->
+            SuperwallEventInfo(eventType = EventType.CUSTOMER_CENTER_SURVEY_RESPONSE, params = params)
+        is NativeSuperwallEvent.CustomerCenterRefundRequest ->
+            SuperwallEventInfo(eventType = EventType.CUSTOMER_CENTER_REFUND_REQUEST, params = params)
+        // The SDK-internal events (ErrorThrown, ExpressionResult) and any case
+        // newer than superwall-android 2.10.2: Flutter-host fallback shape, with
+        // the raw name also under params["rawEventType"] as on iOS.
         else ->
             SuperwallEventInfo(
                 eventType = EventType.CUSTOM_PLACEMENT,
                 name = event.rawName,
-                params = params,
+                params = params.with("rawEventType" to event.rawName),
             )
     }
 }
+
+/** [this] plus [entries]; never null, since [entries] is never empty. */
+private fun Map<String, Any?>?.with(vararg entries: Pair<String, Any?>): Map<String, Any?> = (this ?: emptyMap()) + entries
+
+/** The permission payload, under the keys the iOS mapper uses. */
+private fun Map<String, Any?>?.withPermission(
+    permissionName: String,
+    paywallIdentifier: String,
+): Map<String, Any?> = with("permissionName" to permissionName, "paywallIdentifier" to paywallIdentifier)
+
+/** [NativePageViewData] as a params map, keyed like the iOS mapper's copy. */
+internal fun NativePageViewData.toParamsMap(): Map<String, Any?> =
+    buildMap {
+        put("pageNodeId", pageNodeId)
+        put("flowPosition", flowPosition.toLong())
+        put("pageName", pageName)
+        put("navigationNodeId", navigationNodeId)
+        previousPageNodeId?.let { put("previousPageNodeId", it) }
+        previousFlowPosition?.let { put("previousFlowPosition", it.toLong()) }
+        put("navigationType", navigationType)
+        timeOnPreviousPageMs?.let { put("timeOnPreviousPageMs", it.toLong()) }
+    }
+
+/**
+ * [NativeAttributionMatchInfo] as a params map, keyed like the iOS mapper's
+ * copy, with the provider and confidence as their raw wire names.
+ */
+internal fun NativeAttributionMatchInfo.toParamsMap(): Map<String, Any?> =
+    buildMap {
+        put("provider", provider.rawName)
+        put("matched", matched)
+        source?.let { put("source", it) }
+        confidence?.let { put("confidence", it.rawName) }
+        matchScore?.let { put("matchScore", it) }
+        reason?.let { put("reason", it) }
+    }

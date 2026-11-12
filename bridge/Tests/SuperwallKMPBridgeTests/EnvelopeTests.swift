@@ -347,12 +347,35 @@ final class EnvelopeConstructionTests: XCTestCase {
       (.networkDecodingFail, .networkDecodingFail),
       (.customerInfoDidChange, .customerInfoDidChange),
       (.testModeModalOpen, .testModeModalOpen),
-      (.testModeModalClose, .testModeModalClose)
+      (.testModeModalClose, .testModeModalClose),
+      (.customerCenterOpen(screen: .management, presentation: .sheet), .customerCenterOpen),
+      (.customerCenterClose, .customerCenterClose),
+      (.customerCenterAction(action: .refund, pathId: "path_1", productId: "pro"), .customerCenterAction),
+      (
+        .customerCenterSurveyResponse(
+          surveyId: "survey_1",
+          optionId: "option_1",
+          action: .refund,
+          pathId: "path_1",
+          productId: nil
+        ),
+        .customerCenterSurveyResponse
+      ),
+      (.customerCenterRefundRequest(productId: "pro", status: .success), .customerCenterRefundRequest)
     ]
     for (event, expected) in cases {
       let envelope = SWBEventEnvelope(SuperwallEventInfo(event: event, params: [:]))
       XCTAssertEqual(envelope.eventType, expected, "\(event) mapped to \(envelope.eventType)")
     }
+  }
+
+  func testTeleportReturnWithoutPaywallHasNoPaywallInfo() {
+    let envelope = SWBEventEnvelope(
+      SuperwallEventInfo(event: .teleportReturn(paywallInfo: nil), params: ["k": "v"])
+    )
+    XCTAssertEqual(envelope.eventType, .teleportReturn)
+    XCTAssertNil(envelope.paywallInfo)
+    XCTAssertEqual(envelope.params?["k"] as? String, "v")
   }
 
   // MARK: Redemption

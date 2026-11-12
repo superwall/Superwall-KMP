@@ -17,7 +17,17 @@ import com.superwall.sdk.kmp.models.store.StoreTransaction
  * to that event are non-null. Delivered to `SuperwallDelegate.handleSuperwallEvent`.
  *
  * @property eventType The type of the event.
- * @property params Parameters associated with the event.
+ * @property params Parameters associated with the event. Payload values
+ * without a field of their own are added here, under the same key on both
+ * platforms: `permissionName` and `paywallIdentifier` (permission events),
+ * `paywallCount` (preload events), `pageViewData` ([EventType.PAYWALL_PAGE_VIEW]),
+ * `attributionMatch` ([EventType.ATTRIBUTION_MATCH]); on iOS only,
+ * `transactionType` ([EventType.TRANSACTION_COMPLETE]) and
+ * `transactionProductId` ([EventType.NON_RECURRING_PRODUCT_PURCHASE]); on
+ * Android only, `url` ([EventType.PAYWALL_RESOURCE_LOAD_FAIL]) and `duration`
+ * ([EventType.SHIMMER_VIEW_COMPLETE]). An event newer than this SDK arrives
+ * as [EventType.CUSTOM_PLACEMENT] with its native name in [name] and under
+ * `rawEventType`.
  * @property placementName The name of the placement, where applicable.
  * @property deviceAttributes The device attributes, for device-attribute events.
  * @property deepLinkUrl The deep link URL, for deep-link events.

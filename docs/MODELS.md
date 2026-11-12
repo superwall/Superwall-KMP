@@ -120,7 +120,7 @@ Package root: `com.superwall.sdk.kmp.models` (abbreviated `…` below). Naming c
 | Pigeon | KMP | Notes |
 |---|---|---|
 | `PSuperwallEventInfo` | `SuperwallEventInfo` | Flat envelope, all 27 fields present incl. the six the Flutter mapping layer silently drops (Δ15); `attempt`/`reviewRequestedCount`: `int?` → `Long?` |
-| `PEventType` | `EventType` | 73 values, 1:1 (incl. `paywallResourceLoadFail`) |
+| `PEventType` | `EventType` | 90 values: the 73 Pigeon values 1:1 (incl. `paywallResourceLoadFail`) + 17 native-only events (Δ34) |
 | `PIntegrationAttribute` | `IntegrationAttribute` | 21 values, 1:1 |
 
 ### Interfaces (contract callbacks → KMP interfaces, `com.superwall.sdk.kmp`)
@@ -202,3 +202,9 @@ Additions beyond the Pigeon contract picked up when the wrapper moved to the lat
 | Δ31 | — (absent) | `ProductStore.CUSTOM` | add | Present on both natives; previously degraded to `OTHER` on iOS and was unmappable on Android | APPROVED (ian@superwall.com, 2026-07-31) |
 | Δ32 | `purchase(activity, ProductDetails, …)` (Flutter host path) | Android adapter overrides 2.8.0's primary `purchase(activity, StoreProduct, …)` overload | add (behavior) | The `ProductDetails` overload is deprecated in 2.8.0 and its replacement's default implementation fails for custom-store products; overriding the new entry point routes Play AND custom products to the user's productId-based `purchaseFromGooglePlay` | APPROVED (ian@superwall.com, 2026-07-31) |
 | Δ33 | `PProduct` (paywall product slot: id, name, entitlements) | `PaywallProduct` | rename | Disambiguates from the store-level `StoreProduct` and avoids the StoreKit `Product` collision for future Swift consumers | APPROVED (ian@superwall.com, 2026-07-31) |
+
+### Native-version-bump additions (superwall-android 2.10.2 / SuperwallKit iOS 4.19.1)
+
+| # | Pigeon shape | KMP shape | Category | Rationale | Sign-off |
+|---|---|---|---|---|---|
+| Δ34 | — (absent; these events reached the delegate as `customPlacement`) | `EventType.ATTRIBUTION_MATCH`, `PAYWALL_PAGE_VIEW`, `TEST_MODE_MODAL_OPEN`/`CLOSE`, `REVIEW_GRANTED`/`DENIED` (Android), `STRIPE_CHECKOUT_START`/`SUBMIT`/`COMPLETE`/`FAIL` (iOS), `TELEPORT_OPEN`/`RETURN` (iOS), `CUSTOMER_CENTER_OPEN`/`CLOSE`/`ACTION`/`SURVEY_RESPONSE`/`REFUND_REQUEST`; payload values without a `SuperwallEventInfo` field travel in `params` under one key set on both platforms (`permissionName`, `paywallIdentifier`, `paywallCount`, `pageViewData`, `attributionMatch`, plus iOS `transactionType`/`transactionProductId` and Android `url`/`duration`) | add (behavior) | Every native event now arrives under its own type instead of `CUSTOM_PLACEMENT` with a per-platform raw name, per the "unmapped native case is a bug" rule. Only a native case newer than the wrapper still falls back, with `params["rawEventType"]` on both platforms | PENDING |

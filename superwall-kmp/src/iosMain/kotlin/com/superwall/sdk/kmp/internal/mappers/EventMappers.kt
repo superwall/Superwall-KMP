@@ -19,6 +19,11 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeConfigFail
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeConfigRefresh
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeConfirmAllAssignments
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeCustomPlacement
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeCustomerCenterAction
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeCustomerCenterClose
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeCustomerCenterOpen
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeCustomerCenterRefundRequest
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeCustomerCenterSurveyResponse
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeCustomerInfoDidChange
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeDeepLink
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeDeviceAttributes
@@ -75,6 +80,8 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeSubscriptionStart
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeSubscriptionStatusDidChange
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeSurveyClose
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeSurveyResponse
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeTeleportOpen
+import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeTeleportReturn
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeTestModeModalClose
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeTestModeModalOpen
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventTypeTouchesBegan
@@ -96,23 +103,26 @@ import platform.Foundation.NSNumber
 
 /**
  * Maps the typed `SWBEventEnvelope` — the Swift bridge's destructuring of all
- * 80 SuperwallKit 4.16.1 event cases — into the common [SuperwallEventInfo].
+ * 87 SuperwallKit 4.19.1 event cases — into the common [SuperwallEventInfo].
  *
  * The envelope is flat and sparse, so the payload copy is uniform; only the
- * event-type discriminator needs a mapping. Two fidelity notes:
+ * event-type discriminator needs a mapping. Fidelity notes:
  *
  * - Envelope fields with no [SuperwallEventInfo] counterpart (transactionType,
  *   transactionProductId, permissionName, paywallIdentifier, paywallCount,
- *   attributionMatch, pageViewData) are preserved inside [SuperwallEventInfo.params].
- * - SWB event types with no common [EventType] counterpart (attributionMatch,
- *   stripeCheckout*, testModeModal*, paywallPageView, unknown) degrade to
- *   [EventType.CUSTOM_PLACEMENT] — the common surface's generic named-event
- *   envelope — with the raw case name in [SuperwallEventInfo.name] and under
- * `params["rawEventType"]` (degrade, never crash).
+ *   attributionMatch, pageViewData) are preserved inside [SuperwallEventInfo.params],
+ *   under the same keys the Android mapper uses where Android has the field.
+ * - Permission events also carry the permission name in
+ *   [SuperwallEventInfo.name], as on Android.
+ * - Only `.unknown` (a SuperwallKit case newer than this bridge) has no
+ *   common [EventType]: it degrades to [EventType.CUSTOM_PLACEMENT] — the
+ *   common surface's generic named-event envelope — with the raw case
+ *   description in [SuperwallEventInfo.name] and under
+ *   `params["rawEventType"]` (degrade, never crash).
  */
 internal fun SWBEventEnvelope.toModel(): SuperwallEventInfo {
     val mappedType = eventTypeFromSWB(eventType())
-    val rawGapName = if (mappedType == null) rawEventNameForSWB(eventType(), name()) else null
+    val rawGapName = if (mappedType == null) name() ?: "unknown" else null
 
     val mergedParams = buildMap {
         NSAnySanitizer.fromMapOrNull(params())?.let(::putAll)
@@ -139,7 +149,7 @@ internal fun SWBEventEnvelope.toModel(): SuperwallEventInfo {
         error = error(),
         triggeredPlacementName = triggeredPlacementName(),
         attempt = attempt()?.longLongValue,
-        name = name() ?: rawGapName,
+        name = name() ?: permissionName() ?: rawGapName,
         survey = survey()?.toModel(),
         selectedOption = selectedOption()?.toModel(),
         customResponse = customResponse(),
@@ -235,23 +245,24 @@ internal fun eventTypeFromSWB(value: SWBEventType): EventType? =
         SWBEventTypePermissionDenied -> EventType.PERMISSION_DENIED
         SWBEventTypePaywallPreloadStart -> EventType.PAYWALL_PRELOAD_START
         SWBEventTypePaywallPreloadComplete -> EventType.PAYWALL_PRELOAD_COMPLETE
-        // No common EventType counterpart (4.16.x-only cases + forward-compat
-        // unknown): fall through to the CUSTOM_PLACEMENT gap handling.
+        SWBEventTypeAttributionMatch -> EventType.ATTRIBUTION_MATCH
+        SWBEventTypeStripeCheckoutStart -> EventType.STRIPE_CHECKOUT_START
+        SWBEventTypeStripeCheckoutSubmit -> EventType.STRIPE_CHECKOUT_SUBMIT
+        SWBEventTypeStripeCheckoutComplete -> EventType.STRIPE_CHECKOUT_COMPLETE
+        SWBEventTypeStripeCheckoutFail -> EventType.STRIPE_CHECKOUT_FAIL
+        SWBEventTypeTestModeModalOpen -> EventType.TEST_MODE_MODAL_OPEN
+        SWBEventTypeTestModeModalClose -> EventType.TEST_MODE_MODAL_CLOSE
+        SWBEventTypePaywallPageView -> EventType.PAYWALL_PAGE_VIEW
+        SWBEventTypeTeleportOpen -> EventType.TELEPORT_OPEN
+        SWBEventTypeTeleportReturn -> EventType.TELEPORT_RETURN
+        SWBEventTypeCustomerCenterOpen -> EventType.CUSTOMER_CENTER_OPEN
+        SWBEventTypeCustomerCenterClose -> EventType.CUSTOMER_CENTER_CLOSE
+        SWBEventTypeCustomerCenterAction -> EventType.CUSTOMER_CENTER_ACTION
+        SWBEventTypeCustomerCenterSurveyResponse -> EventType.CUSTOMER_CENTER_SURVEY_RESPONSE
+        SWBEventTypeCustomerCenterRefundRequest -> EventType.CUSTOMER_CENTER_REFUND_REQUEST
+        // SWBEventTypeUnknown (a SuperwallKit case newer than this bridge):
+        // fall through to the CUSTOM_PLACEMENT gap handling.
         else -> null
-    }
-
-/** Raw case name preserved for gap event types (and `.unknown`). */
-private fun rawEventNameForSWB(value: SWBEventType, envelopeName: String?): String =
-    when (value) {
-        SWBEventTypeAttributionMatch -> "attributionMatch"
-        SWBEventTypeStripeCheckoutStart -> "stripeCheckoutStart"
-        SWBEventTypeStripeCheckoutSubmit -> "stripeCheckoutSubmit"
-        SWBEventTypeStripeCheckoutComplete -> "stripeCheckoutComplete"
-        SWBEventTypeStripeCheckoutFail -> "stripeCheckoutFail"
-        SWBEventTypeTestModeModalOpen -> "testModeModalOpen"
-        SWBEventTypeTestModeModalClose -> "testModeModalClose"
-        SWBEventTypePaywallPageView -> "paywallPageView"
-        else -> envelopeName ?: "unknown"
     }
 
 private fun transactionTypeNameFromNSNumber(value: NSNumber): String =

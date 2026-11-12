@@ -11,6 +11,12 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 - Updates Android SDK to 2.10.2 [View Android SDK release notes](https://github.com/superwall/Superwall-Android/releases/tag/2.10.2).
 - Updates iOS SDK to 4.19.1 [View iOS SDK release notes](https://github.com/superwall/Superwall-iOS/releases/tag/4.19.1).
 
+## Fixes
+- Fixes `attributionMatch`, `paywallPageView`, `testModeModalOpen` and `testModeModalClose`, the Android-only `reviewGranted` and `reviewDenied`, and the iOS-only `stripeCheckoutStart`, `stripeCheckoutSubmit`, `stripeCheckoutComplete` and `stripeCheckoutFail` events reaching `SuperwallDelegate.handleSuperwallEvent` as `EventType.CUSTOM_PLACEMENT` with a platform-specific name. Each now has its own `EventType`. The Customer Center events (`CUSTOMER_CENTER_OPEN`, `CUSTOMER_CENTER_CLOSE`, `CUSTOMER_CENTER_ACTION`, `CUSTOMER_CENTER_SURVEY_RESPONSE`, `CUSTOMER_CENTER_REFUND_REQUEST`) and the iOS-only `TELEPORT_OPEN` and `TELEPORT_RETURN` that the new native SDKs send get their own types too. If you matched any of these by name on `CUSTOM_PLACEMENT`, match the new `EventType` instead.
+- Android: fixes event details being dropped. Permission events now have `permissionName` and `paywallIdentifier` in `SuperwallEventInfo.params`, paywall preload events `paywallCount`, `PAYWALL_PAGE_VIEW` the page details under `pageViewData`, `ATTRIBUTION_MATCH` the match under `attributionMatch`, `PAYWALL_RESOURCE_LOAD_FAIL` the resource `url`, and `SHIMMER_VIEW_COMPLETE` its `duration`. The keys are the ones iOS already used.
+- iOS: permission events now have the permission name in `SuperwallEventInfo.name`, as on Android.
+- An event newer than the SDK still arrives as `CUSTOM_PLACEMENT` with its native name in `name`; on Android that name is now also in `params["rawEventType"]`, as on iOS.
+
 ## 0.1.1
 
 ## Enhancements
