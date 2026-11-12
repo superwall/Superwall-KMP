@@ -26,7 +26,9 @@ import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
 import com.superwall.sdk.kmp.models.results.PresentationResult
+import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -401,6 +403,40 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
                     )
                 },
             )
+        }
+
+    /**
+     * `Superwall.purchase(productId)` (verified signature: superwall-android
+     * 2.10.2 `Superwall.kt:985`). Its `Result.failure` (an unknown product,
+     * no activity, a billing error) becomes [PurchaseResult.Failed], as iOS
+     * reports failures in the result.
+     */
+    override suspend fun purchase(productId: String): PurchaseResult =
+        withContext(Dispatchers.IO) {
+            NativeSuperwall.instance.purchase(productId).fold(
+                onSuccess = { it.toKmp() },
+                onFailure = { throwable ->
+                    PurchaseResult.Failed(
+                        throwable.localizedMessage ?: throwable.message ?: "Unknown error",
+                    )
+                },
+            )
+        }
+
+    /**
+     * `Superwall.getProducts(vararg productIds)` (`Superwall.kt:993`), keyed
+     * by the requested (full) identifier.
+     */
+    override suspend fun getProducts(productIds: Set<String>): Map<String, StoreProduct> =
+        withContext(Dispatchers.IO) {
+            NativeSuperwall.instance
+                .getProducts(*productIds.toTypedArray())
+                .getOrElse { throwable ->
+                    throw SuperwallError.Native(
+                        throwable.localizedMessage ?: throwable.message,
+                        throwable,
+                    )
+                }.mapValues { (_, product) -> product.toKmp() }
         }
 
     // ---- Presentation --------------------------------------------------------

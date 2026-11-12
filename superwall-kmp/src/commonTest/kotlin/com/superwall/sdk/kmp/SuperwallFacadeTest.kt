@@ -13,6 +13,7 @@ import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
+import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 import com.superwall.sdk.kmp.models.triggers.Variant
 import com.superwall.sdk.kmp.models.triggers.VariantType
@@ -200,6 +201,8 @@ class SuperwallFacadeTest {
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.refreshCustomerInfo() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.confirmAllAssignments() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.restorePurchases() }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.purchase("product") }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.getProducts(setOf("product")) }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.getPresentationResult("placement") }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.dismiss() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.consume("token") }
@@ -616,5 +619,21 @@ class SuperwallFacadeTest {
                     ),
                 ),
             )
+        }
+
+    @Test
+    fun purchaseAndGetProductsForwardToBridge() =
+        runTest {
+            Superwall.configure("pk_test")
+
+            fake.cannedPurchaseResult = PurchaseResult.Failed("Product with id missing not found")
+            assertEquals(PurchaseResult.Failed("Product with id missing not found"), Superwall.purchase("missing"))
+            assertEquals("missing", fake.lastPurchasedProductId)
+
+            fake.cannedPurchaseResult = PurchaseResult.Pending
+            assertEquals(PurchaseResult.Pending, Superwall.purchase("annual"))
+
+            assertEquals(emptyMap(), Superwall.getProducts(setOf("annual", "monthly")))
+            assertEquals(setOf("annual", "monthly"), fake.lastRequestedProductIds)
         }
 }

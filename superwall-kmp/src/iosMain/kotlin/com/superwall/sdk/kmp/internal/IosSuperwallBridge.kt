@@ -17,7 +17,9 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBConfirmedAssignment
 import com.superwall.sdk.kmp.internal.ios.interop.SWBCustomerInfo
 import com.superwall.sdk.kmp.internal.ios.interop.SWBObservation
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPresentationResult
+import com.superwall.sdk.kmp.internal.ios.interop.SWBPurchaseResult
 import com.superwall.sdk.kmp.internal.ios.interop.SWBRestorationResult
+import com.superwall.sdk.kmp.internal.ios.interop.SWBStoreProduct
 import com.superwall.sdk.kmp.internal.ios.interop.SWBSuperwallBridge
 import com.superwall.sdk.kmp.internal.mappers.eventTrackingBehaviorFromSWBRaw
 import com.superwall.sdk.kmp.internal.mappers.integrationAttributeFromWireName
@@ -42,7 +44,9 @@ import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
 import com.superwall.sdk.kmp.models.results.PresentationResult
+import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -310,6 +314,19 @@ internal class IosSuperwallBridge : SuperwallBridge {
         // Nullable-only-in-the-binding: an unexpected nil reads as a failure.
         awaitCompletion<SWBRestorationResult?> { swb.restorePurchases(it) }?.toModel()
             ?: RestorationResult.Failed("Superwall restore completed without a result.")
+
+    override suspend fun purchase(productId: String): PurchaseResult =
+        // Nullable-only-in-the-binding: an unexpected nil reads as a failure.
+        awaitCompletion<SWBPurchaseResult?> { swb.purchaseWithProductId(productId, it) }?.toModel()
+            ?: PurchaseResult.Failed("Superwall purchase completed without a result.")
+
+    override suspend fun getProducts(productIds: Set<String>): Map<String, StoreProduct> =
+        // SuperwallKit returns a set of products; key them by identifier like
+        // superwall-android does.
+        awaitCompletion<List<*>?> { swb.getProductsWithProductIds(productIds.toList(), it) }
+            .orEmpty()
+            .mapNotNull { (it as? SWBStoreProduct)?.toModel() }
+            .associateBy { it.productIdentifier }
 
     // ---- Presentation --------------------------------------------------------
 

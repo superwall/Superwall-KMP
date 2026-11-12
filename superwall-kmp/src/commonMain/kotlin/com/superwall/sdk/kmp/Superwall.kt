@@ -18,7 +18,9 @@ import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
 import com.superwall.sdk.kmp.models.results.PresentationResult
+import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
@@ -451,6 +453,35 @@ public object Superwall {
      * domain type and does not throw.
      */
     public suspend fun restorePurchases(): RestorationResult = requireConfigured().restorePurchases()
+
+    /**
+     * Purchases a product through Superwall without showing a paywall. The
+     * purchase shows up on the Superwall dashboard like a paywall purchase.
+     *
+     * With a [PurchaseController], the controller makes the purchase, as for a
+     * paywall. On iOS this can't be used together with
+     * `SuperwallOptions.shouldObservePurchases`: SuperwallKit returns
+     * [PurchaseResult.Cancelled] then.
+     *
+     * @param productId The store product identifier. On Android, pass
+     * `productId:basePlanId:offerId` to pick a base plan or offer, as in the
+     * Superwall dashboard.
+     * @return The [PurchaseResult]. A product the store doesn't know, or any
+     * other failure, is [PurchaseResult.Failed] rather than a thrown error.
+     */
+    public suspend fun purchase(productId: String): PurchaseResult = requireConfigured().purchase(productId)
+
+    /**
+     * Fetches products from the store without showing a paywall, e.g. to show
+     * their prices in your own UI.
+     *
+     * @param productIds The store product identifiers (on Android,
+     * optionally `productId:basePlanId:offerId`).
+     * @return The products keyed by the identifier they were requested with.
+     * Identifiers the store doesn't know are left out.
+     */
+    public suspend fun getProducts(productIds: Set<String>): Map<String, StoreProduct> =
+        requireConfigured().getProducts(productIds)
 
     // ---- Presentation -----------------------------------------------------------
 

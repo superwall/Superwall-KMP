@@ -10,6 +10,8 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 ## Enhancements
 - Updates Android SDK to 2.10.2 [View Android SDK release notes](https://github.com/superwall/Superwall-Android/releases/tag/2.10.2).
 - Updates iOS SDK to 4.19.1 [View iOS SDK release notes](https://github.com/superwall/Superwall-iOS/releases/tag/4.19.1).
+- Adds `Superwall.purchase(productId)` to buy a product through Superwall without showing a paywall, returning a `PurchaseResult`. With a `PurchaseController`, the controller makes the purchase. A product the store doesn't know returns `PurchaseResult.Failed`.
+- Adds `Superwall.getProducts(productIds)` to fetch `StoreProduct`s, such as prices for your own UI, without showing a paywall. The result is keyed by the requested identifier, and unknown identifiers are left out.
 - Adds `Superwall.getAssignments()`, which returns the experiment assignments made so far without confirming the rest.
 - Adds `Superwall.refreshConfiguration()` to fetch the Superwall configuration again without restarting the app.
 - Adds `Superwall.eventTrackingBehavior` to change which events the SDK sends at runtime, for example from a consent flow. `SuperwallOptions.eventTrackingBehavior` still sets the initial value.

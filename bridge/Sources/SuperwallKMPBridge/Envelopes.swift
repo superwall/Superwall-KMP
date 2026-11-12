@@ -1577,6 +1577,20 @@ public final class SWBPurchaseResult: NSObject {
     super.init()
   }
 
+  /// Forward conversion for `Superwall.purchase` results (SDK → Kotlin).
+  convenience init(_ native: PurchaseResult) {
+    switch native {
+    case .purchased:
+      self.init(result: .purchased, errorMessage: nil)
+    case .pending:
+      self.init(result: .pending, errorMessage: nil)
+    case .cancelled:
+      self.init(result: .cancelled, errorMessage: nil)
+    case .failed(let error):
+      self.init(result: .failed, errorMessage: error.localizedDescription)
+    }
+  }
+
   /// Back-conversion for the purchase-controller direction.
   var native: PurchaseResult {
     switch result {

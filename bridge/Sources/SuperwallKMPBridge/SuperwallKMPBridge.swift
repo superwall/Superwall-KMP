@@ -716,6 +716,31 @@ public final class SWBSuperwallBridge: NSObject {
     }
   }
 
+  /// Purchases the product with the given identifier outside of a paywall.
+  /// SuperwallKit's `purchase` takes a StoreProduct, so the product is fetched
+  /// first; an identifier the store doesn't know completes with `.failed`, as
+  /// superwall-android's `purchase(productId)` does.
+  @objc public func purchase(productId: String, completion: @escaping (SWBPurchaseResult) -> Void) {
+    Task {
+      let products = await Superwall.shared.products(for: [productId])
+      guard let product = products.first(where: { $0.productIdentifier == productId }) else {
+        completion(SWBPurchaseResult(result: .failed, errorMessage: "Product with id \(productId) not found"))
+        return
+      }
+      let result = await Superwall.shared.purchase(product)
+      completion(SWBPurchaseResult(result))
+    }
+  }
+
+  /// Fetches the store products for the given identifiers. Identifiers the
+  /// store doesn't know are left out.
+  @objc public func getProducts(productIds: [String], completion: @escaping ([SWBStoreProduct]) -> Void) {
+    Task {
+      let products = await Superwall.shared.products(for: Set(productIds))
+      completion(products.map { SWBStoreProduct($0) })
+    }
+  }
+
   // MARK: Presentation
 
   /// Registers a placement. Fire-and-forget, like the native API.

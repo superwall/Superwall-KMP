@@ -18,7 +18,9 @@ import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
 import com.superwall.sdk.kmp.models.redemption.RedemptionResult
 import com.superwall.sdk.kmp.models.results.PresentationResult
+import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 
 /**
@@ -315,6 +317,19 @@ internal interface SuperwallBridge {
 
     /** Restores purchases via the native SDK (or the user's [PurchaseController]). */
     suspend fun restorePurchases(): RestorationResult
+
+    /**
+     * Purchases the store product [productId] through the native SDK (or the
+     * user's [PurchaseController]). Failure, including an unknown product,
+     * stays in the domain type.
+     */
+    suspend fun purchase(productId: String): PurchaseResult
+
+    /**
+     * Fetches the store products for [productIds], keyed by the requested id.
+     * Ids the store doesn't know are left out.
+     */
+    suspend fun getProducts(productIds: Set<String>): Map<String, StoreProduct>
 
     // ---- Presentation --------------------------------------------------------
 

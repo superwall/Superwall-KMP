@@ -16,7 +16,9 @@ import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
 import com.superwall.sdk.kmp.models.results.PresentationResult
+import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 
 /**
@@ -280,6 +282,24 @@ internal class FakeBridge : SuperwallBridge {
     override suspend fun restorePurchases(): RestorationResult {
         calls += "restorePurchases"
         return cannedRestorationResult
+    }
+
+    var cannedPurchaseResult: PurchaseResult = PurchaseResult.Purchased
+    var lastPurchasedProductId: String? = null
+
+    override suspend fun purchase(productId: String): PurchaseResult {
+        calls += "purchase"
+        lastPurchasedProductId = productId
+        return cannedPurchaseResult
+    }
+
+    var cannedProducts: Map<String, StoreProduct> = emptyMap()
+    var lastRequestedProductIds: Set<String>? = null
+
+    override suspend fun getProducts(productIds: Set<String>): Map<String, StoreProduct> {
+        calls += "getProducts"
+        lastRequestedProductIds = productIds
+        return cannedProducts
     }
 
     // ---- Presentation ------------------------------------------------------------------
