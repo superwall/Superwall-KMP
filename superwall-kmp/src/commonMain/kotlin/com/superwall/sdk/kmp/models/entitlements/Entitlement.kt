@@ -40,8 +40,9 @@ public data class Entitlement(
     /**
      * Whether the last subscription transaction that unlocks this entitlement
      * was revoked, or `null` without one (e.g. a manually granted
-     * entitlement). Derived from [state], as the native SDKs do; Android
-     * tracks revocation per transaction, so there it is never `true`.
+     * entitlement). Derived from [state] on both platforms, as SuperwallKit
+     * does; superwall-android's own `isRevoked` is always `null`, but its
+     * state does report revoked subscriptions.
      */
     val isRevoked: Boolean?
         get() = state?.let { it == LatestSubscriptionState.REVOKED }
