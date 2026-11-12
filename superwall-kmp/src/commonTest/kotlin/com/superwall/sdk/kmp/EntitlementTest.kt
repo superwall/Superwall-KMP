@@ -33,4 +33,29 @@ class EntitlementTest {
         assertNull(Entitlement(id = "pro", isActive = true, willRenew = false, expiresAt = expiry).renewsAt)
         assertNull(Entitlement(id = "pro", isActive = false, willRenew = true, expiresAt = expiry).renewsAt)
     }
+
+    @Test
+    fun activeSubscriptionProductIdsAreTheActiveSubscriptionsProducts() {
+        fun subscription(
+            productId: String,
+            isActive: Boolean,
+        ) = com.superwall.sdk.kmp.models.entitlements.SubscriptionTransaction(
+            transactionId = productId,
+            productId = productId,
+            purchaseDate = expiry,
+            willRenew = true,
+            isRevoked = false,
+            isInGracePeriod = false,
+            isInBillingRetryPeriod = false,
+            isActive = isActive,
+        )
+        val info =
+            com.superwall.sdk.kmp.models.entitlements.CustomerInfo(
+                subscriptions = listOf(subscription("annual", true), subscription("monthly", false), subscription("annual", true)),
+                nonSubscriptions = emptyList(),
+                entitlements = emptyList(),
+                userId = "user",
+            )
+        assertEquals(setOf("annual"), info.activeSubscriptionProductIds)
+    }
 }

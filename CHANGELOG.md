@@ -18,6 +18,7 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 - Adds `cacheKey`, `buildId`, `shimmerLoadStartTime`, `shimmerLoadCompleteTime`, `presentation` (a `PaywallPresentationInfo` with the `PaywallPresentationStyle`, drawer or popup dimensions included, and the delay), `isScrollEnabled` and `presentationId` to `PaywallInfo`, plus the iOS-only `isLocal` and `introOfferEligibility` (an `IntroOfferEligibility`).
 - Adds `store` to the `PaywallProduct`s in `PaywallInfo.products`, e.g. `ProductStore.STRIPE` for a web checkout product or `ProductStore.CUSTOM` for one bought through your own checkout.
 - Adds `subscriptionPeriod` (a `SubscriptionPeriod` with a `value` and a `SubscriptionPeriodUnit`) to `StoreProduct`, plus the Android-only `fullIdentifier`, `productType`, `storeFrontCountryCode` and `isCustomProduct`.
+- Adds `CustomerInfo.activeSubscriptionProductIds`, the product IDs of the user's active subscriptions.
 - Adds `state` (a `StoreTransactionState`), `payment` (a `StorePayment`) and the iOS-only `appAccountToken` to `StoreTransaction`, plus the Android-only `purchaseToken` (which `Superwall.consume()` takes) and `signature`.
 - Adds `isRevoked`, `renewsAt` and `isInGracePeriod` to `Entitlement`, derived from its state, expiry and renewal the way the native SDKs derive them.
 - Adds `PaywallPresentationHandler.onWillDismiss()` (iOS only), called when a paywall is about to be dismissed. It's never called on Android, whose SDK has no such callback.
