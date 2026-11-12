@@ -38,6 +38,6 @@ class PurchaseControllerTest {
                 )
 
             assertEquals(PurchaseResult.Purchased, result)
-            assertEquals(listOf(Triple("annual", "base", null)), calls)
+            assertEquals(listOf(Triple<String, String?, String?>("annual", "base", null)), calls)
         }
 }
