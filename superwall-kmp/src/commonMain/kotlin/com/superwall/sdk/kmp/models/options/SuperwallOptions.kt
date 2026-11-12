@@ -87,4 +87,20 @@ public data class SuperwallOptions(
      * default, [CustomerCenterConfiguration.default].
      */
     val customerCenter: CustomerCenterConfiguration? = null,
+    /**
+     * The StoreKit version the SDK uses. `null` (the default) lets
+     * SuperwallKit choose: StoreKit 2, unless the app opts into consumable
+     * purchase history on iOS versions before 18. iOS only; has no effect on
+     * Android.
+     */
+    val storeKitVersion: StoreKitVersion? = null,
 )
+
+/** The StoreKit version the iOS SDK uses for purchases. */
+public enum class StoreKitVersion {
+    /** StoreKit 1. */
+    STOREKIT1,
+
+    /** StoreKit 2. */
+    STOREKIT2,
+}

@@ -606,3 +606,26 @@ final class LogScopeAndIntegrationAttributeTests: XCTestCase {
     XCTAssertEqual(SWBIntegrationAttribute.airbridgeId.native, .airbridgeId)
   }
 }
+
+final class NewOptionsTests: XCTestCase {
+  func testStoreKitVersionAndNotificationAlertMapToSuperwallKit() {
+    let options = SWBSuperwallOptions()
+    options.storeKitVersion = NSNumber(value: 0)
+    let paywalls = SWBPaywallOptions()
+    let alert = SWBNotificationPermissionsDeniedOptions()
+    alert.title = "Turn on notifications"
+    paywalls.notificationPermissionsDenied = alert
+    options.paywalls = paywalls
+
+    let native = options.native
+    XCTAssertEqual(native.storeKitVersion, .storeKit1)
+    XCTAssertEqual(native.paywalls.notificationPermissionsDenied?.title, "Turn on notifications")
+    XCTAssertEqual(native.paywalls.notificationPermissionsDenied?.closeButtonTitle, "Not now")
+  }
+
+  func testUnsetStoreKitVersionAndAlertKeepSuperwallKitDefaults() {
+    let native = SWBSuperwallOptions().native
+    XCTAssertEqual(native.storeKitVersion, SuperwallOptions().storeKitVersion)
+    XCTAssertNil(native.paywalls.notificationPermissionsDenied)
+  }
+}

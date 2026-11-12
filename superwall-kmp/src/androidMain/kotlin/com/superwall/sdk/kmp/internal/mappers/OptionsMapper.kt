@@ -9,6 +9,7 @@ import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.Logging
 import com.superwall.sdk.kmp.models.options.NetworkEnvironment
 import com.superwall.sdk.kmp.models.options.PaywallOptions
+import com.superwall.sdk.kmp.models.options.PresentationHost
 import com.superwall.sdk.kmp.models.options.RestoreFailed
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.options.TestModeBehavior
@@ -71,8 +72,8 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
     adConsent?.let { native.adConsent = it.toNative() }
     customerCenter?.let { native.customerCenter = it.toNative() }
     native.logging = logging.toNative()
-    // shouldBypassAppTransactionCheck / maxConfigRetryCount: iOS-only, no
-    // superwall-android counterpart — documented no-op.
+    // shouldBypassAppTransactionCheck / maxConfigRetryCount / storeKitVersion:
+    // iOS-only, no superwall-android counterpart — documented no-op.
     return native
 }
 
@@ -110,9 +111,17 @@ internal fun PaywallOptions.toNative(): NativePaywallOptions {
             TransactionBackgroundView.NONE -> null
         }
     native.overrideProductsByName = overrideProductsByName ?: emptyMap()
+    native.optimisticLoading = optimisticLoading
+    native.timeoutAfter = timeoutAfter
+    native.presentationHost =
+        when (presentationHost) {
+            PresentationHost.ACTIVITY -> NativePaywallOptions.PresentationHost.ACTIVITY
+            PresentationHost.IN_WINDOW -> NativePaywallOptions.PresentationHost.IN_WINDOW
+        }
     // onBackPressed: installed by the bridge via OnBackPressedAdapter (see KDoc above).
-    // shouldShowWebRestorationAlert / shouldShowWebPurchaseConfirmationAlert:
-    // iOS-only, no superwall-android counterpart — documented no-op.
+    // shouldShowWebRestorationAlert / shouldShowWebPurchaseConfirmationAlert /
+    // notificationPermissionsDenied: iOS-only, no superwall-android
+    // counterpart — documented no-op.
     return native
 }
 

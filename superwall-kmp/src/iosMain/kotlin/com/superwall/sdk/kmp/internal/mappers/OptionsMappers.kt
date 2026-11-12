@@ -34,6 +34,8 @@ import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_TRANSACTIONS
 import com.superwall.sdk.kmp.internal.interop.SWB_NETWORK_ENVIRONMENT_DEVELOPER
 import com.superwall.sdk.kmp.internal.interop.SWB_NETWORK_ENVIRONMENT_RELEASE
 import com.superwall.sdk.kmp.internal.interop.SWB_NETWORK_ENVIRONMENT_RELEASE_CANDIDATE
+import com.superwall.sdk.kmp.internal.interop.SWB_STORE_KIT_VERSION_STOREKIT1
+import com.superwall.sdk.kmp.internal.interop.SWB_STORE_KIT_VERSION_STOREKIT2
 import com.superwall.sdk.kmp.internal.interop.SWB_TEST_MODE_BEHAVIOR_ALWAYS
 import com.superwall.sdk.kmp.internal.interop.SWB_TEST_MODE_BEHAVIOR_AUTOMATIC
 import com.superwall.sdk.kmp.internal.interop.SWB_TEST_MODE_BEHAVIOR_NEVER
@@ -53,6 +55,7 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBLogLevelInfo
 import com.superwall.sdk.kmp.internal.ios.interop.SWBLogLevelNone
 import com.superwall.sdk.kmp.internal.ios.interop.SWBLogLevelWarn
 import com.superwall.sdk.kmp.internal.ios.interop.SWBLoggingOptions
+import com.superwall.sdk.kmp.internal.ios.interop.SWBNotificationPermissionsDeniedOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBRestoreFailedOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBSuperwallOptions
@@ -65,6 +68,7 @@ import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.NetworkEnvironment
 import com.superwall.sdk.kmp.models.options.PaywallOptions
+import com.superwall.sdk.kmp.models.options.StoreKitVersion
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.options.TestModeBehavior
 import com.superwall.sdk.kmp.models.options.TransactionBackgroundView
@@ -76,7 +80,8 @@ import platform.Foundation.NSNumber
 // "nil = keep native default" convention is only exercised when the whole
 // options object is absent. Android-only members (preloadDeviceOverrides,
 // onBackPressed, passIdentifiersToPlayStore, useMockReviews) have no iOS
-// counterpart and are intentionally not mapped.
+// counterpart and are intentionally not mapped, nor are the Android-only
+// PaywallOptions optimisticLoading, timeoutAfter and presentationHost.
 // ---------------------------------------------------------------------------
 
 internal fun SuperwallOptions.toSWB(): SWBSuperwallOptions {
@@ -97,6 +102,16 @@ internal fun SuperwallOptions.toSWB(): SWBSuperwallOptions {
     options.setShouldObservePurchases(NSNumber(bool = shouldObservePurchases))
     options.setShouldBypassAppTransactionCheck(NSNumber(bool = shouldBypassAppTransactionCheck))
     options.setMaxConfigRetryCount(NSNumber(int = maxConfigRetryCount))
+    storeKitVersion?.let { version ->
+        options.setStoreKitVersion(
+            NSNumber(
+                long = when (version) {
+                    StoreKitVersion.STOREKIT1 -> SWB_STORE_KIT_VERSION_STOREKIT1
+                    StoreKitVersion.STOREKIT2 -> SWB_STORE_KIT_VERSION_STOREKIT2
+                },
+            ),
+        )
+    }
     options.setLogging(
         SWBLoggingOptions().also { swbLogging ->
             swbLogging.setLevel(NSNumber(long = logLevelToSWB(logging.level)))
@@ -152,6 +167,16 @@ internal fun PaywallOptions.toSWB(): SWBPaywallOptions {
         options.setOverrideProductsByName(overrides as Map<Any?, *>)
     }
     options.setShouldShowWebPurchaseConfirmationAlert(NSNumber(bool = shouldShowWebPurchaseConfirmationAlert))
+    notificationPermissionsDenied?.let { alert ->
+        options.setNotificationPermissionsDenied(
+            SWBNotificationPermissionsDeniedOptions().also {
+                it.setTitle(alert.title)
+                it.setMessage(alert.message)
+                it.setActionButtonTitle(alert.actionButtonTitle)
+                it.setCloseButtonTitle(alert.closeButtonTitle)
+            },
+        )
+    }
     return options
 }
 

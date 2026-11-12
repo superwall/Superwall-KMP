@@ -173,6 +173,37 @@ public final class SWBLoggingOptions: NSObject {
   }
 }
 
+/// Notification-permissions-denied alert text (PaywallOptions.NotificationPermissionsDenied).
+/// Every field is set by Kotlin; the object's presence turns the alert on.
+@objc(SWBNotificationPermissionsDeniedOptions)
+public final class SWBNotificationPermissionsDeniedOptions: NSObject {
+  @objc public var title: String?
+  @objc public var message: String?
+  @objc public var actionButtonTitle: String?
+  @objc public var closeButtonTitle: String?
+
+  @objc public override init() {
+    super.init()
+  }
+
+  var native: PaywallOptions.NotificationPermissionsDenied {
+    let alert = PaywallOptions.NotificationPermissionsDenied()
+    if let title = title {
+      alert.title = title
+    }
+    if let message = message {
+      alert.message = message
+    }
+    if let actionButtonTitle = actionButtonTitle {
+      alert.actionButtonTitle = actionButtonTitle
+    }
+    if let closeButtonTitle = closeButtonTitle {
+      alert.closeButtonTitle = closeButtonTitle
+    }
+    return alert
+  }
+}
+
 /// Paywall presentation options (Pigeon PPaywallOptions field set).
 /// Bool fields are NSNumber?; nil = keep native default.
 @objc(SWBPaywallOptions)
@@ -187,6 +218,8 @@ public final class SWBPaywallOptions: NSObject {
   @objc public var transactionBackgroundView: NSNumber?
   @objc public var overrideProductsByName: [String: String]?
   @objc public var shouldShowWebPurchaseConfirmationAlert: NSNumber?
+  /// nil = no alert (SuperwallKit's default).
+  @objc public var notificationPermissionsDenied: SWBNotificationPermissionsDeniedOptions?
 
   @objc public override init() {
     super.init()
@@ -214,6 +247,9 @@ public final class SWBSuperwallOptions: NSObject {
   @objc public var shouldBypassAppTransactionCheck: NSNumber?
   /// iOS-only option.
   @objc public var maxConfigRetryCount: NSNumber?
+  /// iOS-only option. Wraps SuperwallOptions.StoreKitVersion.rawValue
+  /// (0 = storeKit1, 1 = storeKit2); nil = SuperwallKit's choice.
+  @objc public var storeKitVersion: NSNumber?
   @objc public var logging: SWBLoggingOptions?
   /// nil = leave unset, so a TCF consent banner's stored answer applies.
   @objc public var adConsent: SWBAdConsent?
@@ -269,6 +305,9 @@ public final class SWBSuperwallOptions: NSObject {
       }
       if let value = paywalls.shouldShowWebPurchaseConfirmationAlert {
         options.paywalls.shouldShowWebPurchaseConfirmationAlert = value.boolValue
+      }
+      if let value = paywalls.notificationPermissionsDenied {
+        options.paywalls.notificationPermissionsDenied = value.native
       }
     }
 
@@ -327,6 +366,10 @@ public final class SWBSuperwallOptions: NSObject {
     }
     if let value = maxConfigRetryCount {
       options.maxConfigRetryCount = value.intValue
+    }
+    if let value = storeKitVersion,
+      let version = SuperwallOptions.StoreKitVersion(rawValue: value.intValue) {
+      options.storeKitVersion = version
     }
     if let adConsent = adConsent {
       options.adConsent = adConsent.native

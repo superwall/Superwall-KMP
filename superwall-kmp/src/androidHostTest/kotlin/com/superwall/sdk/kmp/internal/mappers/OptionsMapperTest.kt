@@ -8,6 +8,7 @@ import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.Logging
 import com.superwall.sdk.kmp.models.options.NetworkEnvironment
 import com.superwall.sdk.kmp.models.options.PaywallOptions
+import com.superwall.sdk.kmp.models.options.PresentationHost
 import com.superwall.sdk.kmp.models.options.RestoreFailed
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
@@ -88,6 +89,30 @@ class OptionsMapperTest {
         assertTrue(
             native.networkEnvironment is NativeSuperwallOptions.NetworkEnvironment.ReleaseCandidate,
         )
+    }
+
+    @Test
+    fun paywallOptions_androidLoadingAndHostOptions_mapToNative() {
+        val native =
+            PaywallOptions(
+                optimisticLoading = true,
+                timeoutAfter = kotlin.time.Duration.parse("12s"),
+                presentationHost = PresentationHost.IN_WINDOW,
+            ).toNative()
+
+        assertEquals(true, native.optimisticLoading)
+        assertEquals(kotlin.time.Duration.parse("12s"), native.timeoutAfter)
+        assertEquals(NativePaywallOptions.PresentationHost.IN_WINDOW, native.presentationHost)
+    }
+
+    @Test
+    fun paywallOptions_androidLoadingAndHostOptions_defaultsMatchNative() {
+        val native = PaywallOptions().toNative()
+        val nativeDefaults = NativePaywallOptions()
+
+        assertEquals(nativeDefaults.optimisticLoading, native.optimisticLoading)
+        assertEquals(nativeDefaults.timeoutAfter, native.timeoutAfter)
+        assertEquals(nativeDefaults.presentationHost, native.presentationHost)
     }
 
     // ---- AdConsent ---------------------------------------------------------------

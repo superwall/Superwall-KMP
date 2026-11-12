@@ -54,6 +54,11 @@ internal const val SWB_EVENT_TRACKING_BEHAVIOR_ALL: Long = 0 // SWBEventTracking
 internal const val SWB_EVENT_TRACKING_BEHAVIOR_SUPERWALL_ONLY: Long = 1 // SWBEventTrackingBehavior.superwallOnly
 internal const val SWB_EVENT_TRACKING_BEHAVIOR_NONE: Long = 2 // SWBEventTrackingBehavior.none
 
+// SuperwallOptions.StoreKitVersion (SuperwallKit), carried as
+// SWBSuperwallOptions.storeKitVersion
+internal const val SWB_STORE_KIT_VERSION_STOREKIT1: Long = 0 // SuperwallOptions.StoreKitVersion.storeKit1
+internal const val SWB_STORE_KIT_VERSION_STOREKIT2: Long = 1 // SuperwallOptions.StoreKitVersion.storeKit2
+
 // SWBTransactionBackgroundView (SuperwallKMPBridge.swift)
 internal const val SWB_TRANSACTION_BACKGROUND_VIEW_SPINNER: Long = 0 // SWBTransactionBackgroundView.spinner
 internal const val SWB_TRANSACTION_BACKGROUND_VIEW_NONE: Long = 1 // SWBTransactionBackgroundView.none

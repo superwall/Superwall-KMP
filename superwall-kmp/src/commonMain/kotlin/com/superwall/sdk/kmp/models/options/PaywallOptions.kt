@@ -1,6 +1,7 @@
 package com.superwall.sdk.kmp.models.options
 
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
+import kotlin.time.Duration
 
 /**
  * Options for configuring the appearance and behavior of paywalls.
@@ -75,7 +76,60 @@ public data class PaywallOptions(
      * Note: Android only. Has no effect on iOS.
      */
     val onBackPressed: ((PaywallInfo?) -> Boolean)? = null,
+    /**
+     * The alert shown when a paywall asks for notification permissions the
+     * user has denied. `null` (the default) shows no alert. iOS only; has no
+     * effect on Android.
+     */
+    val notificationPermissionsDenied: NotificationPermissionsDenied? = null,
+    /**
+     * Hides the paywall's loading shimmer optimistically. Defaults to
+     * `false`. Android only; has no effect on iOS.
+     */
+    val optimisticLoading: Boolean = false,
+    /**
+     * How long a presented paywall may take to finish loading before it's
+     * given up on: it's then dismissed as declined with the
+     * `PaywallCloseReason.WEB_VIEW_FAILED_TO_LOAD` close reason, followed by
+     * the feature block for a non-gated placement or `onError` for a gated
+     * one. `null` (the default) means no timeout. Android only; has no effect
+     * on iOS.
+     */
+    val timeoutAfter: Duration? = null,
+    /**
+     * **Experimental.** Where presented paywalls are hosted. Defaults to
+     * [PresentationHost.ACTIVITY]. Android only; has no effect on iOS.
+     */
+    val presentationHost: PresentationHost = PresentationHost.ACTIVITY,
 )
+
+/**
+ * The alert shown when a paywall asks for notification permissions the user
+ * has denied. iOS only.
+ */
+public data class NotificationPermissionsDenied(
+    val title: String = "Notification Permissions Denied",
+    val message: String =
+        "Please enable notification permissions from the Settings app so we can notify you when your free trial ends.",
+    /** The title of the button that opens the Settings app. */
+    val actionButtonTitle: String = "Open Settings",
+    val closeButtonTitle: String = "Not now",
+)
+
+/** Where a presented paywall is hosted on Android. */
+public enum class PresentationHost {
+    /** In its own activity. */
+    ACTIVITY,
+
+    /**
+     * **Experimental.** As a view on top of the presenting activity's window,
+     * so that activity is never covered or stopped, e.g. for game engines
+     * whose loop stops while another activity covers theirs. If the activity
+     * is destroyed while the paywall is shown, including by a configuration
+     * change it doesn't handle itself, the paywall is dismissed.
+     */
+    IN_WINDOW,
+}
 
 /**
  * Defines the different types of views that can appear behind the store's
