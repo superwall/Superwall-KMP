@@ -522,3 +522,73 @@ final class OnceGateTests: XCTestCase {
     XCTAssertFalse(gate.tryPass())
   }
 }
+
+final class CustomerCenterEnvelopeTests: XCTestCase {
+  func testPathTypeAndActionTypeRawValues() {
+    // The Kotlin side codes against these numbers (SWBRawValues.kt).
+    XCTAssertEqual(SWBCustomerCenterPathType.restore.rawValue, 0)
+    XCTAssertEqual(SWBCustomerCenterPathType.custom.rawValue, 6)
+    XCTAssertEqual(SWBCustomerCenterActionType.restore.rawValue, 0)
+    XCTAssertEqual(SWBCustomerCenterActionType.custom.rawValue, 6)
+    XCTAssertEqual(CustomerCenterRefundStatus.success.swbRawValue, 0)
+    XCTAssertEqual(CustomerCenterRefundStatus.userCancelled.swbRawValue, 1)
+    XCTAssertEqual(CustomerCenterRefundStatus.error.swbRawValue, 2)
+  }
+
+  func testConfigurationMapsToSuperwallKitTypes() {
+    let refund = SWBCustomerCenterPath()
+    refund.typeRawValue = SWBCustomerCenterPathType.refund.rawValue
+    refund.refundWindowMillis = NSNumber(value: Int64(86_400_000))
+
+    let url = SWBCustomerCenterPath()
+    url.typeRawValue = SWBCustomerCenterPathType.url.rawValue
+    url.url = "https://example.com/faq"
+    url.title = "FAQ"
+    url.opensExternally = true
+
+    let badUrl = SWBCustomerCenterPath()
+    badUrl.typeRawValue = SWBCustomerCenterPathType.url.rawValue
+    badUrl.url = nil
+
+    let configuration = SWBCustomerCenterConfiguration()
+    configuration.managementScreen.paths = [refund, url, badUrl]
+    configuration.accentLight = "#112233"
+    configuration.accentDark = "#445566"
+    configuration.checksAppStoreForUpdates = NSNumber(value: false)
+
+    let native = configuration.native
+    XCTAssertEqual(native.managementScreen.paths.count, 2, "a URL path without a URL is left out")
+    XCTAssertEqual(native.managementScreen.paths[0].type, .refund(window: 86_400))
+    XCTAssertEqual(native.managementScreen.paths[1].type, .url(URL(string: "https://example.com/faq")!, openMethod: .external))
+    XCTAssertEqual(native.managementScreen.paths[1].title, "FAQ")
+    XCTAssertEqual(native.appearance.accent, .init(light: "#112233", dark: "#445566"))
+    XCTAssertFalse(native.support.checksAppStoreForUpdates)
+    XCTAssertTrue(native.support.warnsAboutUpdates, "nil keeps SuperwallKit's default")
+  }
+
+  func testActionEnvelopeCarriesPayloads() {
+    let url = SWBCustomerCenterAction(.url(URL(string: "https://example.com")!))
+    XCTAssertEqual(url.typeRawValue, SWBCustomerCenterActionType.url.rawValue)
+    XCTAssertEqual(url.url, "https://example.com")
+
+    let custom = SWBCustomerCenterAction(.custom(identifier: "vip"))
+    XCTAssertEqual(custom.typeRawValue, SWBCustomerCenterActionType.custom.rawValue)
+    XCTAssertEqual(custom.customIdentifier, "vip")
+  }
+
+  func testAdConsentRoundTrips() {
+    let consent = SWBAdConsent(adUserDataGranted: true, adPersonalizationGranted: false)
+    XCTAssertEqual(consent.native.adUserData, .granted)
+    XCTAssertEqual(consent.native.adPersonalization, .denied)
+    let back = SWBAdConsent(consent.native)
+    XCTAssertTrue(back.adUserDataGranted)
+    XCTAssertFalse(back.adPersonalizationGranted)
+  }
+
+  func testPurchaseResultEnvelopeFromNative() {
+    XCTAssertEqual(SWBPurchaseResult(.purchased).result, .purchased)
+    let failed = SWBPurchaseResult(.failed(NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "nope"])))
+    XCTAssertEqual(failed.result, .failed)
+    XCTAssertEqual(failed.errorMessage, "nope")
+  }
+}

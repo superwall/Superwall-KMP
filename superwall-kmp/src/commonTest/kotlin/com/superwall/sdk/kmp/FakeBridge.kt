@@ -3,6 +3,7 @@ package com.superwall.sdk.kmp
 import com.superwall.sdk.kmp.internal.BridgeListener
 import com.superwall.sdk.kmp.internal.StreamHolder
 import com.superwall.sdk.kmp.internal.SuperwallBridge
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
 import com.superwall.sdk.kmp.models.entitlements.Entitlements
@@ -371,6 +372,29 @@ internal class FakeBridge : SuperwallBridge {
     override fun togglePaywallSpinner(isHidden: Boolean) {
         calls += "togglePaywallSpinner"
         lastSpinnerIsHidden = isHidden
+    }
+
+    // ---- Customer Center -------------------------------------------------------------------
+
+    data class CustomerCenterPresentation(
+        val configuration: CustomerCenterConfiguration?,
+        val delegate: CustomerCenterDelegate?,
+        val onDismiss: (() -> Unit)?,
+    )
+
+    val customerCenterPresentations: MutableList<CustomerCenterPresentation> = mutableListOf()
+
+    override fun presentCustomerCenter(
+        configuration: CustomerCenterConfiguration?,
+        delegate: CustomerCenterDelegate?,
+        onDismiss: (() -> Unit)?,
+    ) {
+        calls += "presentCustomerCenter"
+        customerCenterPresentations += CustomerCenterPresentation(configuration, delegate, onDismiss)
+    }
+
+    override suspend fun dismissCustomerCenter() {
+        calls += "dismissCustomerCenter"
     }
 
     // ---- Products / misc -------------------------------------------------------------------

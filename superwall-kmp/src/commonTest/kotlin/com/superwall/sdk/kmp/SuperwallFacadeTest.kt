@@ -1,5 +1,6 @@
 package com.superwall.sdk.kmp
 
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
@@ -187,6 +188,7 @@ class SuperwallFacadeTest {
                 "optOutOfNotifications" to { Superwall.optOutOfNotifications() },
                 "optInToNotifications" to { Superwall.optInToNotifications() },
                 "handleNotificationOpen" to { Superwall.handleNotificationOpen(mapOf("sw" to "x")) },
+                "presentCustomerCenter" to { Superwall.presentCustomerCenter() },
             )
 
         for ((name, block) in guarded) {
@@ -206,6 +208,7 @@ class SuperwallFacadeTest {
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.confirmAllAssignments() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.restorePurchases() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.purchase("product") }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.dismissCustomerCenter() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.getProducts(setOf("product")) }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.getPresentationResult("placement") }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.dismiss() }
@@ -644,5 +647,26 @@ class SuperwallFacadeTest {
 
             assertEquals(emptyMap(), Superwall.getProducts(setOf("annual", "monthly")))
             assertEquals(setOf("annual", "monthly"), fake.lastRequestedProductIds)
+        }
+
+    @Test
+    fun customerCenterForwardsConfigurationDelegateAndDismissBlock() =
+        runTest {
+            Superwall.configure("pk_test")
+
+            val configuration =
+                CustomerCenterConfiguration.default.copy(
+                    support = CustomerCenterConfiguration.Support(email = "help@example.com"),
+                )
+            val delegate = object : CustomerCenterDelegate {}
+            val onDismiss = {}
+            Superwall.presentCustomerCenter(configuration, delegate, onDismiss)
+            Superwall.dismissCustomerCenter()
+
+            val presentation = fake.customerCenterPresentations.single()
+            assertEquals(configuration, presentation.configuration)
+            assertSame(delegate, presentation.delegate)
+            assertSame(onDismiss, presentation.onDismiss)
+            assertTrue(fake.calls.containsAll(listOf("presentCustomerCenter", "dismissCustomerCenter")))
         }
 }

@@ -69,6 +69,7 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
     native.useMockReviews = useMockReviews
     // Unset stays the native Unspecified, so a TCF banner's answer still applies.
     adConsent?.let { native.adConsent = it.toNative() }
+    customerCenter?.let { native.customerCenter = it.toNative() }
     native.logging = logging.toNative()
     // shouldBypassAppTransactionCheck / maxConfigRetryCount: iOS-only, no
     // superwall-android counterpart — documented no-op.

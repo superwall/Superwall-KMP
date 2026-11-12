@@ -2,9 +2,11 @@
 
 package com.superwall.sdk.kmp.internal
 
+import com.superwall.sdk.kmp.CustomerCenterDelegate
 import com.superwall.sdk.kmp.PaywallPresentationHandler
 import com.superwall.sdk.kmp.PurchaseController
 import com.superwall.sdk.kmp.SuperwallError
+import com.superwall.sdk.kmp.internal.adapters.CustomerCenterDelegateAdapter
 import com.superwall.sdk.kmp.internal.adapters.DelegateAdapter
 import com.superwall.sdk.kmp.internal.adapters.PresentationHandlerAdapter
 import com.superwall.sdk.kmp.internal.adapters.PurchaseControllerAdapter
@@ -30,6 +32,7 @@ import com.superwall.sdk.kmp.internal.mappers.toEntitlementSet
 import com.superwall.sdk.kmp.internal.mappers.toModel
 import com.superwall.sdk.kmp.internal.mappers.toSWBRaw
 import com.superwall.sdk.kmp.internal.mappers.toSWB
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
 import com.superwall.sdk.kmp.models.entitlements.Entitlements
@@ -92,6 +95,14 @@ internal class IosSuperwallBridge : SuperwallBridge {
      * only on the main thread — additions hop through [scope].
      */
     private val activeHandlers: MutableSet<PresentationHandlerAdapter> = mutableSetOf()
+
+    /**
+     * The delegate adapter of the Customer Center on screen, kept until it is
+     * dismissed. Only one Customer Center is shown at a time, so a new
+     * presentation replaces it (which also drops one whose presentation
+     * SuperwallKit refused and so never dismissed). Main-confined.
+     */
+    private var customerCenterDelegateAdapter: CustomerCenterDelegateAdapter? = null
 
     /** Retained observation token for the subscription-status subscription. */
     private var subscriptionStatusObservation: SWBObservation? = null
@@ -403,6 +414,39 @@ internal class IosSuperwallBridge : SuperwallBridge {
 
     override fun togglePaywallSpinner(isHidden: Boolean) {
         swb.togglePaywallSpinnerWithIsHidden(isHidden)
+    }
+
+    // ---- Customer Center --------------------------------------------------------
+
+    override fun presentCustomerCenter(
+        configuration: CustomerCenterConfiguration?,
+        delegate: CustomerCenterDelegate?,
+        onDismiss: (() -> Unit)?,
+    ) {
+        val adapter = delegate?.let {
+            CustomerCenterDelegateAdapter(it, scope, ::logError) { dismissed ->
+                if (customerCenterDelegateAdapter === dismissed) customerCenterDelegateAdapter = null
+            }
+        }
+        scope.launch { customerCenterDelegateAdapter = adapter }
+
+        val wrappedOnDismiss: (() -> Unit)? = onDismiss?.let { block ->
+            {
+                scope.launch {
+                    try {
+                        block()
+                    } catch (throwable: Throwable) {
+                        logError("The presentCustomerCenter onDismiss block threw an exception", throwable)
+                    }
+                }
+            }
+        }
+
+        swb.presentCustomerCenterWithConfiguration(configuration?.toSWB(), adapter, wrappedOnDismiss)
+    }
+
+    override suspend fun dismissCustomerCenter() {
+        awaitVoidCompletion { swb.dismissCustomerCenter(it) }
     }
 
     // ---- Products / misc ------------------------------------------------------

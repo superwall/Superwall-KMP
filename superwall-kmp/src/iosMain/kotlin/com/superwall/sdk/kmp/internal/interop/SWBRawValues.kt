@@ -83,3 +83,26 @@ internal const val SWB_LOG_SCOPE_TRANSACTIONS: Long = 18 // SWBLogScope.transact
 internal const val SWB_LOG_SCOPE_PAYWALL_VIEW_CONTROLLER: Long = 19 // SWBLogScope.paywallViewController
 internal const val SWB_LOG_SCOPE_CACHE: Long = 20 // SWBLogScope.cache
 internal const val SWB_LOG_SCOPE_ALL: Long = 21 // SWBLogScope.all
+
+// SWBCustomerCenterPathType (CustomerCenter.swift)
+internal const val SWB_CUSTOMER_CENTER_PATH_TYPE_RESTORE: Long = 0 // SWBCustomerCenterPathType.restore
+internal const val SWB_CUSTOMER_CENTER_PATH_TYPE_MANAGE_SUBSCRIPTION: Long = 1 // SWBCustomerCenterPathType.manageSubscription
+internal const val SWB_CUSTOMER_CENTER_PATH_TYPE_REFUND: Long = 2 // SWBCustomerCenterPathType.refund
+internal const val SWB_CUSTOMER_CENTER_PATH_TYPE_CHANGE_PLAN: Long = 3 // SWBCustomerCenterPathType.changePlan
+internal const val SWB_CUSTOMER_CENTER_PATH_TYPE_CONTACT_SUPPORT: Long = 4 // SWBCustomerCenterPathType.contactSupport
+internal const val SWB_CUSTOMER_CENTER_PATH_TYPE_URL: Long = 5 // SWBCustomerCenterPathType.url
+internal const val SWB_CUSTOMER_CENTER_PATH_TYPE_CUSTOM: Long = 6 // SWBCustomerCenterPathType.custom
+
+// SWBCustomerCenterActionType (CustomerCenter.swift)
+internal const val SWB_CUSTOMER_CENTER_ACTION_TYPE_RESTORE: Long = 0 // SWBCustomerCenterActionType.restore
+internal const val SWB_CUSTOMER_CENTER_ACTION_TYPE_MANAGE_SUBSCRIPTION: Long = 1 // SWBCustomerCenterActionType.manageSubscription
+internal const val SWB_CUSTOMER_CENTER_ACTION_TYPE_REFUND: Long = 2 // SWBCustomerCenterActionType.refund
+internal const val SWB_CUSTOMER_CENTER_ACTION_TYPE_CHANGE_PLAN: Long = 3 // SWBCustomerCenterActionType.changePlan
+internal const val SWB_CUSTOMER_CENTER_ACTION_TYPE_CONTACT_SUPPORT: Long = 4 // SWBCustomerCenterActionType.contactSupport
+internal const val SWB_CUSTOMER_CENTER_ACTION_TYPE_URL: Long = 5 // SWBCustomerCenterActionType.url
+internal const val SWB_CUSTOMER_CENTER_ACTION_TYPE_CUSTOM: Long = 6 // SWBCustomerCenterActionType.custom
+
+// Refund status raw values (CustomerCenterRefundStatus.swbRawValue, CustomerCenter.swift)
+internal const val SWB_CUSTOMER_CENTER_REFUND_STATUS_SUCCESS: Long = 0 // .success
+internal const val SWB_CUSTOMER_CENTER_REFUND_STATUS_USER_CANCELLED: Long = 1 // .userCancelled
+internal const val SWB_CUSTOMER_CENTER_REFUND_STATUS_ERROR: Long = 2 // .error

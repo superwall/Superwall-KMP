@@ -1,5 +1,7 @@
 package com.superwall.sdk.kmp.models.options
 
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
+
 /**
  * Options for configuring Superwall, including paywall presentation and
  * appearance.
@@ -79,4 +81,10 @@ public data class SuperwallOptions(
      * banner's stored answer. Change it later with `Superwall.setAdConsent`.
      */
     val adConsent: AdConsent? = null,
+    /**
+     * The Customer Center configuration `Superwall.presentCustomerCenter`
+     * uses when it isn't given one. `null` (the default) keeps the native
+     * default, [CustomerCenterConfiguration.default].
+     */
+    val customerCenter: CustomerCenterConfiguration? = null,
 )

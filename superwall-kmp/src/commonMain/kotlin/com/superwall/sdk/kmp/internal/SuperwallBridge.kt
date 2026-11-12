@@ -1,7 +1,9 @@
 package com.superwall.sdk.kmp.internal
 
+import com.superwall.sdk.kmp.CustomerCenterDelegate
 import com.superwall.sdk.kmp.PaywallPresentationHandler
 import com.superwall.sdk.kmp.PurchaseController
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
 import com.superwall.sdk.kmp.models.entitlements.Entitlements
@@ -381,6 +383,20 @@ internal interface SuperwallBridge {
 
     /** Toggles the loading spinner on the presented paywall. */
     fun togglePaywallSpinner(isHidden: Boolean)
+
+    /**
+     * Presents the Customer Center on the main thread. Presenting while one is
+     * already shown does nothing natively. [delegate] and [onDismiss] are
+     * delivered on the main thread; the bridge keeps [delegate] until dismissal.
+     */
+    fun presentCustomerCenter(
+        configuration: CustomerCenterConfiguration?,
+        delegate: CustomerCenterDelegate?,
+        onDismiss: (() -> Unit)?,
+    )
+
+    /** Dismisses the Customer Center, if one is shown, resuming once it has gone. */
+    suspend fun dismissCustomerCenter()
 
     // ---- Products / misc ------------------------------------------------------
 

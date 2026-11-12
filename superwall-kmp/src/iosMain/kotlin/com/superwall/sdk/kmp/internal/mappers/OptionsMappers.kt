@@ -101,6 +101,7 @@ internal fun SuperwallOptions.toSWB(): SWBSuperwallOptions {
     )
     // Unset stays nil, so a TCF consent banner's stored answer still applies.
     adConsent?.let { options.setAdConsent(it.toSWB()) }
+    customerCenter?.let { options.setCustomerCenter(it.toSWB()) }
     return options
 }
 

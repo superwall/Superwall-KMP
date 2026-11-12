@@ -214,6 +214,8 @@ public final class SWBSuperwallOptions: NSObject {
   @objc public var logging: SWBLoggingOptions?
   /// nil = leave unset, so a TCF consent banner's stored answer applies.
   @objc public var adConsent: SWBAdConsent?
+  /// nil = SuperwallKit's default Customer Center configuration.
+  @objc public var customerCenter: SWBCustomerCenterConfiguration?
 
   @objc public override init() {
     super.init()
@@ -325,6 +327,9 @@ public final class SWBSuperwallOptions: NSObject {
     }
     if let adConsent = adConsent {
       options.adConsent = adConsent.native
+    }
+    if let customerCenter = customerCenter {
+      options.customerCenter = customerCenter.native
     }
     if let logging = logging {
       if let level = logging.level,

@@ -2,9 +2,11 @@ package com.superwall.sdk.kmp.internal
 
 import android.net.Uri
 import android.util.Log
+import com.superwall.sdk.kmp.CustomerCenterDelegate
 import com.superwall.sdk.kmp.PaywallPresentationHandler
 import com.superwall.sdk.kmp.PurchaseController
 import com.superwall.sdk.kmp.SuperwallError
+import com.superwall.sdk.kmp.internal.adapters.CustomerCenterDelegateAdapter
 import com.superwall.sdk.kmp.internal.adapters.DelegateAdapter
 import com.superwall.sdk.kmp.internal.adapters.OnBackPressedAdapter
 import com.superwall.sdk.kmp.internal.adapters.PresentationHandlerAdapter
@@ -12,6 +14,7 @@ import com.superwall.sdk.kmp.internal.adapters.PurchaseControllerAdapter
 import com.superwall.sdk.kmp.internal.mappers.sanitizeParams
 import com.superwall.sdk.kmp.internal.mappers.toKmp
 import com.superwall.sdk.kmp.internal.mappers.toNative
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
 import com.superwall.sdk.kmp.models.entitlements.Entitlements
@@ -34,8 +37,10 @@ import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
 import com.superwall.sdk.Superwall as NativeSuperwall
 import com.superwall.sdk.config.models.ConfigurationStatus as NativeConfigurationStatus
 import com.superwall.sdk.config.options.SuperwallOptions as NativeSuperwallOptions
@@ -515,6 +520,46 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     override fun togglePaywallSpinner(isHidden: Boolean) {
         NativeSuperwall.instance.togglePaywallSpinner(isHidden)
+    }
+
+    // ---- Customer Center --------------------------------------------------------
+
+    /**
+     * `Superwall.presentCustomerCenter` (superwall-android 2.10.2
+     * `Superwall.kt:1143`) must be called on the main thread, so it is
+     * launched on the `Main.immediate` callback scope, which runs inline when
+     * the caller is already there. `onDismiss` comes back on main.
+     */
+    override fun presentCustomerCenter(
+        configuration: CustomerCenterConfiguration?,
+        delegate: CustomerCenterDelegate?,
+        onDismiss: (() -> Unit)?,
+    ) {
+        val nativeConfiguration = configuration?.toNative()
+        val nativeDelegate = delegate?.let { CustomerCenterDelegateAdapter(it, ::callbackScope, ::logError) }
+        val nativeOnDismiss: (() -> Unit)? =
+            onDismiss?.let { block ->
+                {
+                    try {
+                        block()
+                    } catch (throwable: Throwable) {
+                        logError("The presentCustomerCenter onDismiss block threw an exception", throwable)
+                    }
+                }
+            }
+        callbackScope().launch {
+            NativeSuperwall.instance.presentCustomerCenter(nativeConfiguration, nativeDelegate, nativeOnDismiss)
+        }
+    }
+
+    override suspend fun dismissCustomerCenter() {
+        withContext(Dispatchers.Main.immediate) {
+            suspendCancellableCoroutine { continuation ->
+                NativeSuperwall.instance.dismissCustomerCenter {
+                    if (continuation.isActive) continuation.resume(Unit)
+                }
+            }
+        }
     }
 
     // ---- Products / misc ------------------------------------------------------

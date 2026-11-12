@@ -4,6 +4,7 @@ import com.superwall.sdk.kmp.internal.DelegateMultiplexer
 import com.superwall.sdk.kmp.internal.StreamHolder
 import com.superwall.sdk.kmp.internal.SuperwallBridge
 import com.superwall.sdk.kmp.internal.createSuperwallBridge
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
 import com.superwall.sdk.kmp.models.entitlements.Entitlements
@@ -597,6 +598,38 @@ public object Superwall {
      * @return Whether the SDK handled the deep link.
      */
     public fun handleDeepLink(url: String): Boolean = bridge.handleDeepLink(url)
+
+    // ---- Customer Center --------------------------------------------------------
+
+    /**
+     * Presents the Customer Center, a self-service screen where users can view
+     * and restore their purchases, manage, cancel or change a subscription,
+     * request a refund and contact support.
+     *
+     * Only one Customer Center is shown at a time: calling this while one is
+     * presented does nothing. Callable from any thread; it presents on the
+     * main thread.
+     *
+     * @param configuration The screens and actions to show; `null` uses
+     * `SuperwallOptions.customerCenter`, or the default configuration.
+     * @param delegate Receives Customer Center events until it is dismissed.
+     * @param onDismiss Called on the main thread after it is dismissed.
+     */
+    public fun presentCustomerCenter(
+        configuration: CustomerCenterConfiguration? = null,
+        delegate: CustomerCenterDelegate? = null,
+        onDismiss: (() -> Unit)? = null,
+    ) {
+        requireConfigured().presentCustomerCenter(configuration, delegate, onDismiss)
+    }
+
+    /**
+     * Dismisses the Customer Center presented with [presentCustomerCenter],
+     * resuming once it has gone. Does nothing if none is presented.
+     */
+    public suspend fun dismissCustomerCenter() {
+        requireConfigured().dismissCustomerCenter()
+    }
 
     // ---- Products / misc ------------------------------------------------------
 
