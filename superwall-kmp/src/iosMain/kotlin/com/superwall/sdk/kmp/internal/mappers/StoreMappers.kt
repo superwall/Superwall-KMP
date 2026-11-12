@@ -2,11 +2,18 @@
 
 package com.superwall.sdk.kmp.internal.mappers
 
+import com.superwall.sdk.kmp.internal.interop.SWB_STORE_TRANSACTION_STATE_DEFERRED
+import com.superwall.sdk.kmp.internal.interop.SWB_STORE_TRANSACTION_STATE_FAILED
+import com.superwall.sdk.kmp.internal.interop.SWB_STORE_TRANSACTION_STATE_PURCHASED
+import com.superwall.sdk.kmp.internal.interop.SWB_STORE_TRANSACTION_STATE_PURCHASING
+import com.superwall.sdk.kmp.internal.interop.SWB_STORE_TRANSACTION_STATE_RESTORED
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEntitlement
 import com.superwall.sdk.kmp.internal.ios.interop.SWBStoreProduct
 import com.superwall.sdk.kmp.internal.ios.interop.SWBStoreTransaction
+import com.superwall.sdk.kmp.models.store.StorePayment
 import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.store.StoreTransaction
+import com.superwall.sdk.kmp.models.store.StoreTransactionState
 import kotlin.time.Instant
 
 /**
@@ -34,7 +41,26 @@ internal fun SWBStoreTransaction.toModel(): StoreTransaction =
         expirationDate = expirationDate().toInstantOrNull(),
         offerId = offerId(),
         revocationDate = revocationDate().toInstantOrNull(),
+        state = storeTransactionStateFromSWBRaw(stateRawValue()),
+        payment =
+            StorePayment(
+                productIdentifier = paymentProductIdentifier(),
+                quantity = paymentQuantity().toInt(),
+                discountIdentifier = paymentDiscountIdentifier(),
+            ),
+        appAccountToken = appAccountToken(),
     )
+
+/** `null` for a raw value newer than the bridge. */
+internal fun storeTransactionStateFromSWBRaw(raw: Long): StoreTransactionState? =
+    when (raw) {
+        SWB_STORE_TRANSACTION_STATE_PURCHASING -> StoreTransactionState.PURCHASING
+        SWB_STORE_TRANSACTION_STATE_PURCHASED -> StoreTransactionState.PURCHASED
+        SWB_STORE_TRANSACTION_STATE_FAILED -> StoreTransactionState.FAILED
+        SWB_STORE_TRANSACTION_STATE_RESTORED -> StoreTransactionState.RESTORED
+        SWB_STORE_TRANSACTION_STATE_DEFERRED -> StoreTransactionState.DEFERRED
+        else -> null
+    }
 
 internal fun SWBStoreProduct.toModel(): StoreProduct =
     StoreProduct(

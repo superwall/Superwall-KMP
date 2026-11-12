@@ -28,6 +28,13 @@ internal const val SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_CODE: Long = 1 // SWBLates
 internal const val SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_PROMOTIONAL: Long = 2 // SWBLatestSubscriptionOfferType.promotional
 internal const val SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_WINBACK: Long = 3 // SWBLatestSubscriptionOfferType.winback
 
+// SWBStoreTransactionState (Envelopes.swift)
+internal const val SWB_STORE_TRANSACTION_STATE_PURCHASING: Long = 0 // SWBStoreTransactionState.purchasing
+internal const val SWB_STORE_TRANSACTION_STATE_PURCHASED: Long = 1 // SWBStoreTransactionState.purchased
+internal const val SWB_STORE_TRANSACTION_STATE_FAILED: Long = 2 // SWBStoreTransactionState.failed
+internal const val SWB_STORE_TRANSACTION_STATE_RESTORED: Long = 3 // SWBStoreTransactionState.restored
+internal const val SWB_STORE_TRANSACTION_STATE_DEFERRED: Long = 4 // SWBStoreTransactionState.deferred
+
 // SWBTransactionType (Envelopes.swift)
 internal const val SWB_TRANSACTION_TYPE_NON_RECURRING_PRODUCT_PURCHASE: Long = 0 // SWBTransactionType.nonRecurringProductPurchase
 internal const val SWB_TRANSACTION_TYPE_FREE_TRIAL_START: Long = 1 // SWBTransactionType.freeTrialStart

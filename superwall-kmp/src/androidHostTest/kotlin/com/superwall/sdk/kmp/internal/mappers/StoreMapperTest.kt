@@ -40,3 +40,58 @@ class StoreMapperTest {
         assertEquals(0L, instant.epochSeconds)
     }
 }
+
+/** The transaction fields added for parity, against the REAL native transaction type. */
+class StoreTransactionMapperTest {
+    @Test
+    fun stateTokenSignatureAndPaymentAreCarried() {
+        val native =
+            com.superwall.sdk.store.abstractions.transactions.GoogleBillingPurchaseTransaction(
+                transactionDate = Date(1_000L),
+                originalTransactionIdentifier = "GPA.1",
+                state = com.superwall.sdk.store.abstractions.transactions.StoreTransactionState.Restored,
+                storeTransactionId = "GPA.1",
+                originalTransactionDate = Date(1_000L),
+                webOrderLineItemID = null,
+                appBundleId = null,
+                subscriptionGroupId = "base",
+                isUpgraded = null,
+                expirationDate = null,
+                offerId = null,
+                revocationDate = null,
+                appAccountToken = null,
+                purchaseToken = "token-1",
+                payment =
+                    com.superwall.sdk.store.abstractions.transactions.StorePayment(
+                        productIdentifier = "annual",
+                        quantity = 1,
+                        discountIdentifier = null,
+                    ),
+                signature = "sig",
+            )
+
+        val transaction = native.toKmp()
+
+        assertEquals(com.superwall.sdk.kmp.models.store.StoreTransactionState.RESTORED, transaction.state)
+        assertEquals("token-1", transaction.purchaseToken)
+        assertEquals("sig", transaction.signature)
+        assertEquals(com.superwall.sdk.kmp.models.store.StorePayment("annual", 1, null), transaction.payment)
+        assertEquals(null, transaction.appAccountToken)
+    }
+
+    @Test
+    fun everyNativeStateMaps() {
+        val states =
+            listOf(
+                com.superwall.sdk.store.abstractions.transactions.StoreTransactionState.Purchasing,
+                com.superwall.sdk.store.abstractions.transactions.StoreTransactionState.Purchased,
+                com.superwall.sdk.store.abstractions.transactions.StoreTransactionState.Failed,
+                com.superwall.sdk.store.abstractions.transactions.StoreTransactionState.Restored,
+                com.superwall.sdk.store.abstractions.transactions.StoreTransactionState.Deferred,
+            )
+        assertEquals(
+            com.superwall.sdk.kmp.models.store.StoreTransactionState.entries.toList(),
+            states.map { it.toKmp() },
+        )
+    }
+}

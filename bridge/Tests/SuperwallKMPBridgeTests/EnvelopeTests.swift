@@ -629,3 +629,14 @@ final class NewOptionsTests: XCTestCase {
     XCTAssertNil(native.paywalls.notificationPermissionsDenied)
   }
 }
+
+final class StoreTransactionStateTests: XCTestCase {
+  func testRawValuesMatchKotlinAndMapEveryNativeCase() {
+    // The Kotlin side codes against these numbers (SWBRawValues.kt).
+    XCTAssertEqual(SWBStoreTransactionState(.purchasing).rawValue, 0)
+    XCTAssertEqual(SWBStoreTransactionState(.purchased).rawValue, 1)
+    XCTAssertEqual(SWBStoreTransactionState(.failed).rawValue, 2)
+    XCTAssertEqual(SWBStoreTransactionState(.restored).rawValue, 3)
+    XCTAssertEqual(SWBStoreTransactionState(.deferred).rawValue, 4)
+  }
+}

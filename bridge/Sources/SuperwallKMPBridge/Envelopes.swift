@@ -1130,6 +1130,27 @@ public final class SWBPaywallInfo: NSObject {
 
 // MARK: - Store product / transaction (ISO-8601 date strings)
 
+/// Mirror of SuperwallKit.StoreTransactionState, carried as
+/// SWBStoreTransaction.stateRawValue.
+@objc(SWBStoreTransactionState)
+public enum SWBStoreTransactionState: Int {
+  case purchasing = 0
+  case purchased = 1
+  case failed = 2
+  case restored = 3
+  case deferred = 4
+
+  init(_ native: StoreTransactionState) {
+    switch native {
+    case .purchasing: self = .purchasing
+    case .purchased: self = .purchased
+    case .failed: self = .failed
+    case .restored: self = .restored
+    case .deferred: self = .deferred
+    }
+  }
+}
+
 /// Flat copy of SuperwallKit.StoreTransaction.
 @objc(SWBStoreTransaction)
 public final class SWBStoreTransaction: NSObject {
@@ -1151,6 +1172,13 @@ public final class SWBStoreTransaction: NSObject {
   @objc public let offerId: String?
   /// ISO-8601 string.
   @objc public let revocationDate: String?
+  /// SWBStoreTransactionState raw value.
+  @objc public let stateRawValue: Int
+  @objc public let paymentProductIdentifier: String
+  @objc public let paymentQuantity: Int
+  @objc public let paymentDiscountIdentifier: String?
+  /// The UUID string.
+  @objc public let appAccountToken: String?
 
   @objc public init(
     configRequestId: String,
@@ -1165,8 +1193,18 @@ public final class SWBStoreTransaction: NSObject {
     isUpgraded: NSNumber?,
     expirationDate: String?,
     offerId: String?,
-    revocationDate: String?
+    revocationDate: String?,
+    stateRawValue: Int,
+    paymentProductIdentifier: String,
+    paymentQuantity: Int,
+    paymentDiscountIdentifier: String?,
+    appAccountToken: String?
   ) {
+    self.stateRawValue = stateRawValue
+    self.paymentProductIdentifier = paymentProductIdentifier
+    self.paymentQuantity = paymentQuantity
+    self.paymentDiscountIdentifier = paymentDiscountIdentifier
+    self.appAccountToken = appAccountToken
     self.configRequestId = configRequestId
     self.appSessionId = appSessionId
     self.transactionDate = transactionDate
@@ -1197,7 +1235,12 @@ public final class SWBStoreTransaction: NSObject {
       isUpgraded: native.isUpgraded.map { NSNumber(value: $0) },
       expirationDate: native.expirationDate?.swbIsoString,
       offerId: native.offerId,
-      revocationDate: native.revocationDate?.swbIsoString
+      revocationDate: native.revocationDate?.swbIsoString,
+      stateRawValue: SWBStoreTransactionState(native.state).rawValue,
+      paymentProductIdentifier: native.payment.productIdentifier,
+      paymentQuantity: native.payment.quantity,
+      paymentDiscountIdentifier: native.payment.discountIdentifier,
+      appAccountToken: native.appAccountToken?.uuidString
     )
   }
 }

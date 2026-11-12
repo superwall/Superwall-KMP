@@ -1,13 +1,16 @@
 package com.superwall.sdk.kmp.internal.mappers
 
+import com.superwall.sdk.kmp.models.store.StorePayment
 import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.store.StoreTransaction
+import com.superwall.sdk.kmp.models.store.StoreTransactionState
 import java.util.Date
 import java.util.Locale
 import kotlin.time.Instant
 import com.superwall.sdk.analytics.superwall.TransactionProduct as NativeTransactionProduct
 import com.superwall.sdk.store.abstractions.product.StoreProductType as NativeStoreProductType
 import com.superwall.sdk.store.abstractions.transactions.StoreTransaction as NativeStoreTransaction
+import com.superwall.sdk.store.abstractions.transactions.StoreTransactionState as NativeStoreTransactionState
 import com.superwall.sdk.store.abstractions.transactions.StoreTransactionType as NativeStoreTransactionType
 
 /**
@@ -176,4 +179,25 @@ private fun NativeStoreTransactionType.toKmpTransaction(
         expirationDate = expirationDate?.toKmpInstant(),
         offerId = offerId,
         revocationDate = revocationDate?.toKmpInstant(),
+        state = state.toKmp(),
+        payment =
+            payment?.let {
+                StorePayment(
+                    productIdentifier = it.productIdentifier,
+                    quantity = it.quantity,
+                    discountIdentifier = it.discountIdentifier,
+                )
+            },
+        appAccountToken = appAccountToken,
+        purchaseToken = purchaseToken,
+        signature = signature,
     )
+
+internal fun NativeStoreTransactionState.toKmp(): StoreTransactionState =
+    when (this) {
+        NativeStoreTransactionState.Purchasing -> StoreTransactionState.PURCHASING
+        NativeStoreTransactionState.Purchased -> StoreTransactionState.PURCHASED
+        NativeStoreTransactionState.Failed -> StoreTransactionState.FAILED
+        NativeStoreTransactionState.Restored -> StoreTransactionState.RESTORED
+        NativeStoreTransactionState.Deferred -> StoreTransactionState.DEFERRED
+    }
