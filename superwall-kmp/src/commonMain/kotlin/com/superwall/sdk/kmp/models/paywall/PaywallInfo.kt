@@ -76,4 +76,22 @@ public data class PaywallInfo(
      * dynamic state information from the paywall.
      */
     val state: Map<String, Any?>? = null,
+    /** The key the paywall is cached under. */
+    val cacheKey: String? = null,
+    /** The identifier of the paywall's build. */
+    val buildId: String? = null,
+    /** When the paywall's loading shimmer started showing. */
+    val shimmerLoadStartTime: Instant? = null,
+    /** When the paywall's loading shimmer finished showing. */
+    val shimmerLoadCompleteTime: Instant? = null,
+    /** How the paywall is presented. */
+    val presentation: PaywallPresentationInfo? = null,
+    /** Whether the paywall can be scrolled. */
+    val isScrollEnabled: Boolean? = null,
+    /** Identifies this presentation of the paywall, `null` before it is presented. */
+    val presentationId: String? = null,
+    /** Whether the paywall was loaded from local resources. iOS only; `null` on Android. */
+    val isLocal: Boolean? = null,
+    /** Whether users see the paywall's introductory offers. iOS only; `null` on Android. */
+    val introOfferEligibility: IntroOfferEligibility? = null,
 )

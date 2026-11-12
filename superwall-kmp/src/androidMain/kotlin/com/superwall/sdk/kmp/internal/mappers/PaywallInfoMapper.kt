@@ -8,6 +8,8 @@ import com.superwall.sdk.kmp.models.paywall.LocalNotification
 import com.superwall.sdk.kmp.models.paywall.LocalNotificationType
 import com.superwall.sdk.kmp.models.paywall.PaywallCloseReason
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
+import com.superwall.sdk.kmp.models.paywall.PaywallPresentationInfo
+import com.superwall.sdk.kmp.models.paywall.PaywallPresentationStyle
 import com.superwall.sdk.kmp.models.paywall.PaywallProduct
 import com.superwall.sdk.kmp.models.paywall.Survey
 import com.superwall.sdk.kmp.models.paywall.SurveyOption
@@ -22,6 +24,8 @@ import com.superwall.sdk.models.config.ComputedPropertyRequest as NativeComputed
 import com.superwall.sdk.models.config.FeatureGatingBehavior as NativeFeatureGatingBehavior
 import com.superwall.sdk.models.paywall.LocalNotification as NativeLocalNotification
 import com.superwall.sdk.models.paywall.LocalNotificationType as NativeLocalNotificationType
+import com.superwall.sdk.models.paywall.PaywallPresentationInfo as NativePaywallPresentationInfo
+import com.superwall.sdk.models.paywall.PaywallPresentationStyle as NativePaywallPresentationStyle
 import com.superwall.sdk.models.product.ProductItem as NativeProductItem
 import com.superwall.sdk.paywall.presentation.PaywallCloseReason as NativePaywallCloseReason
 import com.superwall.sdk.paywall.presentation.PaywallInfo as NativePaywallInfo
@@ -71,7 +75,29 @@ internal fun NativePaywallInfo.toKmp(): PaywallInfo =
         computedPropertyRequests = computedPropertyRequests.map { it.toKmp() },
         surveys = surveys.map { it.toKmp() },
         state = sanitizeParams(state)?.ifEmpty { null },
+        cacheKey = cacheKey,
+        buildId = buildId,
+        shimmerLoadStartTime = parseNativePaywallDate(shimmerLoadStartTime),
+        shimmerLoadCompleteTime = parseNativePaywallDate(shimmerLoadCompleteTime),
+        presentation = presentation.toKmp(),
+        isScrollEnabled = isScrollEnabled,
+        presentationId = presentationId,
+        // isLocal and introOfferEligibility are iOS only.
     )
+
+internal fun NativePaywallPresentationInfo.toKmp(): PaywallPresentationInfo =
+    PaywallPresentationInfo(style = style.toKmp(), delayMillis = delay)
+
+internal fun NativePaywallPresentationStyle.toKmp(): PaywallPresentationStyle =
+    when (this) {
+        NativePaywallPresentationStyle.Modal -> PaywallPresentationStyle.Modal
+        NativePaywallPresentationStyle.Fullscreen -> PaywallPresentationStyle.Fullscreen
+        NativePaywallPresentationStyle.FullscreenNoAnimation -> PaywallPresentationStyle.FullscreenNoAnimation
+        NativePaywallPresentationStyle.Push -> PaywallPresentationStyle.Push
+        NativePaywallPresentationStyle.None -> PaywallPresentationStyle.None
+        is NativePaywallPresentationStyle.Drawer -> PaywallPresentationStyle.Drawer(height, cornerRadius)
+        is NativePaywallPresentationStyle.Popup -> PaywallPresentationStyle.Popup(height, width, cornerRadius)
+    }
 
 // ---- PaywallProduct -------------------------------------------------------------------
 

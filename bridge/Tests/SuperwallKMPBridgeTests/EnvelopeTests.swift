@@ -650,3 +650,16 @@ final class SubscriptionPeriodUnitTests: XCTestCase {
     XCTAssertEqual(SubscriptionPeriod.Unit.year.rawValue, 3)
   }
 }
+
+final class PaywallPresentationRawValueTests: XCTestCase {
+  func testRawValuesMatchKotlin() {
+    // The Kotlin side codes against these numbers (SWBRawValues.kt).
+    XCTAssertEqual(SWBPaywallPresentationStyle.modal.rawValue, 0)
+    XCTAssertEqual(SWBPaywallPresentationStyle.drawer.rawValue, 4)
+    XCTAssertEqual(SWBPaywallPresentationStyle.popup.rawValue, 5)
+    XCTAssertEqual(SWBPaywallPresentationStyle.none.rawValue, 6)
+    XCTAssertEqual(IntroOfferEligibility.eligible.rawValue, 0)
+    XCTAssertEqual(IntroOfferEligibility.ineligible.rawValue, 1)
+    XCTAssertEqual(IntroOfferEligibility.automatic.rawValue, 2)
+  }
+}

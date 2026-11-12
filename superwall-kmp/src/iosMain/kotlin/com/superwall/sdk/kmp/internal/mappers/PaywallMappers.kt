@@ -3,6 +3,15 @@
 package com.superwall.sdk.kmp.internal.mappers
 
 import com.superwall.sdk.kmp.internal.interop.NSAnySanitizer
+import com.superwall.sdk.kmp.internal.interop.SWB_INTRO_OFFER_ELIGIBILITY_AUTOMATIC
+import com.superwall.sdk.kmp.internal.interop.SWB_INTRO_OFFER_ELIGIBILITY_ELIGIBLE
+import com.superwall.sdk.kmp.internal.interop.SWB_INTRO_OFFER_ELIGIBILITY_INELIGIBLE
+import com.superwall.sdk.kmp.internal.interop.SWB_PAYWALL_PRESENTATION_STYLE_DRAWER
+import com.superwall.sdk.kmp.internal.interop.SWB_PAYWALL_PRESENTATION_STYLE_FULLSCREEN
+import com.superwall.sdk.kmp.internal.interop.SWB_PAYWALL_PRESENTATION_STYLE_FULLSCREEN_NO_ANIMATION
+import com.superwall.sdk.kmp.internal.interop.SWB_PAYWALL_PRESENTATION_STYLE_MODAL
+import com.superwall.sdk.kmp.internal.interop.SWB_PAYWALL_PRESENTATION_STYLE_POPUP
+import com.superwall.sdk.kmp.internal.interop.SWB_PAYWALL_PRESENTATION_STYLE_PUSH
 import com.superwall.sdk.kmp.internal.ios.interop.SWBComputedPropertyRequest
 import com.superwall.sdk.kmp.internal.ios.interop.SWBComputedPropertyRequestTypeDaysSince
 import com.superwall.sdk.kmp.internal.ios.interop.SWBComputedPropertyRequestTypeHoursSince
@@ -38,10 +47,13 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBVariantTypeTreatment
 import com.superwall.sdk.kmp.models.paywall.ComputedPropertyRequest
 import com.superwall.sdk.kmp.models.paywall.ComputedPropertyRequestType
 import com.superwall.sdk.kmp.models.paywall.FeatureGatingBehavior
+import com.superwall.sdk.kmp.models.paywall.IntroOfferEligibility
 import com.superwall.sdk.kmp.models.paywall.LocalNotification
 import com.superwall.sdk.kmp.models.paywall.LocalNotificationType
 import com.superwall.sdk.kmp.models.paywall.PaywallCloseReason
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
+import com.superwall.sdk.kmp.models.paywall.PaywallPresentationInfo
+import com.superwall.sdk.kmp.models.paywall.PaywallPresentationStyle
 import com.superwall.sdk.kmp.models.paywall.PaywallProduct
 import com.superwall.sdk.kmp.models.paywall.Survey
 import com.superwall.sdk.kmp.models.paywall.SurveyOption
@@ -191,4 +203,45 @@ internal fun SWBPaywallInfo.toModel(): PaywallInfo =
             computedPropertyRequests().mapNotNull { (it as? SWBComputedPropertyRequest)?.toModel() },
         surveys = surveys().mapNotNull { (it as? SWBSurvey)?.toModel() },
         state = NSAnySanitizer.fromMapOrNull(state()),
+        cacheKey = cacheKey(),
+        buildId = buildId(),
+        shimmerLoadStartTime = shimmerLoadStartTime().toInstantOrNull(),
+        shimmerLoadCompleteTime = shimmerLoadCompleteTime().toInstantOrNull(),
+        presentation = PaywallPresentationInfo(style = presentationStyle(), delayMillis = presentationDelay()),
+        isScrollEnabled = isScrollEnabled(),
+        presentationId = presentationId(),
+        isLocal = isLocal(),
+        introOfferEligibility =
+            when (introOfferEligibilityRawValue()) {
+                SWB_INTRO_OFFER_ELIGIBILITY_ELIGIBLE -> IntroOfferEligibility.ELIGIBLE
+                SWB_INTRO_OFFER_ELIGIBILITY_INELIGIBLE -> IntroOfferEligibility.INELIGIBLE
+                SWB_INTRO_OFFER_ELIGIBILITY_AUTOMATIC -> IntroOfferEligibility.AUTOMATIC
+                else -> null
+            },
     )
+
+/** A drawer or popup without its dimensions, or an unknown raw style, reads as [PaywallPresentationStyle.None]. */
+private fun SWBPaywallInfo.presentationStyle(): PaywallPresentationStyle {
+    val height = presentationHeight()?.doubleValue
+    val width = presentationWidth()?.doubleValue
+    val cornerRadius = presentationCornerRadius()?.doubleValue
+    return when (presentationStyleRawValue()) {
+        SWB_PAYWALL_PRESENTATION_STYLE_MODAL -> PaywallPresentationStyle.Modal
+        SWB_PAYWALL_PRESENTATION_STYLE_FULLSCREEN -> PaywallPresentationStyle.Fullscreen
+        SWB_PAYWALL_PRESENTATION_STYLE_FULLSCREEN_NO_ANIMATION -> PaywallPresentationStyle.FullscreenNoAnimation
+        SWB_PAYWALL_PRESENTATION_STYLE_PUSH -> PaywallPresentationStyle.Push
+        SWB_PAYWALL_PRESENTATION_STYLE_DRAWER ->
+            if (height != null && cornerRadius != null) {
+                PaywallPresentationStyle.Drawer(height, cornerRadius)
+            } else {
+                PaywallPresentationStyle.None
+            }
+        SWB_PAYWALL_PRESENTATION_STYLE_POPUP ->
+            if (height != null && width != null && cornerRadius != null) {
+                PaywallPresentationStyle.Popup(height, width, cornerRadius)
+            } else {
+                PaywallPresentationStyle.None
+            }
+        else -> PaywallPresentationStyle.None
+    }
+}

@@ -35,6 +35,20 @@ internal const val SWB_SUBSCRIPTION_PERIOD_UNIT_WEEK: Long = 1 // SubscriptionPe
 internal const val SWB_SUBSCRIPTION_PERIOD_UNIT_MONTH: Long = 2 // SubscriptionPeriod.Unit.month
 internal const val SWB_SUBSCRIPTION_PERIOD_UNIT_YEAR: Long = 3 // SubscriptionPeriod.Unit.year
 
+// SWBPaywallPresentationStyle (Envelopes.swift)
+internal const val SWB_PAYWALL_PRESENTATION_STYLE_MODAL: Long = 0 // SWBPaywallPresentationStyle.modal
+internal const val SWB_PAYWALL_PRESENTATION_STYLE_FULLSCREEN: Long = 1 // SWBPaywallPresentationStyle.fullscreen
+internal const val SWB_PAYWALL_PRESENTATION_STYLE_FULLSCREEN_NO_ANIMATION: Long = 2 // .fullscreenNoAnimation
+internal const val SWB_PAYWALL_PRESENTATION_STYLE_PUSH: Long = 3 // SWBPaywallPresentationStyle.push
+internal const val SWB_PAYWALL_PRESENTATION_STYLE_DRAWER: Long = 4 // SWBPaywallPresentationStyle.drawer
+internal const val SWB_PAYWALL_PRESENTATION_STYLE_POPUP: Long = 5 // SWBPaywallPresentationStyle.popup
+internal const val SWB_PAYWALL_PRESENTATION_STYLE_NONE: Long = 6 // SWBPaywallPresentationStyle.none
+
+// SuperwallKit IntroOfferEligibility, carried as SWBPaywallInfo.introOfferEligibilityRawValue
+internal const val SWB_INTRO_OFFER_ELIGIBILITY_ELIGIBLE: Long = 0 // IntroOfferEligibility.eligible
+internal const val SWB_INTRO_OFFER_ELIGIBILITY_INELIGIBLE: Long = 1 // IntroOfferEligibility.ineligible
+internal const val SWB_INTRO_OFFER_ELIGIBILITY_AUTOMATIC: Long = 2 // IntroOfferEligibility.automatic
+
 // SWBStoreTransactionState (Envelopes.swift)
 internal const val SWB_STORE_TRANSACTION_STATE_PURCHASING: Long = 0 // SWBStoreTransactionState.purchasing
 internal const val SWB_STORE_TRANSACTION_STATE_PURCHASED: Long = 1 // SWBStoreTransactionState.purchased

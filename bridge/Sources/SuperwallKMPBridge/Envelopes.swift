@@ -1025,6 +1025,27 @@ public final class SWBPaywallInfo: NSObject {
   /// Sanitized paywall state dictionary; nil when empty.
   @objc public let state: [String: Any]?
 
+  /// The cache key.
+  @objc public private(set) var cacheKey: String = ""
+  /// The build identifier.
+  @objc public private(set) var buildId: String = ""
+  /// ISO-8601 strings; empty when absent.
+  @objc public private(set) var shimmerLoadStartTime: String?
+  @objc public private(set) var shimmerLoadCompleteTime: String?
+  /// SWBPaywallPresentationStyle raw value.
+  @objc public private(set) var presentationStyleRawValue: Int = SWBPaywallPresentationStyle.none.rawValue
+  /// Double NSNumbers: `.drawer` and `.popup` height and corner radius, `.popup` width.
+  @objc public private(set) var presentationHeight: NSNumber?
+  @objc public private(set) var presentationWidth: NSNumber?
+  @objc public private(set) var presentationCornerRadius: NSNumber?
+  /// Milliseconds.
+  @objc public private(set) var presentationDelay: Int = 0
+  @objc public private(set) var isScrollEnabled: Bool = true
+  @objc public private(set) var presentationId: String?
+  @objc public private(set) var isLocal: Bool = false
+  /// SuperwallKit.IntroOfferEligibility.rawValue (0 = eligible, 1 = ineligible, 2 = automatic).
+  @objc public private(set) var introOfferEligibilityRawValue: Int = IntroOfferEligibility.automatic.rawValue
+
   @objc public init(
     identifier: String,
     name: String,
@@ -1135,7 +1156,49 @@ public final class SWBPaywallInfo: NSObject {
       surveys: native.surveys.map { SWBSurvey($0) },
       state: native.state.isEmpty ? nil : SWBValueSanitizer.sanitize(native.state)
     )
+    cacheKey = native.cacheKey
+    buildId = native.buildId
+    shimmerLoadStartTime = native.shimmerLoadStartTime
+    shimmerLoadCompleteTime = native.shimmerLoadCompleteTime
+    switch native.presentation.style {
+    case .modal:
+      presentationStyleRawValue = SWBPaywallPresentationStyle.modal.rawValue
+    case .fullscreen:
+      presentationStyleRawValue = SWBPaywallPresentationStyle.fullscreen.rawValue
+    case .fullscreenNoAnimation:
+      presentationStyleRawValue = SWBPaywallPresentationStyle.fullscreenNoAnimation.rawValue
+    case .push:
+      presentationStyleRawValue = SWBPaywallPresentationStyle.push.rawValue
+    case let .drawer(height, cornerRadius):
+      presentationStyleRawValue = SWBPaywallPresentationStyle.drawer.rawValue
+      presentationHeight = NSNumber(value: height)
+      presentationCornerRadius = NSNumber(value: cornerRadius)
+    case let .popup(height, width, cornerRadius):
+      presentationStyleRawValue = SWBPaywallPresentationStyle.popup.rawValue
+      presentationHeight = NSNumber(value: height)
+      presentationWidth = NSNumber(value: width)
+      presentationCornerRadius = NSNumber(value: cornerRadius)
+    case .none:
+      presentationStyleRawValue = SWBPaywallPresentationStyle.none.rawValue
+    }
+    presentationDelay = native.presentation.delay
+    isScrollEnabled = native.isScrollEnabled
+    presentationId = native.presentationId
+    isLocal = native.isLocal
+    introOfferEligibilityRawValue = native.introOfferEligibility.rawValue
   }
+}
+
+/// SWBPaywallInfo.presentationStyleRawValue values (SuperwallKit.PaywallPresentationStyle's cases).
+@objc(SWBPaywallPresentationStyle)
+public enum SWBPaywallPresentationStyle: Int {
+  case modal = 0
+  case fullscreen = 1
+  case fullscreenNoAnimation = 2
+  case push = 3
+  case drawer = 4
+  case popup = 5
+  case none = 6
 }
 
 // MARK: - Store product / transaction (ISO-8601 date strings)
