@@ -337,10 +337,7 @@ public object Superwall {
 
     /**
      * The entitlements associated with the given product ids, resolved by the
-     * native SDK.
-     *
-     * On Android this currently local-filters with a logged warning until
-     * upstream support exists.
+     * native SDK on both platforms.
      *
      * @param productIds The store product ids to look up.
      * @return The entitlements granted by those products.
@@ -372,23 +369,19 @@ public object Superwall {
         get() = streams.subscriptionStatus.asStateFlow()
 
     /**
-     * A [Flow] of customer info changes.
+     * A [Flow] of customer info changes: one emission each time the native
+     * SDK reports a change, on both platforms.
      *
      * Guard-exempt: collectable before [configure]; it has nothing to emit
      * until the native source is attached at configure-complete. No replay —
      * use [getCustomerInfo] for the current value.
-     *
-     * @platform iOS (Android: pending upstream delegate support — the flow may
-     * not emit there).
      */
     public val customerInfoFlow: Flow<CustomerInfo>
         get() = streams.customerInfo.asSharedFlow()
 
     /**
-     * The latest subscription and entitlement info about the customer.
-     *
-     * On Android this currently returns a synthesized minimal value with a
-     * logged warning, pending upstream superwall-android support.
+     * The latest subscription and entitlement info about the customer, read
+     * from the native SDK.
      *
      * @return The customer's latest [CustomerInfo].
      */

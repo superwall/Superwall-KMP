@@ -84,9 +84,8 @@ internal class IosSuperwallBridge : SuperwallBridge {
      */
     private val activeHandlers: MutableSet<PresentationHandlerAdapter> = mutableSetOf()
 
-    /** Retained observation tokens for the stream subscriptions. */
+    /** Retained observation token for the subscription-status subscription. */
     private var subscriptionStatusObservation: SWBObservation? = null
-    private var customerInfoObservation: SWBObservation? = null
 
     // ---- Configuration -----------------------------------------------------
 
@@ -164,21 +163,23 @@ internal class IosSuperwallBridge : SuperwallBridge {
             else -> ConfigurationStatus.PENDING
         }
 
+    /**
+     * The subscription-status observer emits the current value immediately
+     * and then every change — the initial emission closes the pre-attach seed
+     * gap. The token is retained for the lifetime of the bridge; delivery
+     * thread is irrelevant to the thread-safe flow mutation.
+     *
+     * Customer info is deliberately NOT observed here: SuperwallKit calls the
+     * delegate's `customerInfoDidChange` for every distinct change, and the
+     * common `DelegateMultiplexer` already feeds `StreamHolder.customerInfo`
+     * from it. Observing `$customerInfo` as well emitted every change twice
+     * (plus an extra current value at attach), which Android never did.
+     */
     override fun attachStreams(holder: StreamHolder) {
-        // Both observe* facades emit the current value immediately and then
-        // every (deduplicated, for customer info) change — the initial emission
-        // closes the pre-attach seed gap. The tokens are retained for the
-        // lifetime of the bridge; delivery thread is irrelevant to the
-        // thread-safe flow mutations.
         subscriptionStatusObservation = swb.observeSubscriptionStatus { status ->
             // The cinterop block signature is nullable although the Swift side
             // never emits nil; degrade an unexpected nil to Unknown.
             holder.subscriptionStatus.value = status?.toModel() ?: SubscriptionStatus.Unknown
-        }
-        customerInfoObservation = swb.observeCustomerInfo { customerInfo ->
-            // Nullable-only-in-the-binding: skip an unexpected nil emission
-            // rather than fabricating an empty customer info.
-            customerInfo?.let { holder.customerInfo.tryEmit(it.toModel()) }
         }
     }
 

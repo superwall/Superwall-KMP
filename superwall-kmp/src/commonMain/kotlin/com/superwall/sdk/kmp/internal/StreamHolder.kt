@@ -44,8 +44,9 @@ internal class StreamHolder {
     /**
      * Backing stream for `Superwall.customerInfoFlow`. No replay; a small
      * buffer with drop-oldest overflow keeps emission non-suspending from
-     * delegate callbacks. Android emissions are pending the upstream
-     * delegate-hook audit — the flow may stay empty there.
+     * delegate callbacks. Fed only by the [DelegateMultiplexer] from the
+     * native `customerInfoDidChange` hook, on both platforms, so each change
+     * emits once.
      */
     val customerInfo: MutableSharedFlow<CustomerInfo> =
         MutableSharedFlow(

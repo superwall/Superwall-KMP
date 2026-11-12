@@ -650,7 +650,9 @@ public final class SWBSuperwallBridge: NSObject {
 
   /// Subscribes to customer-info changes via Combine (deduplicated). Emits the
   /// current value immediately, then every distinct change.
-  /// Cancel via the returned token.
+  /// Cancel via the returned token. The Kotlin side does not use this: it feeds
+  /// `customerInfoFlow` from the delegate's `customerInfoDidChange` instead, as
+  /// on Android, since using both emitted every change twice.
   @objc public func observeCustomerInfo(
     _ onChange: @escaping (SWBCustomerInfo) -> Void
   ) -> SWBObservation {
