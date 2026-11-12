@@ -102,6 +102,7 @@ internal fun NativeRedemptionResult.PaywallInfo.toKmp(): RedemptionPaywallInfo =
         placementParams = sanitizeParams(placementParams).orEmpty(),
         variantId = variantId,
         experimentId = experimentId,
+        productIdentifier = productIdentifier,
     )
 
 internal fun NativeErrorInfo.toKmp(): ErrorInfo = ErrorInfo(message = message)

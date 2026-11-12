@@ -1876,14 +1876,17 @@ public final class SWBRedemptionPaywallInfo: NSObject {
   @objc public let placementParams: [String: Any]
   @objc public let variantId: String
   @objc public let experimentId: String
+  @objc public let productIdentifier: String?
 
   @objc public init(
     identifier: String,
     placementName: String,
     placementParams: [String: Any],
     variantId: String,
-    experimentId: String
+    experimentId: String,
+    productIdentifier: String?
   ) {
+    self.productIdentifier = productIdentifier
     self.identifier = identifier
     self.placementName = placementName
     self.placementParams = placementParams
@@ -1900,13 +1903,17 @@ public final class SWBRedemptionInfo: NSObject {
   @objc public let purchaserInfo: SWBPurchaserInfo
   @objc public let paywallInfo: SWBRedemptionPaywallInfo?
   @objc public let entitlements: [SWBEntitlement]
+  /// Sanitized user attributes set by the web checkout (SuperwallKit 4.17.0+).
+  @objc public let userAttributes: [String: Any]?
 
   @objc public init(
     ownership: SWBOwnership,
     purchaserInfo: SWBPurchaserInfo,
     paywallInfo: SWBRedemptionPaywallInfo?,
-    entitlements: [SWBEntitlement]
+    entitlements: [SWBEntitlement],
+    userAttributes: [String: Any]?
   ) {
+    self.userAttributes = userAttributes
     self.ownership = ownership
     self.purchaserInfo = purchaserInfo
     self.paywallInfo = paywallInfo
@@ -1963,7 +1970,8 @@ public final class SWBRedemptionInfo: NSObject {
         placementName: $0.placementName,
         placementParams: SWBValueSanitizer.sanitize($0.placementParams) ?? [:],
         variantId: $0.variantId,
-        experimentId: $0.experimentId
+        experimentId: $0.experimentId,
+        productIdentifier: $0.productIdentifier
       )
     }
 
@@ -1971,7 +1979,8 @@ public final class SWBRedemptionInfo: NSObject {
       ownership: ownership,
       purchaserInfo: purchaserInfo,
       paywallInfo: paywallInfo,
-      entitlements: native.entitlements.map { SWBEntitlement($0) }
+      entitlements: native.entitlements.map { SWBEntitlement($0) },
+      userAttributes: native.userAttributes.flatMap { SWBValueSanitizer.sanitize($0) }
     )
   }
 }
