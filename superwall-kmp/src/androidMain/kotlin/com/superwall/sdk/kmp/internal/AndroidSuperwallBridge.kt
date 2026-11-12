@@ -37,7 +37,6 @@ import com.superwall.sdk.config.options.SuperwallOptions as NativeSuperwallOptio
 import com.superwall.sdk.identity.IdentityOptions as NativeIdentityOptions
 import com.superwall.sdk.identity.identify as nativeIdentify
 import com.superwall.sdk.identity.setUserAttributes as nativeSetUserAttributes
-import com.superwall.sdk.models.attribution.AttributionProvider as NativeAttributionProvider
 import com.superwall.sdk.network.device.InterfaceStyle as NativeInterfaceStyle
 import com.superwall.sdk.paywall.presentation.dismiss as nativeDismiss
 import com.superwall.sdk.paywall.presentation.get_presentation_result.getPresentationResult as nativeGetPresentationResult
@@ -62,7 +61,8 @@ import com.superwall.sdk.paywall.presentation.register as nativeRegister
  * - Integration attributes use the native
  *   `setIntegrationAttributes(Map<AttributionProvider, String>)` API instead
  *   of the Flutter host's `$`-prefixed user-attribute workaround, with
- *   merge/null-removes semantics implemented over the native replace-all call.
+ *   merge/null-removes semantics implemented over the native replace-all call
+ *   by [IntegrationAttributeStore].
  *
  * Threading SDK→app callbacks dispatch on
  * `Dispatchers.Main.immediate` via the attached [StreamHolder]'s scope
@@ -127,6 +127,14 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
             }
         }
     }
+
+    /** Merge/null-removes semantics over the native replace-all call. */
+    private val integrationAttributes =
+        IntegrationAttributeStore(
+            readNative = { NativeSuperwall.instance.integrationAttributes },
+            writeNative = { NativeSuperwall.instance.setIntegrationAttributes(it) },
+            log = ::logError,
+        )
 
     // ---- Configuration -----------------------------------------------------
 
@@ -297,49 +305,11 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         setIntegrationAttributes(mapOf(attribute to value))
     }
 
-    /**
-     * The native `setIntegrationAttributes` REPLACES the whole map
-     * (`AttributionManager.kt`), so the common merge/null-removes contract is
-     * implemented by reading the current native attributes, applying the
-     * changes, and writing the merged map back.
-     */
     override fun setIntegrationAttributes(attributes: Map<IntegrationAttribute, String?>) {
-        val merged = currentNativeIntegrationAttributes().toMutableMap()
-        for ((attribute, value) in attributes) {
-            val native = attribute.toNativeAttributionProvider()
-            if (native == null) {
-                logError(
-                    "Integration attribute ${attribute.name} is not supported by " +
-                        "superwall-android and was skipped.",
-                    error = null,
-                )
-                continue
-            }
-            if (value == null) merged.remove(native) else merged[native] = value
-        }
-        NativeSuperwall.instance.setIntegrationAttributes(merged)
+        integrationAttributes.set(attributes)
     }
 
-    override fun getIntegrationAttributes(): Map<IntegrationAttribute, String?> =
-        currentNativeIntegrationAttributes()
-            .entries
-            .mapNotNull { (provider, value) ->
-                provider.toKmpIntegrationAttribute()?.let { it to value }
-            }.toMap()
-
-    /**
-     * Reads the native raw-name-keyed attribute map back into provider keys.
-     * Raw names that don't correspond to a known provider are dropped
-     * (degrade, never crash).
-     */
-    private fun currentNativeIntegrationAttributes(): Map<NativeAttributionProvider, String> =
-        NativeSuperwall.instance.integrationAttributes
-            .entries
-            .mapNotNull { (rawName, value) ->
-                NativeAttributionProvider.entries
-                    .firstOrNull { it.rawName == rawName }
-                    ?.let { it to value }
-            }.toMap()
+    override fun getIntegrationAttributes(): Map<IntegrationAttribute, String?> = integrationAttributes.get()
 
     override suspend fun getDeviceAttributes(): Map<String, Any?> =
         withContext(Dispatchers.IO) {
@@ -546,81 +516,3 @@ private fun Map<String, Any?>?.toNonNullParams(): Map<String, Any>? {
         .filterValues { it != null }
         .mapValues { (_, value) -> value as Any }
 }
-
-// ---- IntegrationAttribute <-> AttributionProvider ----------------------------
-
-/**
- * Maps the common [IntegrationAttribute] to the native
- * [NativeAttributionProvider], or `null` for the iOS-only
- * [IntegrationAttribute.FIREBASE_INSTALLATION_ID] (superwall-android
- * has no counterpart — the caller skips it with a logged warning; the native
- * enum's extra values — META, AMPLITUDE, MIXPANEL, GOOGLE_ADS, GOOGLE_APP_SET,
- * CUSTOM, AIRBRIDGE_ID — have no common counterpart and surface only through
- * [toKmpIntegrationAttribute] as `null`).
- */
-private fun IntegrationAttribute.toNativeAttributionProvider(): NativeAttributionProvider? =
-    when (this) {
-        IntegrationAttribute.FIREBASE_INSTALLATION_ID -> null
-        IntegrationAttribute.SINGULAR_DEVICE_ID -> NativeAttributionProvider.SINGULAR_DEVICE_ID
-        IntegrationAttribute.ADJUST_ID -> NativeAttributionProvider.ADJUST_ID
-        IntegrationAttribute.AMPLITUDE_DEVICE_ID -> NativeAttributionProvider.AMPLITUDE_DEVICE_ID
-        IntegrationAttribute.AMPLITUDE_USER_ID -> NativeAttributionProvider.AMPLITUDE_USER_ID
-        IntegrationAttribute.APPSFLYER_ID -> NativeAttributionProvider.APPSFLYER_ID
-        IntegrationAttribute.BRAZE_ALIAS_NAME -> NativeAttributionProvider.BRAZE_ALIAS_NAME
-        IntegrationAttribute.BRAZE_ALIAS_LABEL -> NativeAttributionProvider.BRAZE_ALIAS_LABEL
-        IntegrationAttribute.ONESIGNAL_ID -> NativeAttributionProvider.ONESIGNAL_ID
-        IntegrationAttribute.FB_ANON_ID -> NativeAttributionProvider.FB_ANON_ID
-        IntegrationAttribute.FIREBASE_APP_INSTANCE_ID ->
-            NativeAttributionProvider.FIREBASE_APP_INSTANCE_ID
-        IntegrationAttribute.ITERABLE_USER_ID -> NativeAttributionProvider.ITERABLE_USER_ID
-        IntegrationAttribute.ITERABLE_CAMPAIGN_ID -> NativeAttributionProvider.ITERABLE_CAMPAIGN_ID
-        IntegrationAttribute.ITERABLE_TEMPLATE_ID -> NativeAttributionProvider.ITERABLE_TEMPLATE_ID
-        IntegrationAttribute.MIXPANEL_DISTINCT_ID -> NativeAttributionProvider.MIXPANEL_DISTINCT_ID
-        IntegrationAttribute.MPARTICLE_ID -> NativeAttributionProvider.MPARTICLE_ID
-        IntegrationAttribute.CLEVERTAP_ID -> NativeAttributionProvider.CLEVERTAP_ID
-        IntegrationAttribute.AIRSHIP_CHANNEL_ID -> NativeAttributionProvider.AIRSHIP_CHANNEL_ID
-        IntegrationAttribute.KOCHAVA_DEVICE_ID -> NativeAttributionProvider.KOCHAVA_DEVICE_ID
-        IntegrationAttribute.TENJIN_ID -> NativeAttributionProvider.TENJIN_ID
-        IntegrationAttribute.POSTHOG_USER_ID -> NativeAttributionProvider.POSTHOG_USER_ID
-        IntegrationAttribute.CUSTOMERIO_ID -> NativeAttributionProvider.CUSTOMERIO_ID
-        IntegrationAttribute.APPSTACK_ID -> NativeAttributionProvider.APPSTACK
-    }
-
-/**
- * Maps a native provider back to the common enum, or `null` when the native
- * value has no common counterpart (dropped — degrade, never crash).
- */
-private fun NativeAttributionProvider.toKmpIntegrationAttribute(): IntegrationAttribute? =
-    when (this) {
-        NativeAttributionProvider.SINGULAR_DEVICE_ID -> IntegrationAttribute.SINGULAR_DEVICE_ID
-        NativeAttributionProvider.ADJUST_ID -> IntegrationAttribute.ADJUST_ID
-        NativeAttributionProvider.AMPLITUDE_DEVICE_ID -> IntegrationAttribute.AMPLITUDE_DEVICE_ID
-        NativeAttributionProvider.AMPLITUDE_USER_ID -> IntegrationAttribute.AMPLITUDE_USER_ID
-        NativeAttributionProvider.APPSFLYER_ID -> IntegrationAttribute.APPSFLYER_ID
-        NativeAttributionProvider.BRAZE_ALIAS_NAME -> IntegrationAttribute.BRAZE_ALIAS_NAME
-        NativeAttributionProvider.BRAZE_ALIAS_LABEL -> IntegrationAttribute.BRAZE_ALIAS_LABEL
-        NativeAttributionProvider.ONESIGNAL_ID -> IntegrationAttribute.ONESIGNAL_ID
-        NativeAttributionProvider.FB_ANON_ID -> IntegrationAttribute.FB_ANON_ID
-        NativeAttributionProvider.FIREBASE_APP_INSTANCE_ID ->
-            IntegrationAttribute.FIREBASE_APP_INSTANCE_ID
-        NativeAttributionProvider.ITERABLE_USER_ID -> IntegrationAttribute.ITERABLE_USER_ID
-        NativeAttributionProvider.ITERABLE_CAMPAIGN_ID -> IntegrationAttribute.ITERABLE_CAMPAIGN_ID
-        NativeAttributionProvider.ITERABLE_TEMPLATE_ID -> IntegrationAttribute.ITERABLE_TEMPLATE_ID
-        NativeAttributionProvider.MIXPANEL_DISTINCT_ID -> IntegrationAttribute.MIXPANEL_DISTINCT_ID
-        NativeAttributionProvider.MPARTICLE_ID -> IntegrationAttribute.MPARTICLE_ID
-        NativeAttributionProvider.CLEVERTAP_ID -> IntegrationAttribute.CLEVERTAP_ID
-        NativeAttributionProvider.AIRSHIP_CHANNEL_ID -> IntegrationAttribute.AIRSHIP_CHANNEL_ID
-        NativeAttributionProvider.KOCHAVA_DEVICE_ID -> IntegrationAttribute.KOCHAVA_DEVICE_ID
-        NativeAttributionProvider.TENJIN_ID -> IntegrationAttribute.TENJIN_ID
-        NativeAttributionProvider.POSTHOG_USER_ID -> IntegrationAttribute.POSTHOG_USER_ID
-        NativeAttributionProvider.CUSTOMERIO_ID -> IntegrationAttribute.CUSTOMERIO_ID
-        NativeAttributionProvider.APPSTACK -> IntegrationAttribute.APPSTACK_ID
-        NativeAttributionProvider.META,
-        NativeAttributionProvider.AMPLITUDE,
-        NativeAttributionProvider.MIXPANEL,
-        NativeAttributionProvider.GOOGLE_ADS,
-        NativeAttributionProvider.GOOGLE_APP_SET,
-        NativeAttributionProvider.CUSTOM,
-        NativeAttributionProvider.AIRBRIDGE_ID,
-        -> null
-    }

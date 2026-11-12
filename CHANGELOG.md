@@ -20,6 +20,7 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 - Android: fixes the restore-failed alert always showing English text. `RestoreFailed` fields left at their defaults are no longer passed to the Android SDK, so it shows them in the device's language.
 - Fixes requests from the native SDKs not saying they came through superwall-kmp. The SDK now reports itself as the `KMP` platform wrapper, with its version, when it configures, as the other Superwall wrapper SDKs do.
 - Corrects the option docs: `PaywallOptions.transactionBackgroundView` also applies on Android, `shouldShowWebRestorationAlert` and `shouldShowWebPurchaseConfirmationAlert` are iOS only, and `SuperwallOptions.shouldObservePurchases` alone reports nothing on Android.
+- Android: fixes integration attributes set in quick succession overwriting each other, and `getIntegrationAttributes()` returning the previous attributes right after a set. The Android SDK applies attributes half a second after they are set, and the SDK merged new attributes into the not-yet-updated ones.
 - An event newer than the SDK still arrives as `CUSTOM_PLACEMENT` with its native name in `name`; on Android that name is now also in `params["rawEventType"]`, as on iOS.
 
 ## 0.1.1
