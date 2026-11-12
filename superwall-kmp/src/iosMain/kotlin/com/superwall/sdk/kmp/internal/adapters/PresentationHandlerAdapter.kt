@@ -63,6 +63,15 @@ internal class PresentationHandlerAdapter(
         deliver("onPresent") { handler.onPresentHandler?.invoke(info) }
     }
 
+    override fun onWillDismiss(
+        paywallInfo: SWBPaywallInfo,
+        result: SWBPaywallResult,
+    ) {
+        val info = paywallInfo.toModel()
+        val paywallResult = result.toModel()
+        deliver("onWillDismiss") { handler.onWillDismissHandler?.invoke(info, paywallResult) }
+    }
+
     override fun onDismiss(
         paywallInfo: SWBPaywallInfo,
         result: SWBPaywallResult,

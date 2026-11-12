@@ -11,12 +11,15 @@ import com.superwall.sdk.kmp.models.results.PaywallSkippedReason
  * for a paywall.
  *
  * Set the closures you care about via the builder-style setters ([onPresent],
- * [onDismiss], [onError], [onSkip], [onCustomCallback]); unset closures are
+ * [onWillDismiss], [onDismiss], [onError], [onSkip], [onCustomCallback]); unset closures are
  * simply not invoked. All closures are delivered on the main thread.
  */
 public class PaywallPresentationHandler {
     /** The closure invoked when the paywall is presented. */
     internal var onPresentHandler: ((PaywallInfo) -> Unit)? = null
+
+    /** The closure invoked when the paywall is about to be dismissed (iOS only). */
+    internal var onWillDismissHandler: ((PaywallInfo, PaywallResult) -> Unit)? = null
 
     /** The closure invoked when the paywall is dismissed. */
     internal var onDismissHandler: ((PaywallInfo, PaywallResult) -> Unit)? = null
@@ -37,6 +40,19 @@ public class PaywallPresentationHandler {
      */
     public fun onPresent(block: (PaywallInfo) -> Unit) {
         onPresentHandler = block
+    }
+
+    /**
+     * Sets the closure that's called when the paywall is about to be
+     * dismissed, before [onDismiss].
+     *
+     * @platform iOS — superwall-android has no such callback, so it is never
+     * called on Android.
+     * @param block Receives the [PaywallInfo] of the paywall and the
+     * [PaywallResult] it is being dismissed with.
+     */
+    public fun onWillDismiss(block: (PaywallInfo, PaywallResult) -> Unit) {
+        onWillDismissHandler = block
     }
 
     /**
