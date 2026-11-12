@@ -1,5 +1,7 @@
 package com.superwall.sdk.kmp.internal.mappers
 
+import com.superwall.sdk.kmp.models.options.AdConsent
+import com.superwall.sdk.kmp.models.options.AdConsentStatus
 import com.superwall.sdk.kmp.models.options.DeviceTier
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.LogLevel
@@ -13,6 +15,8 @@ import com.superwall.sdk.kmp.models.options.TestModeBehavior
 import com.superwall.sdk.kmp.models.options.TransactionBackgroundView
 import java.util.EnumSet
 import com.superwall.sdk.analytics.Tier as NativeTier
+import com.superwall.sdk.config.options.AdConsent as NativeAdConsent
+import com.superwall.sdk.config.options.AdConsentStatus as NativeAdConsentStatus
 import com.superwall.sdk.config.options.EventTrackingBehavior as NativeEventTrackingBehavior
 import com.superwall.sdk.config.options.PaywallOptions as NativePaywallOptions
 import com.superwall.sdk.config.options.SuperwallOptions as NativeSuperwallOptions
@@ -63,6 +67,8 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
     native.testModeBehavior = testModeBehavior.toNative()
     native.shouldObservePurchases = shouldObservePurchases
     native.useMockReviews = useMockReviews
+    // Unset stays the native Unspecified, so a TCF banner's answer still applies.
+    adConsent?.let { native.adConsent = it.toNative() }
     native.logging = logging.toNative()
     // shouldBypassAppTransactionCheck / maxConfigRetryCount: iOS-only, no
     // superwall-android counterpart — documented no-op.
@@ -120,6 +126,37 @@ internal fun Logging.toNative(): NativeSuperwallOptions.Logging {
     }
     return native
 }
+
+// ---- AdConsent ----------------------------------------------------------------
+
+internal fun AdConsent.toNative(): NativeAdConsent =
+    NativeAdConsent.Custom(
+        adUserData = adUserData.toNative(),
+        adPersonalization = adPersonalization.toNative(),
+    )
+
+/** [NativeAdConsent.Unspecified], the native "never set", is `null`. */
+internal fun NativeAdConsent.toKmp(): AdConsent? =
+    when (this) {
+        is NativeAdConsent.Custom ->
+            AdConsent(
+                adUserData = adUserData.toKmp(),
+                adPersonalization = adPersonalization.toKmp(),
+            )
+        NativeAdConsent.Unspecified -> null
+    }
+
+private fun AdConsentStatus.toNative(): NativeAdConsentStatus =
+    when (this) {
+        AdConsentStatus.GRANTED -> NativeAdConsentStatus.Granted
+        AdConsentStatus.DENIED -> NativeAdConsentStatus.Denied
+    }
+
+private fun NativeAdConsentStatus.toKmp(): AdConsentStatus =
+    when (this) {
+        NativeAdConsentStatus.Granted -> AdConsentStatus.GRANTED
+        NativeAdConsentStatus.Denied -> AdConsentStatus.DENIED
+    }
 
 // ---- TestModeBehavior -------------------------------------------------------
 

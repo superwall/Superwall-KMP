@@ -73,4 +73,10 @@ public data class SuperwallOptions(
      * Enable mock review functionality. Defaults to `false`. Android only.
      */
     val useMockReviews: Boolean = false,
+    /**
+     * The user's [AdConsent], if the app already knows it at configure. `null`
+     * (the default) leaves it unset, so the SDK falls back to a TCF consent
+     * banner's stored answer. Change it later with `Superwall.setAdConsent`.
+     */
+    val adConsent: AdConsent? = null,
 )

@@ -9,6 +9,7 @@ import com.superwall.sdk.kmp.models.entitlements.Entitlements
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.InterfaceStyle
@@ -389,6 +390,18 @@ internal class FakeBridge : SuperwallBridge {
     override fun setInterfaceStyle(style: InterfaceStyle?) {
         calls += "setInterfaceStyle"
         lastInterfaceStyle = style
+    }
+
+    var cannedAdConsent: AdConsent? = null
+
+    override fun getAdConsent(): AdConsent? {
+        calls += "getAdConsent"
+        return cannedAdConsent
+    }
+
+    override fun setAdConsent(consent: AdConsent) {
+        calls += "setAdConsent"
+        cannedAdConsent = consent
     }
 
     override fun refreshConfiguration() {

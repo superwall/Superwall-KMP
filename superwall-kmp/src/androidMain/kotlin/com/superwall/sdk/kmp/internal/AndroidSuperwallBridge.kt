@@ -18,6 +18,7 @@ import com.superwall.sdk.kmp.models.entitlements.Entitlements
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.InterfaceStyle
@@ -538,6 +539,12 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
                 InterfaceStyle.AUTOMATIC, null -> null
             },
         )
+    }
+
+    override fun getAdConsent(): AdConsent? = NativeSuperwall.instance.adConsent.toKmp()
+
+    override fun setAdConsent(consent: AdConsent) {
+        NativeSuperwall.instance.adConsent = consent.toNative()
     }
 
     override fun refreshConfiguration() {

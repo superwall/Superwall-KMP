@@ -36,6 +36,7 @@ import com.superwall.sdk.kmp.models.entitlements.Entitlements
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.InterfaceStyle
@@ -420,6 +421,12 @@ internal class IosSuperwallBridge : SuperwallBridge {
 
     override fun setInterfaceStyle(style: InterfaceStyle?) {
         swb.setInterfaceStyle(style.toSWB())
+    }
+
+    override fun getAdConsent(): AdConsent? = swb.adConsent()?.toModel()
+
+    override fun setAdConsent(consent: AdConsent) {
+        swb.setAdConsent(consent.toSWB())
     }
 
     override fun refreshConfiguration() {

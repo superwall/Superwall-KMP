@@ -1,5 +1,7 @@
 package com.superwall.sdk.kmp.internal.mappers
 
+import com.superwall.sdk.kmp.models.options.AdConsent
+import com.superwall.sdk.kmp.models.options.AdConsentStatus
 import com.superwall.sdk.kmp.models.options.DeviceTier
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
@@ -16,6 +18,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import com.superwall.sdk.analytics.Tier as NativeTier
+import com.superwall.sdk.config.options.AdConsent as NativeAdConsent
+import com.superwall.sdk.config.options.AdConsentStatus as NativeAdConsentStatus
 import com.superwall.sdk.config.options.PaywallOptions as NativePaywallOptions
 import com.superwall.sdk.config.options.SuperwallOptions as NativeSuperwallOptions
 import com.superwall.sdk.logger.LogLevel as NativeLogLevel
@@ -84,6 +88,33 @@ class OptionsMapperTest {
         assertTrue(
             native.networkEnvironment is NativeSuperwallOptions.NetworkEnvironment.ReleaseCandidate,
         )
+    }
+
+    // ---- AdConsent ---------------------------------------------------------------
+
+    @Test
+    fun adConsent_unsetOption_staysNativeUnspecified() {
+        assertEquals(NativeAdConsent.Unspecified, SuperwallOptions().toNative().adConsent)
+    }
+
+    @Test
+    fun adConsent_setOption_mapsToNativeCustom() {
+        val native =
+            SuperwallOptions(
+                adConsent = AdConsent(adUserData = AdConsentStatus.GRANTED, adPersonalization = AdConsentStatus.DENIED),
+            ).toNative()
+
+        assertEquals(
+            NativeAdConsent.Custom(adUserData = NativeAdConsentStatus.Granted, adPersonalization = NativeAdConsentStatus.Denied),
+            native.adConsent,
+        )
+    }
+
+    @Test
+    fun adConsent_nativeToCommon_unspecifiedIsNullAndCustomRoundTrips() {
+        assertNull(NativeAdConsent.Unspecified.toKmp())
+        val consent = AdConsent(adUserData = AdConsentStatus.DENIED, adPersonalization = AdConsentStatus.GRANTED)
+        assertEquals(consent, consent.toNative().toKmp())
     }
 
     // ---- PaywallOptions --------------------------------------------------------

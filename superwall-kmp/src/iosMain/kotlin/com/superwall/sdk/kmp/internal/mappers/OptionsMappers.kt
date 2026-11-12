@@ -36,6 +36,7 @@ import com.superwall.sdk.kmp.internal.interop.SWB_TEST_MODE_BEHAVIOR_NEVER
 import com.superwall.sdk.kmp.internal.interop.SWB_TEST_MODE_BEHAVIOR_WHEN_ENABLED_FOR_USER
 import com.superwall.sdk.kmp.internal.interop.SWB_TRANSACTION_BACKGROUND_VIEW_NONE
 import com.superwall.sdk.kmp.internal.interop.SWB_TRANSACTION_BACKGROUND_VIEW_SPINNER
+import com.superwall.sdk.kmp.internal.ios.interop.SWBAdConsent
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIdentityOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBInterfaceStyle
 import com.superwall.sdk.kmp.internal.ios.interop.SWBInterfaceStyleAutomatic
@@ -52,6 +53,8 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBRestoreFailedOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBSuperwallOptions
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
+import com.superwall.sdk.kmp.models.options.AdConsentStatus
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
@@ -96,8 +99,23 @@ internal fun SuperwallOptions.toSWB(): SWBSuperwallOptions {
             swbLogging.setScopes(logging.scopes.map { NSNumber(long = logScopeToSWB(it)) })
         },
     )
+    // Unset stays nil, so a TCF consent banner's stored answer still applies.
+    adConsent?.let { options.setAdConsent(it.toSWB()) }
     return options
 }
+
+internal fun AdConsent.toSWB(): SWBAdConsent =
+    // Positional, as the other SWB initializers are called: (adUserDataGranted, adPersonalizationGranted).
+    SWBAdConsent(
+        adUserData == AdConsentStatus.GRANTED,
+        adPersonalization == AdConsentStatus.GRANTED,
+    )
+
+internal fun SWBAdConsent.toModel(): AdConsent =
+    AdConsent(
+        adUserData = if (adUserDataGranted()) AdConsentStatus.GRANTED else AdConsentStatus.DENIED,
+        adPersonalization = if (adPersonalizationGranted()) AdConsentStatus.GRANTED else AdConsentStatus.DENIED,
+    )
 
 internal fun PaywallOptions.toSWB(): SWBPaywallOptions {
     val options = SWBPaywallOptions()

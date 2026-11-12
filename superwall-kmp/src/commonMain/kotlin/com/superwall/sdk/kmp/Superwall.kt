@@ -10,6 +10,7 @@ import com.superwall.sdk.kmp.models.entitlements.Entitlements
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.InterfaceStyle
@@ -340,6 +341,26 @@ public object Superwall {
         set(value) {
             requireConfigured().setEventTrackingBehavior(value)
         }
+
+    /**
+     * The user's [AdConsent] as the app set it, with
+     * `SuperwallOptions.adConsent` or [setAdConsent], or `null` while it
+     * hasn't set one (the SDK then uses a TCF consent banner's stored answer,
+     * or treats both as granted). See [AdConsent] for how it's reported.
+     */
+    public val adConsent: AdConsent?
+        get() = requireConfigured().getAdConsent()
+
+    /**
+     * Sets the user's consent for how their data is used for advertising,
+     * e.g. from your consent flow. It takes precedence over a TCF consent
+     * banner's stored answer from then on.
+     *
+     * @param consent The user's [AdConsent].
+     */
+    public fun setAdConsent(consent: AdConsent) {
+        requireConfigured().setAdConsent(consent)
+    }
 
     // ---- Entitlements / subscription --------------------------------------------
 

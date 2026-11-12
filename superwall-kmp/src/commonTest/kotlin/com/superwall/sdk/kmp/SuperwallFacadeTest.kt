@@ -6,6 +6,8 @@ import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.EventType
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.events.SuperwallEventInfo
+import com.superwall.sdk.kmp.models.options.AdConsent
+import com.superwall.sdk.kmp.models.options.AdConsentStatus
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.InterfaceStyle
@@ -171,6 +173,8 @@ class SuperwallFacadeTest {
                 "togglePaywallSpinner" to { Superwall.togglePaywallSpinner(true) },
                 "overrideProductsByName get" to { Superwall.overrideProductsByName },
                 "overrideProductsByName set" to { Superwall.overrideProductsByName = mapOf("primary" to "id") },
+                "adConsent" to { Superwall.adConsent },
+                "setAdConsent" to { Superwall.setAdConsent(AdConsent()) },
                 "eventTrackingBehavior get" to { Superwall.eventTrackingBehavior },
                 "eventTrackingBehavior set" to { Superwall.eventTrackingBehavior = EventTrackingBehavior.NONE },
                 "grantedEntitlements get" to { Superwall.grantedEntitlements },
@@ -570,6 +574,11 @@ class SuperwallFacadeTest {
         runTest {
             Superwall.configure("pk_test")
             fake.calls.clear()
+
+            assertNull(Superwall.adConsent)
+            val consent = AdConsent(adPersonalization = AdConsentStatus.DENIED)
+            Superwall.setAdConsent(consent)
+            assertEquals(consent, Superwall.adConsent)
 
             Superwall.eventTrackingBehavior = EventTrackingBehavior.SUPERWALL_ONLY
             assertEquals(EventTrackingBehavior.SUPERWALL_ONLY, Superwall.eventTrackingBehavior)

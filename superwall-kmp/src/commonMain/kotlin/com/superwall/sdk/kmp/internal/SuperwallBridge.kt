@@ -9,6 +9,7 @@ import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.events.SuperwallEventInfo
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.InterfaceStyle
@@ -397,6 +398,12 @@ internal interface SuperwallBridge {
      * follows the system appearance).
      */
     fun setInterfaceStyle(style: InterfaceStyle?)
+
+    /** The ad consent the app set, or `null` while it never set one. */
+    fun getAdConsent(): AdConsent?
+
+    /** Sets the user's ad consent. */
+    fun setAdConsent(consent: AdConsent)
 
     /** Fetches the Superwall configuration again. Fire-and-forget on both natives. */
     fun refreshConfiguration()

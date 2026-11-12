@@ -130,6 +130,34 @@ public final class SWBRestoreFailedOptions: NSObject {
   }
 }
 
+/// Mirror of SuperwallKit.AdConsent (4.18.0+). Each status is a Bool: true =
+/// `.granted`, false = `.denied`.
+@objc(SWBAdConsent)
+public final class SWBAdConsent: NSObject {
+  @objc public let adUserDataGranted: Bool
+  @objc public let adPersonalizationGranted: Bool
+
+  @objc public init(adUserDataGranted: Bool, adPersonalizationGranted: Bool) {
+    self.adUserDataGranted = adUserDataGranted
+    self.adPersonalizationGranted = adPersonalizationGranted
+    super.init()
+  }
+
+  convenience init(_ native: AdConsent) {
+    self.init(
+      adUserDataGranted: native.adUserData == .granted,
+      adPersonalizationGranted: native.adPersonalization == .granted
+    )
+  }
+
+  var native: AdConsent {
+    return AdConsent(
+      adUserData: adUserDataGranted ? .granted : .denied,
+      adPersonalization: adPersonalizationGranted ? .granted : .denied
+    )
+  }
+}
+
 /// Logging options. `level` wraps SWBLogLevel.rawValue; `scopes` wraps
 /// SWBLogScope.rawValue values. nil = keep native default.
 @objc(SWBLoggingOptions)
@@ -184,6 +212,8 @@ public final class SWBSuperwallOptions: NSObject {
   /// iOS-only option.
   @objc public var maxConfigRetryCount: NSNumber?
   @objc public var logging: SWBLoggingOptions?
+  /// nil = leave unset, so a TCF consent banner's stored answer applies.
+  @objc public var adConsent: SWBAdConsent?
 
   @objc public override init() {
     super.init()
@@ -293,6 +323,9 @@ public final class SWBSuperwallOptions: NSObject {
     if let value = maxConfigRetryCount {
       options.maxConfigRetryCount = value.intValue
     }
+    if let adConsent = adConsent {
+      options.adConsent = adConsent.native
+    }
     if let logging = logging {
       if let level = logging.level,
         let logLevel = SWBLogLevel(rawValue: level.intValue) {
@@ -399,6 +432,11 @@ public final class SWBSuperwallBridge: NSObject {
   private var purchaseControllerForwarder: BridgePurchaseControllerForwarder?
   private var handlerWrappers: [ObjectIdentifier: PresentationHandlerWrapper] = [:]
   private let handlerLock = NSLock()
+  /// Whether the app set an ad consent through this bridge. SuperwallKit's own
+  /// flag (`SuperwallOptions.isAdConsentSet`) is internal, and its getter
+  /// returns the all-granted default before an assignment, so the bridge keeps
+  /// its own to report "not set" as nil, as superwall-android's Unspecified does.
+  private var isAdConsentSet = false
 
   private override init() {
     super.init()
@@ -440,6 +478,10 @@ public final class SWBSuperwallBridge: NSObject {
       controller = forwarder
     } else {
       controller = nil
+    }
+
+    if options?.adConsent != nil, !Superwall.isInitialized {
+      isAdConsentSet = true
     }
 
     Superwall.configure(
@@ -862,6 +904,18 @@ public final class SWBSuperwallBridge: NSObject {
     case .dark:
       Superwall.shared.setInterfaceStyle(to: .dark)
     }
+  }
+
+  /// The ad consent the app set, or nil while it hasn't set one.
+  @objc public func adConsent() -> SWBAdConsent? {
+    guard isAdConsentSet else { return nil }
+    return SWBAdConsent(Superwall.shared.adConsent)
+  }
+
+  /// Sets the ad consent (SuperwallKit 4.18.0+).
+  @objc public func setAdConsent(_ consent: SWBAdConsent) {
+    Superwall.shared.adConsent = consent.native
+    isAdConsentSet = true
   }
 
   /// Fetches the configuration again. Fire-and-forget.
