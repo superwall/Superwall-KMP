@@ -121,7 +121,8 @@ internal fun Logging.toNative(): NativeSuperwallOptions.Logging {
     val native = NativeSuperwallOptions.Logging()
     native.level = level.toNative()
     val nativeScopes = EnumSet.noneOf(NativeLogScope::class.java)
-    scopes.forEach { nativeScopes.add(it.toNative()) }
+    // iOS-only scopes have no native counterpart and are left out.
+    scopes.forEach { scope -> scope.toNative()?.let(nativeScopes::add) }
     if (nativeScopes.isNotEmpty()) {
         native.scopes = nativeScopes
     }
@@ -251,7 +252,8 @@ internal fun logLevelFromNativeString(raw: String): LogLevel? =
 
 // ---- LogScope ----------------------------------------------------------------
 
-internal fun LogScope.toNative(): NativeLogScope =
+/** `null` for the iOS-only [LogScope.ANALYTICS] and [LogScope.GRANTED_ENTITLEMENTS]. */
+internal fun LogScope.toNative(): NativeLogScope? =
     when (this) {
         LogScope.LOCALIZATION_MANAGER -> NativeLogScope.localizationManager
         LogScope.BOUNCE_BUTTON -> NativeLogScope.bounceButton
@@ -275,15 +277,22 @@ internal fun LogScope.toNative(): NativeLogScope =
         LogScope.PAYWALL_VIEW_CONTROLLER -> NativeLogScope.paywallView
         LogScope.CACHE -> NativeLogScope.cache
         LogScope.ALL -> NativeLogScope.all
+        LogScope.WEB_ENTITLEMENTS -> NativeLogScope.webEntitlements
+        LogScope.CUSTOMER_CENTER -> NativeLogScope.customerCenter
+        LogScope.CUSTOMER_INFO -> NativeLogScope.customerInfo
+        LogScope.JS_EVALUATOR -> NativeLogScope.jsEvaluator
+        LogScope.PAYWALL_TRANSACTIONS -> NativeLogScope.paywallTransactions
+        LogScope.NATIVE_PURCHASE_CONTROLLER -> NativeLogScope.nativePurchaseController
+        LogScope.DEEP_LINKS -> NativeLogScope.deepLinks
+        LogScope.BILLING -> NativeLogScope.billing
+        LogScope.ANALYTICS, LogScope.GRANTED_ENTITLEMENTS -> null
     }
 
 /**
- * Maps a native [NativeLogScope] to the common [LogScope], or `null` when the
- * native scope has no common counterpart (superwall-android 2.10.2 carries
- * `webEntitlements`, `customerInfo`, `jsEvaluator`, `paywallTransactions`,
- * `nativePurchaseController`, `deepLinks`, `customerCenter`, `billing`, which
- * the 22-value common enum lacks). Callers apply the documented degrade rule ([LogScope.ALL] +
- * `info["rawScope"]`).
+ * Maps a native [NativeLogScope] to the common [LogScope]. Every
+ * superwall-android 2.10.2 scope has a counterpart; the nullable return keeps
+ * the documented degrade rule ([LogScope.ALL] + `info["rawScope"]`) for
+ * scopes added later.
  */
 internal fun NativeLogScope.toKmp(): LogScope? =
     when (this) {
@@ -309,16 +318,14 @@ internal fun NativeLogScope.toKmp(): LogScope? =
         NativeLogScope.paywallView -> LogScope.PAYWALL_VIEW_CONTROLLER
         NativeLogScope.cache -> LogScope.CACHE
         NativeLogScope.all -> LogScope.ALL
-        // No common counterpart in the 22-value LogScope enum:
-        NativeLogScope.webEntitlements,
-        NativeLogScope.customerInfo,
-        NativeLogScope.jsEvaluator,
-        NativeLogScope.paywallTransactions,
-        NativeLogScope.nativePurchaseController,
-        NativeLogScope.deepLinks,
-        NativeLogScope.customerCenter,
-        NativeLogScope.billing,
-        -> null
+        NativeLogScope.webEntitlements -> LogScope.WEB_ENTITLEMENTS
+        NativeLogScope.customerInfo -> LogScope.CUSTOMER_INFO
+        NativeLogScope.jsEvaluator -> LogScope.JS_EVALUATOR
+        NativeLogScope.paywallTransactions -> LogScope.PAYWALL_TRANSACTIONS
+        NativeLogScope.nativePurchaseController -> LogScope.NATIVE_PURCHASE_CONTROLLER
+        NativeLogScope.deepLinks -> LogScope.DEEP_LINKS
+        NativeLogScope.customerCenter -> LogScope.CUSTOMER_CENTER
+        NativeLogScope.billing -> LogScope.BILLING
     }
 
 /**

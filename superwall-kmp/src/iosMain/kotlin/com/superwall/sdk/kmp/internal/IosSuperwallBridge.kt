@@ -237,14 +237,29 @@ internal class IosSuperwallBridge : SuperwallBridge {
         attribute: IntegrationAttribute,
         value: String?,
     ) {
-        swb.setIntegrationAttribute(integrationAttributeToSWB(attribute), value)
+        val swbAttribute = integrationAttributeToSWB(attribute)
+        if (swbAttribute == null) {
+            warnAndroidOnlyIntegrationAttributes(listOf(attribute))
+            return
+        }
+        swb.setIntegrationAttribute(swbAttribute, value)
     }
 
     override fun setIntegrationAttributes(attributes: Map<IntegrationAttribute, String?>) {
-        val swbAttributes: Map<Any?, Any> = attributes.entries.associate { (attribute, value) ->
-            NSNumber(long = integrationAttributeToSWB(attribute)) as Any? to (value ?: NSNull())
-        }
-        swb.setIntegrationAttributes(swbAttributes)
+        val skipped = attributes.keys.filter { integrationAttributeToSWB(it) == null }
+        if (skipped.isNotEmpty()) warnAndroidOnlyIntegrationAttributes(skipped)
+        val swbAttributes: Map<Any?, Any> = attributes.entries.mapNotNull { (attribute, value) ->
+            val swbAttribute = integrationAttributeToSWB(attribute) ?: return@mapNotNull null
+            NSNumber(long = swbAttribute) as Any? to (value ?: NSNull())
+        }.toMap()
+        if (swbAttributes.isNotEmpty()) swb.setIntegrationAttributes(swbAttributes)
+    }
+
+    private fun warnAndroidOnlyIntegrationAttributes(attributes: List<IntegrationAttribute>) {
+        warn(
+            "Integration attributes ${attributes.joinToString()} are Android only; " +
+                "SuperwallKit has no counterpart, so they were not set.",
+        )
     }
 
     override fun getIntegrationAttributes(): Map<IntegrationAttribute, String?> {
@@ -252,8 +267,8 @@ internal class IosSuperwallBridge : SuperwallBridge {
         val result = LinkedHashMap<IntegrationAttribute, String?>()
         for ((key, value) in wire) {
             val name = key as? String ?: continue
-            // Wire names without a common counterpart (e.g. airbridgeId) are
-            // skipped.
+            // Wire names without a common counterpart (a provider newer than
+            // the wrapper) are skipped.
             val attribute = integrationAttributeFromWireName(name) ?: continue
             result[attribute] = value as? String
         }

@@ -133,6 +133,36 @@ public enum class LogScope {
 
     /** Logs from all scopes. */
     ALL,
+
+    /** Logs about analytics. iOS only: ignored in Android options. */
+    ANALYTICS,
+
+    /** Logs about web checkout entitlements. */
+    WEB_ENTITLEMENTS,
+
+    /** Logs about entitlements granted outside the store. iOS only: ignored in Android options. */
+    GRANTED_ENTITLEMENTS,
+
+    /** Logs from the Customer Center. */
+    CUSTOMER_CENTER,
+
+    /** Logs about customer info. Android only: ignored in iOS options. */
+    CUSTOMER_INFO,
+
+    /** Logs from the audience filter evaluator. Android only: ignored in iOS options. */
+    JS_EVALUATOR,
+
+    /** Logs about purchases made from paywalls. Android only: ignored in iOS options. */
+    PAYWALL_TRANSACTIONS,
+
+    /** Logs from the SDK's own purchase controller. Android only: ignored in iOS options. */
+    NATIVE_PURCHASE_CONTROLLER,
+
+    /** Logs about deep links. Android only: ignored in iOS options. */
+    DEEP_LINKS,
+
+    /** Logs from Google Play Billing. Android only: ignored in iOS options. */
+    BILLING,
 }
 
 /**

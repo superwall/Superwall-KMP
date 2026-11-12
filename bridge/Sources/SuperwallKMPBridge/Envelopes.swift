@@ -315,8 +315,7 @@ public enum SWBPaywallPresentationRequestStatusReasonCase: Int {
   case subscriptionStatusTimeout = 8
 }
 
-/// Mirror of SuperwallKit.IntegrationAttribute: the 23 cases SuperwallKit 4.16.1 had.
-/// `airbridgeId` (4.18.2) is not mirrored yet.
+/// Mirror of SuperwallKit.IntegrationAttribute (all 24 cases of 4.19.1).
 @objc(SWBIntegrationAttribute)
 public enum SWBIntegrationAttribute: Int {
   case adjustId = 0
@@ -342,6 +341,7 @@ public enum SWBIntegrationAttribute: Int {
   case customerioId = 20
   case appstackId = 21
   case singularDeviceId = 22
+  case airbridgeId = 23
 
   /// The SuperwallKit counterpart.
   var native: IntegrationAttribute {
@@ -369,6 +369,7 @@ public enum SWBIntegrationAttribute: Int {
     case .customerioId: return .customerioId
     case .appstackId: return .appstackId
     case .singularDeviceId: return .singularDeviceId
+    case .airbridgeId: return .airbridgeId
     }
   }
 }

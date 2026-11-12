@@ -75,10 +75,7 @@ internal class IntegrationAttributeStore(
  * Maps the common [IntegrationAttribute] to the native
  * [NativeAttributionProvider], or `null` for the iOS-only
  * [IntegrationAttribute.FIREBASE_INSTALLATION_ID] (superwall-android
- * has no counterpart — [IntegrationAttributeStore] skips it with a logged warning; the native
- * enum's extra values — META, AMPLITUDE, MIXPANEL, GOOGLE_ADS, GOOGLE_APP_SET,
- * CUSTOM, AIRBRIDGE_ID — have no common counterpart and surface only through
- * [toKmpIntegrationAttribute] as `null`).
+ * has no counterpart — [IntegrationAttributeStore] skips it with a logged warning).
  */
 internal fun IntegrationAttribute.toNativeAttributionProvider(): NativeAttributionProvider? =
     when (this) {
@@ -106,11 +103,19 @@ internal fun IntegrationAttribute.toNativeAttributionProvider(): NativeAttributi
         IntegrationAttribute.POSTHOG_USER_ID -> NativeAttributionProvider.POSTHOG_USER_ID
         IntegrationAttribute.CUSTOMERIO_ID -> NativeAttributionProvider.CUSTOMERIO_ID
         IntegrationAttribute.APPSTACK_ID -> NativeAttributionProvider.APPSTACK
+        IntegrationAttribute.AIRBRIDGE_ID -> NativeAttributionProvider.AIRBRIDGE_ID
+        IntegrationAttribute.META -> NativeAttributionProvider.META
+        IntegrationAttribute.AMPLITUDE -> NativeAttributionProvider.AMPLITUDE
+        IntegrationAttribute.MIXPANEL -> NativeAttributionProvider.MIXPANEL
+        IntegrationAttribute.GOOGLE_ADS -> NativeAttributionProvider.GOOGLE_ADS
+        IntegrationAttribute.GOOGLE_APP_SET_ID -> NativeAttributionProvider.GOOGLE_APP_SET
+        IntegrationAttribute.CUSTOM -> NativeAttributionProvider.CUSTOM
     }
 
 /**
- * Maps a native provider back to the common enum, or `null` when the native
- * value has no common counterpart (dropped — degrade, never crash).
+ * Maps a native provider back to the common enum. Every superwall-android
+ * 2.10.2 provider has a counterpart; the nullable return keeps the store's
+ * "drop what can't be mapped" contract for providers added later.
  */
 internal fun NativeAttributionProvider.toKmpIntegrationAttribute(): IntegrationAttribute? =
     when (this) {
@@ -137,12 +142,11 @@ internal fun NativeAttributionProvider.toKmpIntegrationAttribute(): IntegrationA
         NativeAttributionProvider.POSTHOG_USER_ID -> IntegrationAttribute.POSTHOG_USER_ID
         NativeAttributionProvider.CUSTOMERIO_ID -> IntegrationAttribute.CUSTOMERIO_ID
         NativeAttributionProvider.APPSTACK -> IntegrationAttribute.APPSTACK_ID
-        NativeAttributionProvider.META,
-        NativeAttributionProvider.AMPLITUDE,
-        NativeAttributionProvider.MIXPANEL,
-        NativeAttributionProvider.GOOGLE_ADS,
-        NativeAttributionProvider.GOOGLE_APP_SET,
-        NativeAttributionProvider.CUSTOM,
-        NativeAttributionProvider.AIRBRIDGE_ID,
-        -> null
+        NativeAttributionProvider.AIRBRIDGE_ID -> IntegrationAttribute.AIRBRIDGE_ID
+        NativeAttributionProvider.META -> IntegrationAttribute.META
+        NativeAttributionProvider.AMPLITUDE -> IntegrationAttribute.AMPLITUDE
+        NativeAttributionProvider.MIXPANEL -> IntegrationAttribute.MIXPANEL
+        NativeAttributionProvider.GOOGLE_ADS -> IntegrationAttribute.GOOGLE_ADS
+        NativeAttributionProvider.GOOGLE_APP_SET -> IntegrationAttribute.GOOGLE_APP_SET_ID
+        NativeAttributionProvider.CUSTOM -> IntegrationAttribute.CUSTOM
     }

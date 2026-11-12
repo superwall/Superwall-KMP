@@ -77,12 +77,16 @@ class IntegrationAttributeStoreTest {
         nativeAttributes =
             mapOf(
                 NativeAttributionProvider.ADJUST_ID.rawName to "adj",
-                // Native-only provider and an unknown raw name: dropped on read.
+                // Android-only providers have common values; an unknown raw
+                // name is dropped on read.
                 NativeAttributionProvider.META.rawName to "meta",
                 "someFutureProvider" to "x",
             )
 
-        assertEquals(mapOf<IntegrationAttribute, String?>(IntegrationAttribute.ADJUST_ID to "adj"), store.get())
+        assertEquals(
+            mapOf<IntegrationAttribute, String?>(IntegrationAttribute.ADJUST_ID to "adj", IntegrationAttribute.META to "meta"),
+            store.get(),
+        )
     }
 
     @Test
@@ -92,6 +96,22 @@ class IntegrationAttributeStoreTest {
         store.set(mapOf(IntegrationAttribute.ADJUST_ID to "adj"))
 
         assertEquals("meta", writes.single()[NativeAttributionProvider.META])
+    }
+
+    @Test
+    fun everyCommonAttributeButTheIosOnlyOneRoundTripsThroughTheNativeProvider() {
+        for (attribute in IntegrationAttribute.entries) {
+            val native = attribute.toNativeAttributionProvider()
+            if (attribute == IntegrationAttribute.FIREBASE_INSTALLATION_ID) {
+                assertEquals(null, native)
+            } else {
+                assertEquals(attribute, native?.toKmpIntegrationAttribute(), "round trip failed for $attribute")
+            }
+        }
+        // ...and every native provider has a common value.
+        for (provider in NativeAttributionProvider.entries) {
+            assertEquals(provider, provider.toKmpIntegrationAttribute()?.toNativeAttributionProvider())
+        }
     }
 
     @Test

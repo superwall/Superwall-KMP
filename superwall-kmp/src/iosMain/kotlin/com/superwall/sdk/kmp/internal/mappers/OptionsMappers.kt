@@ -6,6 +6,10 @@ import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_ALL
 import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_NONE
 import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_SUPERWALL_ONLY
 import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_ALL
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_ANALYTICS
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_CUSTOMER_CENTER
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_GRANTED_ENTITLEMENTS
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_WEB_ENTITLEMENTS
 import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_BOUNCE_BUTTON
 import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_CACHE
 import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_CONFIG_MANAGER
@@ -96,7 +100,10 @@ internal fun SuperwallOptions.toSWB(): SWBSuperwallOptions {
     options.setLogging(
         SWBLoggingOptions().also { swbLogging ->
             swbLogging.setLevel(NSNumber(long = logLevelToSWB(logging.level)))
-            swbLogging.setScopes(logging.scopes.map { NSNumber(long = logScopeToSWB(it)) })
+            // Android-only scopes have no SuperwallKit counterpart and are left
+            // out; when that leaves none, the native default scopes stay.
+            val swbScopes = logging.scopes.mapNotNull { scope -> logScopeToSWB(scope)?.let { NSNumber(long = it) } }
+            if (swbScopes.isNotEmpty() || logging.scopes.isEmpty()) swbLogging.setScopes(swbScopes)
         },
     )
     // Unset stays nil, so a TCF consent banner's stored answer still applies.
@@ -215,11 +222,10 @@ internal fun logLevelFromSWB(level: SWBLogLevel): LogLevel =
 
 /**
  * Maps a common [LogScope] to the SWB raw value (the `SWBLogScope` raw Int —
- * carried as an NSNumber across the bridge). The bridge's two extra
- * scopes (`analytics`, `webEntitlements`) have no common counterpart and only
- * appear in the read direction ([logScopeFromRawName]).
+ * carried as an NSNumber across the bridge), or `null` for the Android-only
+ * scopes, which SuperwallKit has no counterpart for.
  */
-internal fun logScopeToSWB(scope: LogScope): Long =
+internal fun logScopeToSWB(scope: LogScope): Long? =
     when (scope) {
         LogScope.LOCALIZATION_MANAGER -> SWB_LOG_SCOPE_LOCALIZATION_MANAGER
         LogScope.BOUNCE_BUTTON -> SWB_LOG_SCOPE_BOUNCE_BUTTON
@@ -243,6 +249,17 @@ internal fun logScopeToSWB(scope: LogScope): Long =
         LogScope.PAYWALL_VIEW_CONTROLLER -> SWB_LOG_SCOPE_PAYWALL_VIEW_CONTROLLER
         LogScope.CACHE -> SWB_LOG_SCOPE_CACHE
         LogScope.ALL -> SWB_LOG_SCOPE_ALL
+        LogScope.ANALYTICS -> SWB_LOG_SCOPE_ANALYTICS
+        LogScope.WEB_ENTITLEMENTS -> SWB_LOG_SCOPE_WEB_ENTITLEMENTS
+        LogScope.GRANTED_ENTITLEMENTS -> SWB_LOG_SCOPE_GRANTED_ENTITLEMENTS
+        LogScope.CUSTOMER_CENTER -> SWB_LOG_SCOPE_CUSTOMER_CENTER
+        LogScope.CUSTOMER_INFO,
+        LogScope.JS_EVALUATOR,
+        LogScope.PAYWALL_TRANSACTIONS,
+        LogScope.NATIVE_PURCHASE_CONTROLLER,
+        LogScope.DEEP_LINKS,
+        LogScope.BILLING,
+        -> null
     }
 
 /**
@@ -258,8 +275,8 @@ internal fun logLevelFromRawName(raw: String): LogLevel? {
 /**
  * Maps the raw native scope string delivered by `handleLog` (camelCase, e.g.
  * `"paywallPresentation"`) to a common [LogScope], or `null` when unmappable
- * (including the `analytics`/`webEntitlements` scopes) — the
- * caller falls back to [LogScope.ALL] and preserves `info["rawScope"]`.
+ * (a scope newer than the wrapper) — the caller falls back to
+ * [LogScope.ALL] and preserves `info["rawScope"]`.
  */
 internal fun logScopeFromRawName(raw: String): LogScope? {
     val normalized = raw.normalizedEnumKey()

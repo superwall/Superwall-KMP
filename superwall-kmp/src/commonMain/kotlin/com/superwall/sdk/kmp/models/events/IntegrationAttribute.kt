@@ -79,4 +79,50 @@ public enum class IntegrationAttribute {
 
     /** The Appstack identifier. */
     APPSTACK_ID,
+
+    /** The Airbridge Device ID, from `Airbridge.fetchDeviceUUID`. */
+    AIRBRIDGE_ID,
+
+    /**
+     * The Meta (Facebook) identifier.
+     *
+     * @platform Android-only: SuperwallKit has no counterpart; setting it on
+     * iOS is skipped with a logged warning.
+     */
+    META,
+
+    /**
+     * The Amplitude identifier.
+     *
+     * @platform Android-only, like [META].
+     */
+    AMPLITUDE,
+
+    /**
+     * The Mixpanel identifier.
+     *
+     * @platform Android-only, like [META].
+     */
+    MIXPANEL,
+
+    /**
+     * The Google Ads identifier.
+     *
+     * @platform Android-only, like [META].
+     */
+    GOOGLE_ADS,
+
+    /**
+     * The Google App Set ID.
+     *
+     * @platform Android-only, like [META].
+     */
+    GOOGLE_APP_SET_ID,
+
+    /**
+     * A custom attribution identifier.
+     *
+     * @platform Android-only, like [META].
+     */
+    CUSTOM,
 }

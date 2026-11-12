@@ -58,9 +58,7 @@ internal const val SWB_EVENT_TRACKING_BEHAVIOR_NONE: Long = 2 // SWBEventTrackin
 internal const val SWB_TRANSACTION_BACKGROUND_VIEW_SPINNER: Long = 0 // SWBTransactionBackgroundView.spinner
 internal const val SWB_TRANSACTION_BACKGROUND_VIEW_NONE: Long = 1 // SWBTransactionBackgroundView.none
 
-// SWBLogScope (SuperwallKMPBridge.swift). The bridge's two extra cases
-// (analytics = 22, webEntitlements = 23) have no common counterpart and are
-// never written by the mappers, so they are intentionally not declared.
+// SWBLogScope (SuperwallKMPBridge.swift)
 internal const val SWB_LOG_SCOPE_LOCALIZATION_MANAGER: Long = 0 // SWBLogScope.localizationManager
 internal const val SWB_LOG_SCOPE_BOUNCE_BUTTON: Long = 1 // SWBLogScope.bounceButton
 internal const val SWB_LOG_SCOPE_CORE_DATA: Long = 2 // SWBLogScope.coreData
@@ -83,6 +81,10 @@ internal const val SWB_LOG_SCOPE_TRANSACTIONS: Long = 18 // SWBLogScope.transact
 internal const val SWB_LOG_SCOPE_PAYWALL_VIEW_CONTROLLER: Long = 19 // SWBLogScope.paywallViewController
 internal const val SWB_LOG_SCOPE_CACHE: Long = 20 // SWBLogScope.cache
 internal const val SWB_LOG_SCOPE_ALL: Long = 21 // SWBLogScope.all
+internal const val SWB_LOG_SCOPE_ANALYTICS: Long = 22 // SWBLogScope.analytics
+internal const val SWB_LOG_SCOPE_WEB_ENTITLEMENTS: Long = 23 // SWBLogScope.webEntitlements
+internal const val SWB_LOG_SCOPE_GRANTED_ENTITLEMENTS: Long = 24 // SWBLogScope.grantedEntitlements
+internal const val SWB_LOG_SCOPE_CUSTOMER_CENTER: Long = 25 // SWBLogScope.customerCenter
 
 // SWBCustomerCenterPathType (CustomerCenter.swift)
 internal const val SWB_CUSTOMER_CENTER_PATH_TYPE_RESTORE: Long = 0 // SWBCustomerCenterPathType.restore

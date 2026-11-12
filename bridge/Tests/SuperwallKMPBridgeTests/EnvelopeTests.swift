@@ -592,3 +592,17 @@ final class CustomerCenterEnvelopeTests: XCTestCase {
     XCTAssertEqual(failed.errorMessage, "nope")
   }
 }
+
+final class LogScopeAndIntegrationAttributeTests: XCTestCase {
+  func testNewRawValuesAndNativeCounterparts() {
+    // The Kotlin side codes against these numbers (SWBRawValues.kt, EntitlementMappers.kt).
+    XCTAssertEqual(SWBLogScope.analytics.rawValue, 22)
+    XCTAssertEqual(SWBLogScope.webEntitlements.rawValue, 23)
+    XCTAssertEqual(SWBLogScope.grantedEntitlements.rawValue, 24)
+    XCTAssertEqual(SWBLogScope.customerCenter.rawValue, 25)
+    XCTAssertEqual(SWBLogScope.grantedEntitlements.native, .grantedEntitlements)
+    XCTAssertEqual(SWBLogScope.customerCenter.native, .customerCenter)
+    XCTAssertEqual(SWBIntegrationAttribute.airbridgeId.rawValue, 23)
+    XCTAssertEqual(SWBIntegrationAttribute.airbridgeId.native, .airbridgeId)
+  }
+}

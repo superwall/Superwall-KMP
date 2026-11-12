@@ -302,36 +302,32 @@ class OptionsMapperTest {
 
     // ---- LogScope ----------------------------------------------------------------
 
+    /** Common scopes superwall-android has no counterpart for. */
+    private val iosOnlyScopes = setOf(LogScope.ANALYTICS, LogScope.GRANTED_ENTITLEMENTS)
+
     @Test
     fun logScope_commonToNativeRoundTripsExhaustively() {
         for (common in LogScope.entries) {
-            assertEquals(common, common.toNative().toKmp())
+            if (common in iosOnlyScopes) {
+                assertNull(common.toNative(), "expected $common to have no Android counterpart")
+            } else {
+                assertEquals(common, common.toNative()!!.toKmp())
+            }
         }
     }
-
-    private val unmappedNativeScopes =
-        setOf(
-            NativeLogScope.webEntitlements,
-            NativeLogScope.customerInfo,
-            NativeLogScope.jsEvaluator,
-            NativeLogScope.paywallTransactions,
-            NativeLogScope.nativePurchaseController,
-            NativeLogScope.deepLinks,
-            NativeLogScope.customerCenter,
-            NativeLogScope.billing,
-        )
 
     @Test
     fun logScope_nativeToCommonCoversEveryNativeCase() {
         for (native in NativeLogScope.entries) {
             val mapped = native.toKmp()
-            if (native in unmappedNativeScopes) {
-                // No common counterpart: null so the caller degrades to ALL + rawScope.
-                assertNull(mapped, "expected $native to be unmapped")
-            } else {
-                assertEquals(native, mapped!!.toNative(), "round trip failed for $native")
-            }
+            assertEquals(native, mapped?.toNative(), "round trip failed for $native")
         }
+    }
+
+    @Test
+    fun logging_iosOnlyScopesAreLeftOutOfTheNativeScopes() {
+        val native = Logging(scopes = setOf(LogScope.ANALYTICS, LogScope.BILLING)).toNative()
+        assertEquals(setOf(NativeLogScope.billing), native.scopes.toSet())
     }
 
     @Test
@@ -346,7 +342,8 @@ class OptionsMapperTest {
     @Test
     fun logScopeFromNativeString_unknownOrUnmappedReturnsNullSoCallerCanDegrade() {
         assertNull(logScopeFromNativeString("someBrandNewScope"))
-        // A real native scope with no common counterpart also returns null.
-        assertNull(logScopeFromNativeString("webEntitlements"))
+        // Scopes added in superwall-android 2.9+ have their own common values.
+        assertEquals(LogScope.WEB_ENTITLEMENTS, logScopeFromNativeString("webEntitlements"))
+        assertEquals(LogScope.BILLING, logScopeFromNativeString("billing"))
     }
 }
