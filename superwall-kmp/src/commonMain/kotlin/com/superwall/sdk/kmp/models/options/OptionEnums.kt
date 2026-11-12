@@ -107,7 +107,11 @@ public enum class LogScope {
     /** Logs from the products manager. */
     PRODUCTS_MANAGER,
 
-    /** Logs from the StoreKit manager. */
+    /**
+     * Logs from the store layer: StoreKit on iOS, Google Play Billing on Android
+     * (the native `billing` scope, which superwall-android 2.10.0 split out of
+     * its deprecated `storeKitManager` scope).
+     */
     STORE_KIT_MANAGER,
 
     /** Logs about placements. */

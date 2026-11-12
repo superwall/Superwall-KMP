@@ -117,7 +117,7 @@ the prebuilt binary and the transitively resolved SuperwallKit cannot drift.
 ```
 
 **Bridge tests do not run under `swift test`.** `bridge/Package.swift` declares
-`platforms: [.iOS(.v14)]`, so `swift test` builds for the macOS host where the
+`platforms: [.iOS(.v15)]`, so `swift test` builds for the macOS host where the
 iOS-only SuperwallKit (`import UIKit`) cannot compile. Use a simulator:
 
 ```bash

@@ -1,9 +1,12 @@
 package com.superwall.sdk.kmp.internal.mappers
 
+import com.superwall.sdk.kmp.models.store.ProductReplacement
 import java.util.Date
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.time.Instant
+import com.superwall.sdk.store.ProductReplacement as NativeProductReplacement
 
 /**
  * Tests for the date-conversion helpers in StoreMapper.kt: native
@@ -38,5 +41,31 @@ class StoreMapperTest {
         val instant = Date(999L).toKmpInstant()
         assertEquals(999_000_000, instant.nanosecondsOfSecond)
         assertEquals(0L, instant.epochSeconds)
+    }
+
+    // ---- ProductReplacement (superwall-android 2.9.0+) ------------------------------
+
+    @Test
+    fun productReplacement_mapsEveryModeAndKeepsOldPurchase() {
+        val expectations =
+            mapOf(
+                NativeProductReplacement.Mode.DEFAULT to ProductReplacement.Mode.DEFAULT,
+                NativeProductReplacement.Mode.CHARGE_PRORATED to ProductReplacement.Mode.CHARGE_PRORATED,
+                NativeProductReplacement.Mode.CHARGE_FULL_PRICE to ProductReplacement.Mode.CHARGE_FULL_PRICE,
+            )
+        assertEquals(NativeProductReplacement.Mode.entries.toSet(), expectations.keys)
+        for ((native, common) in expectations) {
+            assertEquals(
+                ProductReplacement(common, oldProductId = "monthly", oldPurchaseToken = "token-1"),
+                NativeProductReplacement(native, oldProductId = "monthly", oldPurchaseToken = "token-1").toKmp(),
+            )
+        }
+    }
+
+    @Test
+    fun productReplacement_customStoreProductHasNoToken() {
+        val mapped = NativeProductReplacement(NativeProductReplacement.Mode.DEFAULT, null, null).toKmp()
+        assertNull(mapped.oldProductId)
+        assertNull(mapped.oldPurchaseToken)
     }
 }

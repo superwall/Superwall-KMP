@@ -1,11 +1,14 @@
 package com.superwall.sdk.kmp.internal.mappers
 
+import com.superwall.sdk.kmp.models.options.AdConsent
+import com.superwall.sdk.kmp.models.options.AdConsentStatus
 import com.superwall.sdk.kmp.models.options.DeviceTier
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.Logging
 import com.superwall.sdk.kmp.models.options.NetworkEnvironment
 import com.superwall.sdk.kmp.models.options.PaywallOptions
+import com.superwall.sdk.kmp.models.options.PresentationHost
 import com.superwall.sdk.kmp.models.options.RestoreFailed
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
@@ -13,9 +16,12 @@ import com.superwall.sdk.kmp.models.options.TestModeBehavior
 import com.superwall.sdk.kmp.models.options.TransactionBackgroundView
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import com.superwall.sdk.analytics.Tier as NativeTier
+import com.superwall.sdk.config.options.AdConsent as NativeAdConsent
+import com.superwall.sdk.config.options.AdConsentStatus as NativeAdConsentStatus
 import com.superwall.sdk.config.options.PaywallOptions as NativePaywallOptions
 import com.superwall.sdk.config.options.SuperwallOptions as NativeSuperwallOptions
 import com.superwall.sdk.logger.LogLevel as NativeLogLevel
@@ -129,6 +135,15 @@ class OptionsMapperTest {
             native.transactionBackgroundView,
         )
         assertEquals(mapOf("primary" to "com.example.annual"), native.overrideProductsByName)
+    }
+
+    @Test
+    fun paywallOptions_presentationHost_defaultsToActivityAndMapsInWindow() {
+        assertEquals(NativePaywallOptions.PresentationHost.ACTIVITY, PaywallOptions().toNative().presentationHost)
+        assertEquals(
+            NativePaywallOptions.PresentationHost.IN_WINDOW,
+            PaywallOptions(presentationHost = PresentationHost.IN_WINDOW).toNative().presentationHost,
+        )
     }
 
     @Test
@@ -255,13 +270,19 @@ class OptionsMapperTest {
             NativeLogScope.paywallTransactions,
             NativeLogScope.nativePurchaseController,
             NativeLogScope.deepLinks,
+            NativeLogScope.customerCenter,
         )
 
     @Test
+    @Suppress("DEPRECATION")
     fun logScope_nativeToCommonCoversEveryNativeCase() {
         for (native in NativeLogScope.entries) {
             val mapped = native.toKmp()
-            if (native in unmappedNativeScopes) {
+            if (native == NativeLogScope.storeKitManager) {
+                // Deprecated alias (superwall-android 2.10.0): reads as the common
+                // store scope, which writes back as the native billing scope.
+                assertEquals(LogScope.STORE_KIT_MANAGER, mapped)
+            } else if (native in unmappedNativeScopes) {
                 // No common counterpart: null so the caller degrades to ALL + rawScope.
                 assertNull(mapped, "expected $native to be unmapped")
             } else {
@@ -280,9 +301,79 @@ class OptionsMapperTest {
     }
 
     @Test
+    fun logScope_storeKitManagerMapsToNativeBillingScope() {
+        // superwall-android 2.10.0 reports Play Billing logs as `billing`.
+        assertEquals(NativeLogScope.billing, LogScope.STORE_KIT_MANAGER.toNative())
+        assertEquals(LogScope.STORE_KIT_MANAGER, NativeLogScope.billing.toKmp())
+        assertEquals(LogScope.STORE_KIT_MANAGER, logScopeFromNativeString("billing"))
+        assertEquals(LogScope.STORE_KIT_MANAGER, logScopeFromNativeString("storeKitManager"))
+        assertEquals(
+            setOf(NativeLogScope.billing),
+            Logging(scopes = setOf(LogScope.STORE_KIT_MANAGER)).toNative().scopes.toSet(),
+        )
+    }
+
+    @Test
     fun logScopeFromNativeString_unknownOrUnmappedReturnsNullSoCallerCanDegrade() {
         assertNull(logScopeFromNativeString("someBrandNewScope"))
         // A real native scope with no common counterpart also returns null.
         assertNull(logScopeFromNativeString("webEntitlements"))
+    }
+
+    // ---- RestoreFailed localization (superwall-android 2.10.0+) -----------------
+
+    // The native "app assigned this text" fields are module-internal, so the
+    // tests read their backing fields reflectively.
+    private fun Any.assigned(field: String): Any? =
+        javaClass.getDeclaredField(field).apply { isAccessible = true }.get(this)
+
+    @Test
+    fun restoreFailed_defaultTextsAreLeftUnsetSoNativeLocalizesThem() {
+        val native = PaywallOptions().toNative().restoreFailed
+        // Native shows a text localized only while the app never assigned it;
+        // its getters still read the English default.
+        assertNull(native.assigned("customTitle"))
+        assertNull(native.assigned("customMessage"))
+        assertNull(native.assigned("customCloseButtonTitle"))
+        assertEquals(RestoreFailed().title, native.title)
+    }
+
+    @Test
+    fun restoreFailed_onlyCustomizedTextsAreAssigned() {
+        val native = PaywallOptions(restoreFailed = RestoreFailed(message = "custom")).toNative().restoreFailed
+        assertNull(native.assigned("customTitle"))
+        assertEquals("custom", native.assigned("customMessage"))
+        assertNull(native.assigned("customCloseButtonTitle"))
+    }
+
+    // ---- AdConsent (superwall-android 2.9.0+) -----------------------------------
+
+    @Test
+    fun adConsent_unsetOption_leavesNativeUnspecifiedSoTcfFallbackStaysOn() {
+        assertEquals(NativeAdConsent.Unspecified, SuperwallOptions().toNative().adConsent)
+    }
+
+    @Test
+    fun adConsent_setOption_mapsToNativeCustomEvenWhenAllGranted() {
+        val granted = assertIs<NativeAdConsent.Custom>(SuperwallOptions(adConsent = AdConsent()).toNative().adConsent)
+        assertEquals(NativeAdConsentStatus.Granted, granted.adUserData)
+        assertEquals(NativeAdConsentStatus.Granted, granted.adPersonalization)
+
+        val mixed =
+            SuperwallOptions(
+                adConsent = AdConsent(adUserData = AdConsentStatus.DENIED, adPersonalization = AdConsentStatus.GRANTED),
+            ).toNative().adConsent
+        assertEquals(NativeAdConsent.Custom(NativeAdConsentStatus.Denied, NativeAdConsentStatus.Granted), mixed)
+    }
+
+    @Test
+    fun adConsent_roundTripsAndUnspecifiedReadsAsGranted() {
+        for (userData in AdConsentStatus.entries) {
+            for (personalization in AdConsentStatus.entries) {
+                val consent = AdConsent(userData, personalization)
+                assertEquals(consent, consent.toNative().toKmp())
+            }
+        }
+        assertEquals(AdConsent(), NativeAdConsent.Unspecified.toKmp())
     }
 }

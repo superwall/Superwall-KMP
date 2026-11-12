@@ -6,6 +6,8 @@ import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.EventType
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.events.SuperwallEventInfo
+import com.superwall.sdk.kmp.models.options.AdConsent
+import com.superwall.sdk.kmp.models.options.AdConsentStatus
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
@@ -157,6 +159,11 @@ class SuperwallFacadeTest {
                 "entitlements" to { Superwall.entitlements },
                 "subscriptionStatus get" to { Superwall.subscriptionStatus },
                 "subscriptionStatus set" to { Superwall.subscriptionStatus = SubscriptionStatus.Inactive },
+                "grantedEntitlements get" to { Superwall.grantedEntitlements },
+                "grantedEntitlements set" to { Superwall.grantedEntitlements = setOf(Entitlement(id = "pro")) },
+                "adConsent get" to { Superwall.adConsent },
+                "adConsent set" to { Superwall.adConsent = AdConsent() },
+                "presentCustomerCenter" to { Superwall.presentCustomerCenter() },
                 "register" to { Superwall.register("placement") },
                 "isPaywallPresented" to { Superwall.isPaywallPresented },
                 "latestPaywallInfo" to { Superwall.latestPaywallInfo },
@@ -184,6 +191,7 @@ class SuperwallFacadeTest {
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.restorePurchases() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.getPresentationResult("placement") }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.dismiss() }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.dismissCustomerCenter() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.consume("token") }
             assertTrue(fake.calls.isEmpty(), "guarded members must not reach the bridge, saw: ${fake.calls}")
         }
@@ -542,5 +550,41 @@ class SuperwallFacadeTest {
             assertEquals("token_1", Superwall.consume("token_1"))
 
             assertTrue(fake.calls.containsAll(listOf("getUserId", "setSubscriptionStatus", "restorePurchases", "consume")))
+        }
+
+    @Test
+    fun grantedEntitlementsAndAdConsentForwardToBridge() {
+        Superwall.configure("pk_test")
+        fake.calls.clear()
+
+        val granted = setOf(Entitlement(id = "promo"))
+        Superwall.grantedEntitlements = granted
+        assertEquals(granted, Superwall.grantedEntitlements)
+
+        val consent = AdConsent(adUserData = AdConsentStatus.GRANTED, adPersonalization = AdConsentStatus.DENIED)
+        Superwall.adConsent = consent
+        assertEquals(consent, Superwall.adConsent)
+
+        assertEquals(
+            listOf("setGrantedEntitlements", "getGrantedEntitlements", "setAdConsent", "getAdConsent"),
+            fake.calls,
+        )
+    }
+
+    @Test
+    fun customerCenterForwardsToBridgeWithTheCallersOnDismiss() =
+        runTest {
+            Superwall.configure("pk_test")
+            fake.calls.clear()
+
+            var dismissed = 0
+            Superwall.presentCustomerCenter { dismissed++ }
+            // The platform bridge owns main-thread delivery; the facade hands
+            // the caller's callback through untouched.
+            fake.lastCustomerCenterOnDismiss?.invoke()
+            assertEquals(1, dismissed)
+
+            Superwall.dismissCustomerCenter()
+            assertEquals(listOf("presentCustomerCenter", "dismissCustomerCenter"), fake.calls)
         }
 }

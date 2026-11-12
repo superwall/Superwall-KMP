@@ -73,7 +73,34 @@ public data class PaywallOptions(
      * Note: Android only. Has no effect on iOS.
      */
     val onBackPressed: ((PaywallInfo?) -> Boolean)? = null,
+    /**
+     * **Experimental.** Where presented paywalls are hosted. Defaults to
+     * [PresentationHost.ACTIVITY]. Mirrors superwall-android's own experimental
+     * option, which may change or be removed in a future release.
+     *
+     * Note: Android only. Has no effect on iOS.
+     */
+    val presentationHost: PresentationHost = PresentationHost.ACTIVITY,
 )
+
+/**
+ * Where a presented paywall is hosted. Android only — see
+ * [PaywallOptions.presentationHost].
+ */
+public enum class PresentationHost {
+    /** The paywall is shown in its own activity (the default). */
+    ACTIVITY,
+
+    /**
+     * The paywall is shown as an overlay in the presenting activity's own
+     * window, so that activity is never covered or stopped by the paywall.
+     * Meant for hosts whose loop stops while another activity covers them,
+     * such as game engines. All presentation styles are supported. If the host
+     * activity is destroyed while the paywall is shown — including by a
+     * configuration change it doesn't handle itself — the paywall is dismissed.
+     */
+    IN_WINDOW,
+}
 
 /**
  * Defines the different types of views that can appear behind Apple's payment

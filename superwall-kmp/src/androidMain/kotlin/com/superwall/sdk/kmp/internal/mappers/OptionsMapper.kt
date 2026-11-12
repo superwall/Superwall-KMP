@@ -1,5 +1,7 @@
 package com.superwall.sdk.kmp.internal.mappers
 
+import com.superwall.sdk.kmp.models.options.AdConsent
+import com.superwall.sdk.kmp.models.options.AdConsentStatus
 import com.superwall.sdk.kmp.models.options.DeviceTier
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.LogLevel
@@ -7,11 +9,15 @@ import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.Logging
 import com.superwall.sdk.kmp.models.options.NetworkEnvironment
 import com.superwall.sdk.kmp.models.options.PaywallOptions
+import com.superwall.sdk.kmp.models.options.PresentationHost
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
+import com.superwall.sdk.kmp.models.options.RestoreFailed
 import com.superwall.sdk.kmp.models.options.TestModeBehavior
 import com.superwall.sdk.kmp.models.options.TransactionBackgroundView
 import java.util.EnumSet
 import com.superwall.sdk.analytics.Tier as NativeTier
+import com.superwall.sdk.config.options.AdConsent as NativeAdConsent
+import com.superwall.sdk.config.options.AdConsentStatus as NativeAdConsentStatus
 import com.superwall.sdk.config.options.EventTrackingBehavior as NativeEventTrackingBehavior
 import com.superwall.sdk.config.options.PaywallOptions as NativePaywallOptions
 import com.superwall.sdk.config.options.SuperwallOptions as NativeSuperwallOptions
@@ -28,9 +34,9 @@ import com.superwall.sdk.store.testmode.TestModeBehavior as NativeTestModeBehavi
  * - `enableExperimentalDeviceVariables` is actually wired (dead in the
  * Flutter layer).
  * - iOS-only options (`shouldBypassAppTransactionCheck`, `maxConfigRetryCount`,
- *   `shouldShowWebRestorationAlert`, `shouldShowWebPurchaseConfirmationAlert`,
+ *   `devServer`, `shouldShowWebRestorationAlert`, `shouldShowWebPurchaseConfirmationAlert`,
  *   `transactionBackgroundView` semantics aside) are documented no-ops here
- *   because superwall-android 2.8.0 has no equivalent fields.
+ *   because superwall-android 2.10.2 has no equivalent fields.
  *
  * `PaywallOptions.onBackPressed` is deliberately NOT wired here: the bridge
  * installs an `OnBackPressedAdapter` on the returned native options so the
@@ -46,7 +52,7 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
                 NativeSuperwallOptions.NetworkEnvironment.ReleaseCandidate()
             NetworkEnvironment.DEVELOPER -> NativeSuperwallOptions.NetworkEnvironment.Developer()
         }
-    // Native 2.8.0 derives isExternalDataCollectionEnabled FROM
+    // Native 2.10.2 derives isExternalDataCollectionEnabled FROM
     // eventTrackingBehavior (the boolean setter rewrites the behavior), so
     // order and precedence matter: apply the deprecated boolean first, then
     // let a non-default typed behavior win. ALL is the common default and is
@@ -63,8 +69,11 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
     native.shouldObservePurchases = shouldObservePurchases
     native.useMockReviews = useMockReviews
     native.logging = logging.toNative()
-    // shouldBypassAppTransactionCheck / maxConfigRetryCount: iOS-only, no
-    // superwall-android counterpart — documented no-op.
+    // Left untouched when null: native AdConsent.Unspecified is what keeps the
+    // TCF-banner fallback on, and any Custom value (even all-granted) disables it.
+    adConsent?.let { native.adConsent = it.toNative() }
+    // shouldBypassAppTransactionCheck / maxConfigRetryCount / devServer:
+    // iOS-only, no superwall-android counterpart — documented no-op.
     return native
 }
 
@@ -72,11 +81,18 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
 internal fun PaywallOptions.toNative(): NativePaywallOptions {
     val native = NativePaywallOptions()
     native.isHapticFeedbackEnabled = isHapticFeedbackEnabled
+    // superwall-android 2.10.0 localizes each alert text the app never assigns,
+    // and any assignment (even the English default) opts that text out. So only
+    // texts that differ from the common defaults are assigned; the rest stay
+    // unset and are shown in the device's language.
+    val defaultAlert = RestoreFailed()
     native.restoreFailed =
         NativePaywallOptions.RestoreFailed().also { alert ->
-            alert.title = restoreFailed.title
-            alert.message = restoreFailed.message
-            alert.closeButtonTitle = restoreFailed.closeButtonTitle
+            if (restoreFailed.title != defaultAlert.title) alert.title = restoreFailed.title
+            if (restoreFailed.message != defaultAlert.message) alert.message = restoreFailed.message
+            if (restoreFailed.closeButtonTitle != defaultAlert.closeButtonTitle) {
+                alert.closeButtonTitle = restoreFailed.closeButtonTitle
+            }
         }
     native.shouldShowPurchaseFailureAlert = shouldShowPurchaseFailureAlert
     native.shouldPreload = shouldPreload
@@ -90,6 +106,7 @@ internal fun PaywallOptions.toNative(): NativePaywallOptions {
             TransactionBackgroundView.NONE -> null
         }
     native.overrideProductsByName = overrideProductsByName ?: emptyMap()
+    native.presentationHost = presentationHost.toNative()
     // onBackPressed: installed by the bridge via OnBackPressedAdapter (see KDoc above).
     // shouldShowWebRestorationAlert / shouldShowWebPurchaseConfirmationAlert:
     // iOS-only, no superwall-android counterpart — documented no-op.
@@ -107,6 +124,46 @@ internal fun Logging.toNative(): NativeSuperwallOptions.Logging {
     }
     return native
 }
+
+// ---- AdConsent (superwall-android 2.9.0+) --------------------------------------
+
+internal fun AdConsent.toNative(): NativeAdConsent.Custom =
+    NativeAdConsent.Custom(
+        adUserData = adUserData.toNative(),
+        adPersonalization = adPersonalization.toNative(),
+    )
+
+/**
+ * Native [NativeAdConsent.Unspecified] reads as the granted defaults, the same
+ * as SuperwallKit's getter before the app sets consent; the common model has
+ * no "unset" state outside [SuperwallOptions.adConsent].
+ */
+internal fun NativeAdConsent.toKmp(): AdConsent =
+    when (this) {
+        is NativeAdConsent.Custom ->
+            AdConsent(adUserData = adUserData.toKmp(), adPersonalization = adPersonalization.toKmp())
+        NativeAdConsent.Unspecified -> AdConsent()
+    }
+
+internal fun AdConsentStatus.toNative(): NativeAdConsentStatus =
+    when (this) {
+        AdConsentStatus.GRANTED -> NativeAdConsentStatus.Granted
+        AdConsentStatus.DENIED -> NativeAdConsentStatus.Denied
+    }
+
+internal fun NativeAdConsentStatus.toKmp(): AdConsentStatus =
+    when (this) {
+        NativeAdConsentStatus.Granted -> AdConsentStatus.GRANTED
+        NativeAdConsentStatus.Denied -> AdConsentStatus.DENIED
+    }
+
+// ---- PresentationHost -------------------------------------------------------
+
+internal fun PresentationHost.toNative(): NativePaywallOptions.PresentationHost =
+    when (this) {
+        PresentationHost.ACTIVITY -> NativePaywallOptions.PresentationHost.ACTIVITY
+        PresentationHost.IN_WINDOW -> NativePaywallOptions.PresentationHost.IN_WINDOW
+    }
 
 // ---- TestModeBehavior -------------------------------------------------------
 
@@ -215,7 +272,10 @@ internal fun LogScope.toNative(): NativeLogScope =
         LogScope.NETWORK -> NativeLogScope.network
         LogScope.PAYWALL_EVENTS -> NativeLogScope.paywallEvents
         LogScope.PRODUCTS_MANAGER -> NativeLogScope.productsManager
-        LogScope.STORE_KIT_MANAGER -> NativeLogScope.storeKitManager
+        // superwall-android 2.10.0 renamed its billing scope to `billing` and
+        // deprecated `storeKitManager`. Mapping to the new scope keeps the
+        // Google Play Billing logs on without relying on the deprecated alias.
+        LogScope.STORE_KIT_MANAGER -> NativeLogScope.billing
         LogScope.PLACEMENTS -> NativeLogScope.placements
         LogScope.RECEIPTS -> NativeLogScope.receipts
         LogScope.SUPERWALL_CORE -> NativeLogScope.superwallCore
@@ -228,12 +288,13 @@ internal fun LogScope.toNative(): NativeLogScope =
 
 /**
  * Maps a native [NativeLogScope] to the common [LogScope], or `null` when the
- * native scope has no common counterpart (superwall-android 2.8.0 carries
+ * native scope has no common counterpart (superwall-android 2.10.2 carries
  * `webEntitlements`, `customerInfo`, `jsEvaluator`, `paywallTransactions`,
- * `nativePurchaseController`, `deepLinks`, which the 22-value common enum
+ * `nativePurchaseController`, `deepLinks`, `customerCenter`, which the 22-value common enum
  * lacks). Callers apply the documented degrade rule ([LogScope.ALL] +
  * `info["rawScope"]`).
  */
+@Suppress("DEPRECATION") // NativeLogScope.storeKitManager, kept for exhaustiveness
 internal fun NativeLogScope.toKmp(): LogScope? =
     when (this) {
         NativeLogScope.localizationManager -> LogScope.LOCALIZATION_MANAGER
@@ -249,7 +310,12 @@ internal fun NativeLogScope.toKmp(): LogScope? =
         NativeLogScope.network -> LogScope.NETWORK
         NativeLogScope.paywallEvents -> LogScope.PAYWALL_EVENTS
         NativeLogScope.productsManager -> LogScope.PRODUCTS_MANAGER
-        NativeLogScope.storeKitManager -> LogScope.STORE_KIT_MANAGER
+        // Both name the store/billing layer: iOS reports StoreKit logs as
+        // storeKitManager, superwall-android 2.10.0+ reports Play Billing logs
+        // as billing. One common scope keeps handleLog filters cross-platform.
+        NativeLogScope.storeKitManager,
+        NativeLogScope.billing,
+        -> LogScope.STORE_KIT_MANAGER
         NativeLogScope.placements -> LogScope.PLACEMENTS
         NativeLogScope.receipts -> LogScope.RECEIPTS
         NativeLogScope.superwallCore -> LogScope.SUPERWALL_CORE
@@ -265,6 +331,7 @@ internal fun NativeLogScope.toKmp(): LogScope? =
         NativeLogScope.paywallTransactions,
         NativeLogScope.nativePurchaseController,
         NativeLogScope.deepLinks,
+        NativeLogScope.customerCenter,
         -> null
     }
 

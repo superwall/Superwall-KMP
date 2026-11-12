@@ -6,6 +6,9 @@ import com.superwall.sdk.kmp.models.entitlements.Entitlement
 import com.superwall.sdk.kmp.models.entitlements.EntitlementType
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
+import com.superwall.sdk.kmp.models.options.AdConsentStatus
+import com.superwall.sdk.kmp.models.options.PresentationHost
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
 import com.superwall.sdk.kmp.models.results.PaywallResult
@@ -196,6 +199,22 @@ class ModelDefaultsTest {
         assertFalse(SuperwallOptions().enableExperimentalDeviceVariables)
     }
 
+    @Test
+    fun superwallOptionsLeaveAdConsentAndDevServerUnset() {
+        // A non-null adConsent switches off SuperwallKit's TCF-banner fallback,
+        // so the default must be null rather than the granted pair.
+        val options = SuperwallOptions()
+        assertNull(options.adConsent)
+        assertNull(options.devServer)
+    }
+
+    @Test
+    fun adConsentDefaultsToGrantedForBothPurposes() {
+        val consent = AdConsent()
+        assertEquals(AdConsentStatus.GRANTED, consent.adUserData)
+        assertEquals(AdConsentStatus.GRANTED, consent.adPersonalization)
+    }
+
     // ---- PaywallInfo -----------------------------------------------------------------------------------
 
     @Test
@@ -209,5 +228,12 @@ class ModelDefaultsTest {
         assertNull(info.featureGatingBehavior)
         assertNull(info.closeReason)
         assertNull(info.state)
+        assertNull(info.isLocal)
+        assertNull(info.presentationId)
+    }
+
+    @Test
+    fun paywallOptionsPresentationHostDefaultsToActivity() {
+        assertEquals(PresentationHost.ACTIVITY, SuperwallOptions().paywalls.presentationHost)
     }
 }

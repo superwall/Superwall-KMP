@@ -10,6 +10,7 @@ import com.superwall.sdk.kmp.models.entitlements.Entitlements
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
@@ -240,6 +241,18 @@ internal class FakeBridge : SuperwallBridge {
         cannedSubscriptionStatus = status
     }
 
+    var cannedGrantedEntitlements: Set<Entitlement> = emptySet()
+
+    override fun getGrantedEntitlements(): Set<Entitlement> {
+        calls += "getGrantedEntitlements"
+        return cannedGrantedEntitlements
+    }
+
+    override fun setGrantedEntitlements(entitlements: Set<Entitlement>) {
+        calls += "setGrantedEntitlements"
+        cannedGrantedEntitlements = entitlements
+    }
+
     override suspend fun getCustomerInfo(): CustomerInfo {
         calls += "getCustomerInfo"
         return cannedCustomerInfo
@@ -325,7 +338,31 @@ internal class FakeBridge : SuperwallBridge {
         lastSpinnerIsHidden = isHidden
     }
 
+    /** The onDismiss passed to the latest [presentCustomerCenter], so tests can fire it. */
+    var lastCustomerCenterOnDismiss: (() -> Unit)? = null
+
+    override fun presentCustomerCenter(onDismiss: (() -> Unit)?) {
+        calls += "presentCustomerCenter"
+        lastCustomerCenterOnDismiss = onDismiss
+    }
+
+    override suspend fun dismissCustomerCenter() {
+        calls += "dismissCustomerCenter"
+    }
+
     // ---- Products / misc -------------------------------------------------------------------
+
+    var cannedAdConsent: AdConsent = AdConsent()
+
+    override fun getAdConsent(): AdConsent {
+        calls += "getAdConsent"
+        return cannedAdConsent
+    }
+
+    override fun setAdConsent(consent: AdConsent) {
+        calls += "setAdConsent"
+        cannedAdConsent = consent
+    }
 
     override fun getOverrideProductsByName(): Map<String, String>? {
         calls += "getOverrideProductsByName"

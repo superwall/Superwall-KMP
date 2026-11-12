@@ -69,4 +69,29 @@ public data class SuperwallOptions(
      * Enable mock review functionality. Defaults to `false`. Android only.
      */
     val useMockReviews: Boolean = false,
+    /**
+     * The user's consent for how their data is used for advertising, passed on
+     * with the conversions Superwall uploads to Google Ads and Meta. You can
+     * also change it at runtime via `Superwall.adConsent`.
+     *
+     * Leave it `null` unless you collect consent yourself: while it has never
+     * been set, the SDK uses the consent stored by an IAB TCF consent banner
+     * when GDPR applies, and otherwise defaults to granted. Setting it — even
+     * to the granted defaults — replaces that fallback. Apps with users in the
+     * EEA, UK or Switzerland that don't use a TCF banner should set it from
+     * their consent flow. Defaults to `null`.
+     */
+    val adConsent: AdConsent? = null,
+    /**
+     * Connects to a running `superwall dev` server so paywalls with a local
+     * counterpart render from your live, local paywall code, while
+     * configuration, placements, audience evaluation and assignment stay real.
+     * It also activates test mode and disables paywall preloading. Use
+     * [DevServer.Default] on a simulator and [DevServer.Url] on a physical
+     * device; the app must allow local networking
+     * (`NSAppTransportSecurity` → `NSAllowsLocalNetworking`).
+     *
+     * For development builds only. Defaults to `null`: no dev server. iOS only.
+     */
+    val devServer: DevServer? = null,
 )

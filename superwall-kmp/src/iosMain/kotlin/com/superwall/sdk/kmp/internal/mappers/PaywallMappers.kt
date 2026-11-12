@@ -190,4 +190,5 @@ internal fun SWBPaywallInfo.toModel(): PaywallInfo =
             computedPropertyRequests().mapNotNull { (it as? SWBComputedPropertyRequest)?.toModel() },
         surveys = surveys().mapNotNull { (it as? SWBSurvey)?.toModel() },
         state = NSAnySanitizer.fromMapOrNull(state()),
+        isLocal = isLocal(),
     )
