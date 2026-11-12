@@ -28,6 +28,13 @@ internal const val SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_CODE: Long = 1 // SWBLates
 internal const val SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_PROMOTIONAL: Long = 2 // SWBLatestSubscriptionOfferType.promotional
 internal const val SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_WINBACK: Long = 3 // SWBLatestSubscriptionOfferType.winback
 
+// SuperwallKit SubscriptionPeriod.Unit, carried as
+// SWBStoreProduct.subscriptionPeriodUnitRawValue
+internal const val SWB_SUBSCRIPTION_PERIOD_UNIT_DAY: Long = 0 // SubscriptionPeriod.Unit.day
+internal const val SWB_SUBSCRIPTION_PERIOD_UNIT_WEEK: Long = 1 // SubscriptionPeriod.Unit.week
+internal const val SWB_SUBSCRIPTION_PERIOD_UNIT_MONTH: Long = 2 // SubscriptionPeriod.Unit.month
+internal const val SWB_SUBSCRIPTION_PERIOD_UNIT_YEAR: Long = 3 // SubscriptionPeriod.Unit.year
+
 // SWBStoreTransactionState (Envelopes.swift)
 internal const val SWB_STORE_TRANSACTION_STATE_PURCHASING: Long = 0 // SWBStoreTransactionState.purchasing
 internal const val SWB_STORE_TRANSACTION_STATE_PURCHASED: Long = 1 // SWBStoreTransactionState.purchased

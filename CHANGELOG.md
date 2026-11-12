@@ -14,6 +14,7 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 - Adds `PaywallOptions.notificationPermissionsDenied` (iOS only), the `NotificationPermissionsDenied` alert shown when a paywall asks for notification permissions the user has denied. It's `null` by default, which shows no alert.
 - Adds `PaywallOptions.optimisticLoading` and `PaywallOptions.timeoutAfter` (Android only) to hide a paywall's loading shimmer optimistically, and to dismiss a paywall that takes too long to load.
 - Adds `PaywallOptions.presentationHost` (Android only, experimental). Set it to `PresentationHost.IN_WINDOW` to show paywalls as a view over the presenting activity's window instead of in their own activity, e.g. for game engines.
+- Adds `subscriptionPeriod` (a `SubscriptionPeriod` with a `value` and a `SubscriptionPeriodUnit`) to `StoreProduct`, plus the Android-only `fullIdentifier`, `productType`, `storeFrontCountryCode` and `isCustomProduct`.
 - Adds `state` (a `StoreTransactionState`), `payment` (a `StorePayment`) and the iOS-only `appAccountToken` to `StoreTransaction`, plus the Android-only `purchaseToken` (which `Superwall.consume()` takes) and `signature`.
 - Adds `isRevoked`, `renewsAt` and `isInGracePeriod` to `Entitlement`, derived from its state, expiry and renewal the way the native SDKs derive them.
 - Adds `PaywallPresentationHandler.onWillDismiss()` (iOS only), called when a paywall is about to be dismissed. It's never called on Android, whose SDK has no such callback.

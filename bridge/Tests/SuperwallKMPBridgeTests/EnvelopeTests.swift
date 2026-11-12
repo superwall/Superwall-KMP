@@ -640,3 +640,13 @@ final class StoreTransactionStateTests: XCTestCase {
     XCTAssertEqual(SWBStoreTransactionState(.deferred).rawValue, 4)
   }
 }
+
+final class SubscriptionPeriodUnitTests: XCTestCase {
+  func testUnitRawValuesMatchKotlin() {
+    // Carried as SWBStoreProduct.subscriptionPeriodUnitRawValue (SWBRawValues.kt).
+    XCTAssertEqual(SubscriptionPeriod.Unit.day.rawValue, 0)
+    XCTAssertEqual(SubscriptionPeriod.Unit.week.rawValue, 1)
+    XCTAssertEqual(SubscriptionPeriod.Unit.month.rawValue, 2)
+    XCTAssertEqual(SubscriptionPeriod.Unit.year.rawValue, 3)
+  }
+}

@@ -7,6 +7,10 @@ import com.superwall.sdk.kmp.internal.interop.SWB_STORE_TRANSACTION_STATE_FAILED
 import com.superwall.sdk.kmp.internal.interop.SWB_STORE_TRANSACTION_STATE_PURCHASED
 import com.superwall.sdk.kmp.internal.interop.SWB_STORE_TRANSACTION_STATE_PURCHASING
 import com.superwall.sdk.kmp.internal.interop.SWB_STORE_TRANSACTION_STATE_RESTORED
+import com.superwall.sdk.kmp.internal.interop.SWB_SUBSCRIPTION_PERIOD_UNIT_DAY
+import com.superwall.sdk.kmp.internal.interop.SWB_SUBSCRIPTION_PERIOD_UNIT_MONTH
+import com.superwall.sdk.kmp.internal.interop.SWB_SUBSCRIPTION_PERIOD_UNIT_WEEK
+import com.superwall.sdk.kmp.internal.interop.SWB_SUBSCRIPTION_PERIOD_UNIT_YEAR
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEntitlement
 import com.superwall.sdk.kmp.internal.ios.interop.SWBStoreProduct
 import com.superwall.sdk.kmp.internal.ios.interop.SWBStoreTransaction
@@ -14,6 +18,9 @@ import com.superwall.sdk.kmp.models.store.StorePayment
 import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.store.StoreTransaction
 import com.superwall.sdk.kmp.models.store.StoreTransactionState
+import com.superwall.sdk.kmp.models.store.SubscriptionPeriod
+import com.superwall.sdk.kmp.models.store.SubscriptionPeriodUnit
+import platform.Foundation.NSNumber
 import kotlin.time.Instant
 
 /**
@@ -107,4 +114,24 @@ internal fun SWBStoreProduct.toModel(): StoreProduct =
         currencySymbol = currencySymbol(),
         currencyCode = currencyCode(),
         regionCode = regionCode(),
+        subscriptionPeriod = subscriptionPeriodFromSWB(subscriptionPeriodValue(), subscriptionPeriodUnitRawValue()),
+        // fullIdentifier, productType, storeFrontCountryCode and
+        // isCustomProduct are Android only: left at their defaults.
     )
+
+/** `null` when either half is missing or the unit is newer than the bridge. */
+private fun subscriptionPeriodFromSWB(
+    value: NSNumber?,
+    unitRaw: NSNumber?,
+): SubscriptionPeriod? {
+    if (value == null || unitRaw == null) return null
+    val unit =
+        when (unitRaw.longLongValue) {
+            SWB_SUBSCRIPTION_PERIOD_UNIT_DAY -> SubscriptionPeriodUnit.DAY
+            SWB_SUBSCRIPTION_PERIOD_UNIT_WEEK -> SubscriptionPeriodUnit.WEEK
+            SWB_SUBSCRIPTION_PERIOD_UNIT_MONTH -> SubscriptionPeriodUnit.MONTH
+            SWB_SUBSCRIPTION_PERIOD_UNIT_YEAR -> SubscriptionPeriodUnit.YEAR
+            else -> return null
+        }
+    return SubscriptionPeriod(value = value.longLongValue.toInt(), unit = unit)
+}

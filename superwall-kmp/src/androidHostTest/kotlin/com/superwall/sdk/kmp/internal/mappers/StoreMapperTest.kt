@@ -95,3 +95,21 @@ class StoreTransactionMapperTest {
         )
     }
 }
+
+class SubscriptionPeriodMapperTest {
+    @Test
+    fun everyNativeUnitMapsWithItsValue() {
+        val native = com.superwall.sdk.store.abstractions.product.SubscriptionPeriod.Unit.entries
+        assertEquals(
+            com.superwall.sdk.kmp.models.store.SubscriptionPeriodUnit.entries.toList(),
+            native.map { com.superwall.sdk.store.abstractions.product.SubscriptionPeriod(3, it).toKmp().unit },
+        )
+        assertEquals(
+            3,
+            com.superwall.sdk.store.abstractions.product.SubscriptionPeriod(
+                3,
+                com.superwall.sdk.store.abstractions.product.SubscriptionPeriod.Unit.month,
+            ).toKmp().value,
+        )
+    }
+}

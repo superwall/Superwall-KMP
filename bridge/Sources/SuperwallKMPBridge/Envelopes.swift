@@ -1290,6 +1290,11 @@ public final class SWBStoreProduct: NSObject {
   @objc public let isFamilyShareable: Bool
   @objc public let regionCode: String?
   @objc public let price: Double
+  /// Int NSNumber; nil for a product that isn't a subscription.
+  @objc public private(set) var subscriptionPeriodValue: NSNumber?
+  /// Int NSNumber wrapping SubscriptionPeriod.Unit.rawValue (0 = day, 1 = week,
+  /// 2 = month, 3 = year); nil for a product that isn't a subscription.
+  @objc public private(set) var subscriptionPeriodUnitRawValue: NSNumber?
 
   @objc public init(
     entitlements: [SWBEntitlement],
@@ -1422,6 +1427,10 @@ public final class SWBStoreProduct: NSObject {
       regionCode: native.regionCode,
       price: Double(truncating: native.price as NSNumber)
     )
+    if let period = native.subscriptionPeriod {
+      subscriptionPeriodValue = NSNumber(value: period.value)
+      subscriptionPeriodUnitRawValue = NSNumber(value: period.unit.rawValue)
+    }
   }
 }
 

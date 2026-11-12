@@ -96,4 +96,39 @@ public data class StoreProduct(
     val currencyCode: String? = null,
     /** The region code of the product's locale (e.g. `US`). */
     val regionCode: String? = null,
+    /** The subscription period, or `null` for a product that isn't a subscription. */
+    val subscriptionPeriod: SubscriptionPeriod? = null,
+    /**
+     * The full identifier, `productId:basePlanId:offerId` as set in the
+     * Superwall dashboard. Android only; `null` on iOS.
+     */
+    val fullIdentifier: String? = null,
+    /** The Play product type (`subs` or `inapp`). Android only; `null` on iOS. */
+    val productType: String? = null,
+    /**
+     * The country code of the store the product is sold through, for products
+     * that carry their own storefront (e.g. test mode products). Android
+     * only; `null` on iOS and for Play products.
+     */
+    val storeFrontCountryCode: String? = null,
+    /**
+     * Whether this is a custom store product, bought through your
+     * `PurchaseController` rather than Google Play. Android only; always
+     * `false` on iOS.
+     */
+    val isCustomProduct: Boolean = false,
 )
+
+/** The length of a subscription period: [value] [unit]s, e.g. 3 months. */
+public data class SubscriptionPeriod(
+    val value: Int,
+    val unit: SubscriptionPeriodUnit,
+)
+
+/** The unit of a [SubscriptionPeriod]. */
+public enum class SubscriptionPeriodUnit {
+    DAY,
+    WEEK,
+    MONTH,
+    YEAR,
+}

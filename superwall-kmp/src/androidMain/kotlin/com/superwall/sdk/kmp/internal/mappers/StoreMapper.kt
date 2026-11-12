@@ -2,13 +2,17 @@ package com.superwall.sdk.kmp.internal.mappers
 
 import com.superwall.sdk.kmp.models.store.StorePayment
 import com.superwall.sdk.kmp.models.store.StoreProduct
+import com.superwall.sdk.kmp.models.store.SubscriptionPeriod
+import com.superwall.sdk.kmp.models.store.SubscriptionPeriodUnit
 import com.superwall.sdk.kmp.models.store.StoreTransaction
 import com.superwall.sdk.kmp.models.store.StoreTransactionState
 import java.util.Date
 import java.util.Locale
 import kotlin.time.Instant
 import com.superwall.sdk.analytics.superwall.TransactionProduct as NativeTransactionProduct
+import com.superwall.sdk.store.abstractions.product.StoreProduct as NativeStoreProduct
 import com.superwall.sdk.store.abstractions.product.StoreProductType as NativeStoreProductType
+import com.superwall.sdk.store.abstractions.product.SubscriptionPeriod as NativeSubscriptionPeriod
 import com.superwall.sdk.store.abstractions.transactions.StoreTransaction as NativeStoreTransaction
 import com.superwall.sdk.store.abstractions.transactions.StoreTransactionState as NativeStoreTransactionState
 import com.superwall.sdk.store.abstractions.transactions.StoreTransactionType as NativeStoreTransactionType
@@ -78,6 +82,24 @@ internal fun NativeStoreProductType.toKmp(): StoreProduct =
         currencySymbol = currencySymbol,
         currencyCode = currencyCode,
         regionCode = regionCode,
+        subscriptionPeriod = subscriptionPeriod?.toKmp(),
+        fullIdentifier = fullIdentifier,
+        productType = productType,
+        storeFrontCountryCode = storeFrontCountryCode,
+        // Only the StoreProduct wrapper knows whether it's API-backed.
+        isCustomProduct = (this as? NativeStoreProduct)?.isCustomProduct ?: false,
+    )
+
+internal fun NativeSubscriptionPeriod.toKmp(): SubscriptionPeriod =
+    SubscriptionPeriod(
+        value = value,
+        unit =
+            when (unit) {
+                NativeSubscriptionPeriod.Unit.day -> SubscriptionPeriodUnit.DAY
+                NativeSubscriptionPeriod.Unit.week -> SubscriptionPeriodUnit.WEEK
+                NativeSubscriptionPeriod.Unit.month -> SubscriptionPeriodUnit.MONTH
+                NativeSubscriptionPeriod.Unit.year -> SubscriptionPeriodUnit.YEAR
+            },
     )
 
 /**
