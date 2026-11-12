@@ -10,6 +10,14 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 ## Enhancements
 - Updates Android SDK to 2.10.2 [View Android SDK release notes](https://github.com/superwall/Superwall-Android/releases/tag/2.10.2).
 - Updates iOS SDK to 4.19.1 [View iOS SDK release notes](https://github.com/superwall/Superwall-iOS/releases/tag/4.19.1).
+- Adds `Superwall.getAssignments()`, which returns the experiment assignments made so far without confirming the rest.
+- Adds `Superwall.refreshConfiguration()` to fetch the Superwall configuration again without restarting the app.
+- Adds `Superwall.eventTrackingBehavior` to change which events the SDK sends at runtime, for example from a consent flow. `SuperwallOptions.eventTrackingBehavior` still sets the initial value.
+- Adds `Superwall.setInterfaceStyle()` and the `InterfaceStyle` enum to show paywalls in light or dark mode. Pass `null` or `InterfaceStyle.AUTOMATIC` to follow the system again.
+- Adds `Superwall.refreshCustomerInfo()`, which fetches fresh customer info on iOS. On Android it returns the same as `getCustomerInfo()`.
+- Adds `Superwall.grantedEntitlements` (iOS only) for entitlements granted outside of the store, such as by your own server. They persist across `reset()` and `identify()`, and each assignment replaces the previous set. On Android it's always empty and setting it does nothing.
+- Adds `Superwall.cancelAllScheduledNotifications()` to cancel the local notifications Superwall scheduled, such as free trial reminders.
+- Android: adds `Superwall.setPushToken()`, `optOutOfNotifications()`, `optInToNotifications()` and `handleNotificationOpen()` for push notifications sent by Superwall. They do nothing on iOS.
 
 ## Fixes
 - Fixes `attributionMatch`, `paywallPageView`, `testModeModalOpen` and `testModeModalClose`, the Android-only `reviewGranted` and `reviewDenied`, and the iOS-only `stripeCheckoutStart`, `stripeCheckoutSubmit`, `stripeCheckoutComplete` and `stripeCheckoutFail` events reaching `SuperwallDelegate.handleSuperwallEvent` as `EventType.CUSTOM_PLACEMENT` with a platform-specific name. Each now has its own `EventType`. The Customer Center events (`CUSTOMER_CENTER_OPEN`, `CUSTOMER_CENTER_CLOSE`, `CUSTOMER_CENTER_ACTION`, `CUSTOMER_CENTER_SURVEY_RESPONSE`, `CUSTOMER_CENTER_REFUND_REQUEST`) and the iOS-only `TELEPORT_OPEN` and `TELEPORT_RETURN` that the new native SDKs send get their own types too. If you matched any of these by name on `CUSTOM_PLACEMENT`, match the new `EventType` instead.

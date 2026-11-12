@@ -10,6 +10,8 @@ import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.events.SuperwallEventInfo
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
+import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
+import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
@@ -26,23 +28,6 @@ import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
  * wrappers do with their own names.
  */
 internal const val PLATFORM_WRAPPER: String = "KMP"
-
-/**
- * The interface style the paywall UI should adopt.
- *
- * Internal for now: the bridge forwards it to the native SDKs; it is promoted
- * to a public model if/when the facade exposes an interface-style API.
- */
-internal enum class InterfaceStyle {
-    /** Force light mode. */
-    LIGHT,
-
-    /** Force dark mode. */
-    DARK,
-
-    /** Follow the system appearance. */
-    AUTOMATIC,
-}
 
 /**
  * The callback seam through which native SDK delegate events flow up into
@@ -304,8 +289,29 @@ internal interface SuperwallBridge {
      */
     suspend fun getCustomerInfo(): CustomerInfo
 
+    /**
+     * Fetches the customer info again where the native SDK can (iOS);
+     * Android has no refresh and returns the current customer info.
+     */
+    suspend fun refreshCustomerInfo(): CustomerInfo
+
+    /**
+     * The entitlements granted outside the store. iOS only: Android returns
+     * an empty set.
+     */
+    fun getGrantedEntitlements(): Set<Entitlement>
+
+    /**
+     * Replaces the entitlements granted outside the store. iOS only (only the
+     * ids are passed on); a no-op on Android.
+     */
+    fun setGrantedEntitlements(entitlements: Set<Entitlement>)
+
     /** Confirms all unconfirmed experiment assignments and returns them. */
     suspend fun confirmAllAssignments(): Set<ConfirmedAssignment>
+
+    /** The experiment assignments stored so far, without confirming any. */
+    fun getAssignments(): Set<ConfirmedAssignment>
 
     /** Restores purchases via the native SDK (or the user's [PurchaseController]). */
     suspend fun restorePurchases(): RestorationResult
@@ -376,6 +382,30 @@ internal interface SuperwallBridge {
      * follows the system appearance).
      */
     fun setInterfaceStyle(style: InterfaceStyle?)
+
+    /** Fetches the Superwall configuration again. Fire-and-forget on both natives. */
+    fun refreshConfiguration()
+
+    /** The native SDK's current event tracking behavior. */
+    fun getEventTrackingBehavior(): EventTrackingBehavior
+
+    /** Changes which events the native SDK sends, at runtime. */
+    fun setEventTrackingBehavior(behavior: EventTrackingBehavior)
+
+    /** Removes the local notifications Superwall scheduled (e.g. trial reminders). */
+    fun cancelAllScheduledNotifications()
+
+    /** Reports the app's FCM registration token. Android only; a no-op on iOS. */
+    fun setPushToken(token: String)
+
+    /**
+     * Opts the device out of ([enabled] `false`) or back into Superwall push
+     * notifications. Android only; a no-op on iOS.
+     */
+    fun setNotificationsEnabled(enabled: Boolean)
+
+    /** Reports a tapped notification's data. Android only; a no-op on iOS. */
+    fun handleNotificationOpen(data: Map<String, String>)
 
     /**
      * Enables experimental device variables in audience filters. Actually

@@ -1,7 +1,6 @@
 package com.superwall.sdk.kmp
 
 import com.superwall.sdk.kmp.internal.BridgeListener
-import com.superwall.sdk.kmp.internal.InterfaceStyle
 import com.superwall.sdk.kmp.internal.StreamHolder
 import com.superwall.sdk.kmp.internal.SuperwallBridge
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
@@ -11,6 +10,8 @@ import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
+import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
+import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
@@ -245,6 +246,32 @@ internal class FakeBridge : SuperwallBridge {
         return cannedCustomerInfo
     }
 
+    var cannedRefreshedCustomerInfo: CustomerInfo? = null
+
+    override suspend fun refreshCustomerInfo(): CustomerInfo {
+        calls += "refreshCustomerInfo"
+        return cannedRefreshedCustomerInfo ?: cannedCustomerInfo
+    }
+
+    var cannedGrantedEntitlements: Set<Entitlement> = emptySet()
+
+    override fun getGrantedEntitlements(): Set<Entitlement> {
+        calls += "getGrantedEntitlements"
+        return cannedGrantedEntitlements
+    }
+
+    override fun setGrantedEntitlements(entitlements: Set<Entitlement>) {
+        calls += "setGrantedEntitlements"
+        cannedGrantedEntitlements = entitlements
+    }
+
+    var cannedAssignments: Set<ConfirmedAssignment> = emptySet()
+
+    override fun getAssignments(): Set<ConfirmedAssignment> {
+        calls += "getAssignments"
+        return cannedAssignments
+    }
+
     override suspend fun confirmAllAssignments(): Set<ConfirmedAssignment> {
         calls += "confirmAllAssignments"
         return cannedConfirmedAssignments
@@ -342,6 +369,47 @@ internal class FakeBridge : SuperwallBridge {
     override fun setInterfaceStyle(style: InterfaceStyle?) {
         calls += "setInterfaceStyle"
         lastInterfaceStyle = style
+    }
+
+    override fun refreshConfiguration() {
+        calls += "refreshConfiguration"
+    }
+
+    var cannedEventTrackingBehavior: EventTrackingBehavior = EventTrackingBehavior.ALL
+
+    override fun getEventTrackingBehavior(): EventTrackingBehavior {
+        calls += "getEventTrackingBehavior"
+        return cannedEventTrackingBehavior
+    }
+
+    override fun setEventTrackingBehavior(behavior: EventTrackingBehavior) {
+        calls += "setEventTrackingBehavior"
+        cannedEventTrackingBehavior = behavior
+    }
+
+    override fun cancelAllScheduledNotifications() {
+        calls += "cancelAllScheduledNotifications"
+    }
+
+    var lastPushToken: String? = null
+
+    override fun setPushToken(token: String) {
+        calls += "setPushToken"
+        lastPushToken = token
+    }
+
+    val notificationsEnabledCalls: MutableList<Boolean> = mutableListOf()
+
+    override fun setNotificationsEnabled(enabled: Boolean) {
+        calls += "setNotificationsEnabled"
+        notificationsEnabledCalls += enabled
+    }
+
+    var lastNotificationOpenData: Map<String, String>? = null
+
+    override fun handleNotificationOpen(data: Map<String, String>) {
+        calls += "handleNotificationOpen"
+        lastNotificationOpenData = data
     }
 
     val enableExperimentalDeviceVariablesCalls: MutableList<Boolean> = mutableListOf()

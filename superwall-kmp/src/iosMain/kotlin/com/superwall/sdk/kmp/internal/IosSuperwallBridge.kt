@@ -19,12 +19,14 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBObservation
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPresentationResult
 import com.superwall.sdk.kmp.internal.ios.interop.SWBRestorationResult
 import com.superwall.sdk.kmp.internal.ios.interop.SWBSuperwallBridge
+import com.superwall.sdk.kmp.internal.mappers.eventTrackingBehaviorFromSWBRaw
 import com.superwall.sdk.kmp.internal.mappers.integrationAttributeFromWireName
 import com.superwall.sdk.kmp.internal.mappers.integrationAttributeToSWB
 import com.superwall.sdk.kmp.internal.mappers.logLevelFromSWB
 import com.superwall.sdk.kmp.internal.mappers.logLevelToSWB
 import com.superwall.sdk.kmp.internal.mappers.toEntitlementSet
 import com.superwall.sdk.kmp.internal.mappers.toModel
+import com.superwall.sdk.kmp.internal.mappers.toSWBRaw
 import com.superwall.sdk.kmp.internal.mappers.toSWB
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
@@ -33,6 +35,8 @@ import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
+import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
+import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
@@ -278,6 +282,23 @@ internal class IosSuperwallBridge : SuperwallBridge {
                 userId = "",
             )
 
+    override suspend fun refreshCustomerInfo(): CustomerInfo =
+        // Nullable-only-in-the-binding, as in getCustomerInfo: an unexpected
+        // nil falls back to the cached customer info.
+        awaitCompletion<SWBCustomerInfo?> { swb.refreshCustomerInfo(it) }?.toModel()
+            ?: getCustomerInfo()
+
+    override fun getGrantedEntitlements(): Set<Entitlement> = swb.getGrantedEntitlements().toEntitlementSet()
+
+    override fun setGrantedEntitlements(entitlements: Set<Entitlement>) {
+        swb.setGrantedEntitlementIds(entitlements.map { it.id })
+    }
+
+    override fun getAssignments(): Set<ConfirmedAssignment> =
+        swb.getAssignments()
+            .mapNotNull { (it as? SWBConfirmedAssignment)?.toModel() }
+            .toSet()
+
     override suspend fun confirmAllAssignments(): Set<ConfirmedAssignment> =
         // Nullable-only-in-the-binding: an unexpected nil reads as no assignments.
         awaitCompletion<List<*>?> { swb.confirmAllAssignments(it) }
@@ -383,6 +404,30 @@ internal class IosSuperwallBridge : SuperwallBridge {
     override fun setInterfaceStyle(style: InterfaceStyle?) {
         swb.setInterfaceStyle(style.toSWB())
     }
+
+    override fun refreshConfiguration() {
+        swb.refreshConfiguration()
+    }
+
+    override fun getEventTrackingBehavior(): EventTrackingBehavior =
+        eventTrackingBehaviorFromSWBRaw(swb.eventTrackingBehaviorRawValue())
+
+    override fun setEventTrackingBehavior(behavior: EventTrackingBehavior) {
+        swb.setEventTrackingBehaviorRawValue(behavior.toSWBRaw())
+    }
+
+    override fun cancelAllScheduledNotifications() {
+        swb.cancelAllScheduledNotifications()
+    }
+
+    // Push tokens and notification opens are reported by superwall-android
+    // only; SuperwallKit has no counterpart, so these are documented no-ops.
+
+    override fun setPushToken(token: String) {}
+
+    override fun setNotificationsEnabled(enabled: Boolean) {}
+
+    override fun handleNotificationOpen(data: Map<String, String>) {}
 
     override fun enableExperimentalDeviceVariables(enabled: Boolean) {
         // The SWB facade exposes no post-configure toggle: on iOS the option is

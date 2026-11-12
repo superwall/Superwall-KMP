@@ -19,6 +19,8 @@ import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
+import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
+import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
@@ -354,6 +356,27 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
      */
     override suspend fun getCustomerInfo(): CustomerInfo = NativeSuperwall.instance.getCustomerInfo().toKmp()
 
+    /** superwall-android has no customer info refresh; this is the current value. */
+    override suspend fun refreshCustomerInfo(): CustomerInfo = getCustomerInfo()
+
+    /** Granted entitlements are an iOS-only concept: always empty here. */
+    override fun getGrantedEntitlements(): Set<Entitlement> = emptySet()
+
+    /** Granted entitlements are an iOS-only concept: a no-op here. */
+    override fun setGrantedEntitlements(entitlements: Set<Entitlement>) {}
+
+    /** A synchronous read of the stored assignments (`AssignmentService.getAssignments`). */
+    override fun getAssignments(): Set<ConfirmedAssignment> =
+        NativeSuperwall.instance
+            .getAssignments()
+            .getOrElse { throwable ->
+                throw SuperwallError.Native(
+                    throwable.localizedMessage ?: throwable.message,
+                    throwable,
+                )
+            }.map { it.toKmp() }
+            .toSet()
+
     override suspend fun confirmAllAssignments(): Set<ConfirmedAssignment> =
         withContext(Dispatchers.IO) {
             NativeSuperwall.instance
@@ -479,6 +502,36 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
                 InterfaceStyle.AUTOMATIC, null -> null
             },
         )
+    }
+
+    override fun refreshConfiguration() {
+        NativeSuperwall.instance.refreshConfiguration()
+    }
+
+    override fun getEventTrackingBehavior(): EventTrackingBehavior = NativeSuperwall.instance.eventTrackingBehavior.toKmp()
+
+    override fun setEventTrackingBehavior(behavior: EventTrackingBehavior) {
+        NativeSuperwall.instance.eventTrackingBehavior = behavior.toNative()
+    }
+
+    override fun cancelAllScheduledNotifications() {
+        NativeSuperwall.instance.cancelAllScheduledNotifications()
+    }
+
+    override fun setPushToken(token: String) {
+        NativeSuperwall.instance.setPushToken(token)
+    }
+
+    override fun setNotificationsEnabled(enabled: Boolean) {
+        if (enabled) {
+            NativeSuperwall.instance.optInToNotifications()
+        } else {
+            NativeSuperwall.instance.optOutOfNotifications()
+        }
+    }
+
+    override fun handleNotificationOpen(data: Map<String, String>) {
+        NativeSuperwall.instance.handleNotificationOpen(data)
     }
 
     /**

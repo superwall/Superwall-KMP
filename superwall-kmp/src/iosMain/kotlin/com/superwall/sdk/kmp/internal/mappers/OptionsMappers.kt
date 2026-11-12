@@ -2,7 +2,6 @@
 
 package com.superwall.sdk.kmp.internal.mappers
 
-import com.superwall.sdk.kmp.internal.InterfaceStyle
 import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_ALL
 import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_NONE
 import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_SUPERWALL_ONLY
@@ -54,6 +53,7 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBRestoreFailedOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBSuperwallOptions
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
+import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.NetworkEnvironment
@@ -138,11 +138,19 @@ private fun NetworkEnvironment.toSWBRaw(): Long =
         NetworkEnvironment.DEVELOPER -> SWB_NETWORK_ENVIRONMENT_DEVELOPER
     }
 
-private fun EventTrackingBehavior.toSWBRaw(): Long =
+internal fun EventTrackingBehavior.toSWBRaw(): Long =
     when (this) {
         EventTrackingBehavior.ALL -> SWB_EVENT_TRACKING_BEHAVIOR_ALL
         EventTrackingBehavior.SUPERWALL_ONLY -> SWB_EVENT_TRACKING_BEHAVIOR_SUPERWALL_ONLY
         EventTrackingBehavior.NONE -> SWB_EVENT_TRACKING_BEHAVIOR_NONE
+    }
+
+/** The reverse of [toSWBRaw]; an unknown raw value reads as the native default, ALL. */
+internal fun eventTrackingBehaviorFromSWBRaw(raw: Long): EventTrackingBehavior =
+    when (raw) {
+        SWB_EVENT_TRACKING_BEHAVIOR_SUPERWALL_ONLY -> EventTrackingBehavior.SUPERWALL_ONLY
+        SWB_EVENT_TRACKING_BEHAVIOR_NONE -> EventTrackingBehavior.NONE
+        else -> EventTrackingBehavior.ALL
     }
 
 private fun TestModeBehavior.toSWBRaw(): Long =

@@ -11,6 +11,8 @@ import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
+import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
+import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
@@ -325,6 +327,18 @@ public object Superwall {
             requireConfigured().setLogLevel(value)
         }
 
+    /**
+     * Which events the SDK sends to Superwall, changeable at any time after
+     * [configure] — for example set [EventTrackingBehavior.NONE] when the user
+     * declines data collection in a consent flow. The initial value comes from
+     * `SuperwallOptions.eventTrackingBehavior`.
+     */
+    public var eventTrackingBehavior: EventTrackingBehavior
+        get() = requireConfigured().getEventTrackingBehavior()
+        set(value) {
+            requireConfigured().setEventTrackingBehavior(value)
+        }
+
     // ---- Entitlements / subscription --------------------------------------------
 
     /**
@@ -344,6 +358,24 @@ public object Superwall {
      */
     public suspend fun getEntitlementsByProductIds(productIds: Set<String>): Set<Entitlement> =
         requireConfigured().getEntitlementsByProductIds(productIds)
+
+    /**
+     * Entitlements granted outside of the store, such as by your own server.
+     * They are merged into the user's entitlements and subscription status.
+     *
+     * Each assignment replaces the previous set; assign an empty set to revoke.
+     * The set persists across app launches, [reset] and [identify], so set it
+     * again after either if the new user shouldn't inherit it. Only each
+     * entitlement's `id` is used.
+     *
+     * @platform iOS — on Android this is always empty and setting it does
+     * nothing.
+     */
+    public var grantedEntitlements: Set<Entitlement>
+        get() = requireConfigured().getGrantedEntitlements()
+        set(value) {
+            requireConfigured().setGrantedEntitlements(value)
+        }
 
     /**
      * The current subscription status of the user, synchronously.
@@ -388,11 +420,28 @@ public object Superwall {
     public suspend fun getCustomerInfo(): CustomerInfo = requireConfigured().getCustomerInfo()
 
     /**
+     * Fetches fresh customer info from the store and Superwall, then returns
+     * it. On Android, which has no refresh, this returns the same as
+     * [getCustomerInfo].
+     *
+     * @return The customer's latest [CustomerInfo].
+     */
+    public suspend fun refreshCustomerInfo(): CustomerInfo = requireConfigured().refreshCustomerInfo()
+
+    /**
      * Confirms all unconfirmed experiment assignments and returns them.
      *
      * @return The set of all confirmed assignments.
      */
     public suspend fun confirmAllAssignments(): Set<ConfirmedAssignment> = requireConfigured().confirmAllAssignments()
+
+    /**
+     * The experiment assignments made so far, without confirming the rest
+     * (unlike [confirmAllAssignments]).
+     *
+     * @return The set of stored assignments.
+     */
+    public fun getAssignments(): Set<ConfirmedAssignment> = requireConfigured().getAssignments()
 
     /**
      * Restores purchases via the native SDK (or your [PurchaseController], if
@@ -518,6 +567,82 @@ public object Superwall {
      * @return The consumed purchase token.
      */
     public suspend fun consume(purchaseToken: String): String = requireConfigured().consume(purchaseToken)
+
+    /**
+     * Shows paywalls in light or dark mode regardless of the system setting.
+     *
+     * @param style The style to use; `null` or [InterfaceStyle.AUTOMATIC]
+     * follows the system again.
+     */
+    public fun setInterfaceStyle(style: InterfaceStyle?) {
+        requireConfigured().setInterfaceStyle(style)
+    }
+
+    /**
+     * Fetches the Superwall configuration again without restarting the app,
+     * e.g. after changing a campaign while testing. Returns immediately; the
+     * fetch runs in the background.
+     */
+    public fun refreshConfiguration() {
+        requireConfigured().refreshConfiguration()
+    }
+
+    // ---- Notifications ----------------------------------------------------------
+
+    /**
+     * Cancels the local notifications Superwall scheduled, such as free trial
+     * reminders.
+     */
+    public fun cancelAllScheduledNotifications() {
+        requireConfigured().cancelAllScheduledNotifications()
+    }
+
+    /**
+     * Reports the device's Firebase Cloud Messaging registration token, so
+     * Superwall can send push notifications to it. Call it whenever the token
+     * changes. The SDK has no Firebase dependency and doesn't ask for
+     * notification permission itself.
+     *
+     * @platform Android — a no-op on iOS.
+     * @param token The FCM registration token.
+     */
+    public fun setPushToken(token: String) {
+        requireConfigured().setPushToken(token)
+    }
+
+    /**
+     * Stops Superwall sending push notifications to this device. Remembered
+     * across launches, [reset] and [identify] until [optInToNotifications]. It
+     * doesn't change the system notification permission.
+     *
+     * @platform Android — a no-op on iOS.
+     */
+    public fun optOutOfNotifications() {
+        requireConfigured().setNotificationsEnabled(false)
+    }
+
+    /**
+     * Lets Superwall send push notifications to this device again after
+     * [optOutOfNotifications]. Devices are opted in by default.
+     *
+     * @platform Android — a no-op on iOS.
+     */
+    public fun optInToNotifications() {
+        requireConfigured().setNotificationsEnabled(true)
+    }
+
+    /**
+     * Tells Superwall the user tapped a notification, so it can measure the
+     * notifications it sends. Call it only for a tap, never when a message is
+     * delivered. Notifications Superwall didn't send are ignored, so every
+     * tapped notification's data can be passed in.
+     *
+     * @platform Android — a no-op on iOS.
+     * @param data The notification's FCM data.
+     */
+    public fun handleNotificationOpen(data: Map<String, String>) {
+        requireConfigured().handleNotificationOpen(data)
+    }
 
     // ---- Internals --------------------------------------------------------------
 

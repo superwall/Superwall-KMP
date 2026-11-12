@@ -191,3 +191,18 @@ public enum class EventTrackingBehavior {
     /** No events are sent to the Superwall servers. */
     NONE,
 }
+
+/**
+ * The interface style paywalls are shown in, set with
+ * `Superwall.setInterfaceStyle`.
+ */
+public enum class InterfaceStyle {
+    /** Always show paywalls in light mode. */
+    LIGHT,
+
+    /** Always show paywalls in dark mode. */
+    DARK,
+
+    /** Follow the system appearance. The same as passing `null`. */
+    AUTOMATIC,
+}

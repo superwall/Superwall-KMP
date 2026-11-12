@@ -7,10 +7,15 @@ import com.superwall.sdk.kmp.models.events.EventType
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.events.SuperwallEventInfo
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
+import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
+import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
+import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
+import com.superwall.sdk.kmp.models.triggers.Variant
+import com.superwall.sdk.kmp.models.triggers.VariantType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -165,6 +170,18 @@ class SuperwallFacadeTest {
                 "togglePaywallSpinner" to { Superwall.togglePaywallSpinner(true) },
                 "overrideProductsByName get" to { Superwall.overrideProductsByName },
                 "overrideProductsByName set" to { Superwall.overrideProductsByName = mapOf("primary" to "id") },
+                "eventTrackingBehavior get" to { Superwall.eventTrackingBehavior },
+                "eventTrackingBehavior set" to { Superwall.eventTrackingBehavior = EventTrackingBehavior.NONE },
+                "grantedEntitlements get" to { Superwall.grantedEntitlements },
+                "grantedEntitlements set" to { Superwall.grantedEntitlements = emptySet() },
+                "getAssignments" to { Superwall.getAssignments() },
+                "setInterfaceStyle" to { Superwall.setInterfaceStyle(InterfaceStyle.DARK) },
+                "refreshConfiguration" to { Superwall.refreshConfiguration() },
+                "cancelAllScheduledNotifications" to { Superwall.cancelAllScheduledNotifications() },
+                "setPushToken" to { Superwall.setPushToken("token") },
+                "optOutOfNotifications" to { Superwall.optOutOfNotifications() },
+                "optInToNotifications" to { Superwall.optInToNotifications() },
+                "handleNotificationOpen" to { Superwall.handleNotificationOpen(mapOf("sw" to "x")) },
             )
 
         for ((name, block) in guarded) {
@@ -180,6 +197,7 @@ class SuperwallFacadeTest {
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.getDeviceAttributes() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.getEntitlementsByProductIds(setOf("p")) }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.getCustomerInfo() }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.refreshCustomerInfo() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.confirmAllAssignments() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.restorePurchases() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.getPresentationResult("placement") }
@@ -542,5 +560,61 @@ class SuperwallFacadeTest {
             assertEquals("token_1", Superwall.consume("token_1"))
 
             assertTrue(fake.calls.containsAll(listOf("getUserId", "setSubscriptionStatus", "restorePurchases", "consume")))
+        }
+
+    @Test
+    fun runtimeSettersAndNotificationMembersForwardToBridge() =
+        runTest {
+            Superwall.configure("pk_test")
+            fake.calls.clear()
+
+            Superwall.eventTrackingBehavior = EventTrackingBehavior.SUPERWALL_ONLY
+            assertEquals(EventTrackingBehavior.SUPERWALL_ONLY, Superwall.eventTrackingBehavior)
+
+            Superwall.setInterfaceStyle(InterfaceStyle.DARK)
+            assertEquals(InterfaceStyle.DARK, fake.lastInterfaceStyle)
+            Superwall.setInterfaceStyle(null)
+            assertEquals(null, fake.lastInterfaceStyle)
+
+            val granted = setOf(Entitlement(id = "pro"))
+            Superwall.grantedEntitlements = granted
+            assertEquals(granted, Superwall.grantedEntitlements)
+
+            val assignments = setOf(ConfirmedAssignment(experimentId = "exp", variant = Variant("v", VariantType.TREATMENT, null)))
+            fake.cannedAssignments = assignments
+            assertEquals(assignments, Superwall.getAssignments())
+
+            val refreshed = fake.cannedCustomerInfo.copy(userId = "refreshed")
+            fake.cannedRefreshedCustomerInfo = refreshed
+            assertEquals(refreshed, Superwall.refreshCustomerInfo())
+
+            Superwall.refreshConfiguration()
+            Superwall.cancelAllScheduledNotifications()
+            Superwall.setPushToken("fcm-token")
+            assertEquals("fcm-token", fake.lastPushToken)
+            Superwall.optOutOfNotifications()
+            Superwall.optInToNotifications()
+            assertEquals(listOf(false, true), fake.notificationsEnabledCalls)
+            Superwall.handleNotificationOpen(mapOf("sw" to "payload"))
+            assertEquals(mapOf("sw" to "payload"), fake.lastNotificationOpenData)
+
+            assertTrue(
+                fake.calls.containsAll(
+                    listOf(
+                        "setEventTrackingBehavior",
+                        "getEventTrackingBehavior",
+                        "setInterfaceStyle",
+                        "setGrantedEntitlements",
+                        "getGrantedEntitlements",
+                        "getAssignments",
+                        "refreshCustomerInfo",
+                        "refreshConfiguration",
+                        "cancelAllScheduledNotifications",
+                        "setPushToken",
+                        "setNotificationsEnabled",
+                        "handleNotificationOpen",
+                    ),
+                ),
+            )
         }
 }

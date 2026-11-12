@@ -21,6 +21,7 @@
 import Combine
 import Foundation
 import SuperwallKit
+import UserNotifications
 
 // MARK: - Option envelopes (input direction: Kotlin → SuperwallKit)
 // A nil/NSNumber-nil field means "not set — keep the SuperwallKit default",
@@ -674,6 +675,30 @@ public final class SWBSuperwallBridge: NSObject {
     return SWBObservation { cancellable.cancel() }
   }
 
+  /// Fetches fresh customer info (SuperwallKit 4.19.0+), then returns it.
+  @objc public func refreshCustomerInfo(_ completion: @escaping (SWBCustomerInfo) -> Void) {
+    Task {
+      let customerInfo = await Superwall.shared.refreshCustomerInfo()
+      completion(SWBCustomerInfo(customerInfo))
+    }
+  }
+
+  /// The entitlements granted outside the store (SuperwallKit 4.17.0+).
+  @objc public func getGrantedEntitlements() -> [SWBEntitlement] {
+    return Superwall.shared.grantedEntitlements.map { SWBEntitlement($0) }
+  }
+
+  /// Replaces the granted entitlements. Only ids cross the bridge, matching the
+  /// native `Entitlement(id:)` initializer (as `setSubscriptionStatus` does).
+  @objc public func setGrantedEntitlementIds(_ ids: [String]) {
+    Superwall.shared.grantedEntitlements = Set(ids.map { Entitlement(id: $0) })
+  }
+
+  /// The stored experiment assignments, without confirming any.
+  @objc public func getAssignments() -> [SWBConfirmedAssignment] {
+    return Superwall.shared.getAssignments().map { SWBConfirmedAssignment($0) }
+  }
+
   /// Confirms all experiment assignments and returns them.
   @objc public func confirmAllAssignments(
     _ completion: @escaping ([SWBConfirmedAssignment]) -> Void
@@ -812,6 +837,39 @@ public final class SWBSuperwallBridge: NSObject {
     case .dark:
       Superwall.shared.setInterfaceStyle(to: .dark)
     }
+  }
+
+  /// Fetches the configuration again. Fire-and-forget.
+  @objc public func refreshConfiguration() {
+    Superwall.shared.refreshConfiguration(completion: nil)
+  }
+
+  /// The runtime event tracking behavior, as an SWBEventTrackingBehavior raw
+  /// value (a plain Int so Kotlin reads it like the option's NSNumber).
+  @objc public func eventTrackingBehaviorRawValue() -> Int {
+    switch Superwall.shared.eventTrackingBehavior {
+    case .all: return SWBEventTrackingBehavior.all.rawValue
+    case .superwallOnly: return SWBEventTrackingBehavior.superwallOnly.rawValue
+    case .none: return SWBEventTrackingBehavior.none.rawValue
+    @unknown default: return SWBEventTrackingBehavior.all.rawValue
+    }
+  }
+
+  /// Sets the runtime event tracking behavior from an SWBEventTrackingBehavior
+  /// raw value. Unknown values are ignored.
+  @objc public func setEventTrackingBehaviorRawValue(_ rawValue: Int) {
+    guard let behavior = SWBEventTrackingBehavior(rawValue: rawValue) else { return }
+    switch behavior {
+    case .all: Superwall.shared.eventTrackingBehavior = .all
+    case .superwallOnly: Superwall.shared.eventTrackingBehavior = .superwallOnly
+    case .none: Superwall.shared.eventTrackingBehavior = .none
+    }
+  }
+
+  /// Removes Superwall's pending local notifications (trial reminders). SuperwallKit
+  /// exposes this as a UNUserNotificationCenter extension rather than on Superwall.
+  @objc public func cancelAllScheduledNotifications() {
+    UNUserNotificationCenter.current().removeAllPendingSuperwallNotificationRequests()
   }
 
   // MARK: Platform no-ops
