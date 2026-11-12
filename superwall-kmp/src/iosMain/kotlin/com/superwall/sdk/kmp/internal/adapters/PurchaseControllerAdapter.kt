@@ -25,9 +25,10 @@ import platform.darwin.NSObject
  * whatever context the user's implementation completes on; the Swift-side
  * forwarder resumes its continuation safely from any queue.
  *
- * Exceptions thrown by the user's implementation are caught and mapped to
- * domain failures — they never propagate into native internals
- * and never kill the supervisor scope.
+ * Exceptions thrown by the user's implementation are caught, reported
+ * through [log] (the app's `handleLog`, as on Android) and mapped to domain
+ * failures — they never propagate into native internals and never kill the
+ * supervisor scope.
  *
  * Retention: the [com.superwall.sdk.kmp.internal.IosSuperwallBridge] strongly
  * retains this adapter for the lifetime of the process (never rely on ObjC
@@ -36,6 +37,7 @@ import platform.darwin.NSObject
 internal class PurchaseControllerAdapter(
     private val controller: PurchaseController,
     private val scope: CoroutineScope,
+    private val log: (message: String, error: Throwable?) -> Unit,
 ) : NSObject(), SWBPurchaseControllerProtocol {
     override fun purchaseWithProductId(
         productId: String,
@@ -45,7 +47,7 @@ internal class PurchaseControllerAdapter(
             val result = try {
                 controller.purchaseFromAppStore(productId)
             } catch (throwable: Throwable) {
-                println("[Superwall] PurchaseController.purchaseFromAppStore threw: $throwable")
+                log("PurchaseController.purchaseFromAppStore threw an exception", throwable)
                 PurchaseResult.Failed(throwable.message ?: "PurchaseController threw: $throwable")
             }
             completion(result.toSWB())
@@ -57,7 +59,7 @@ internal class PurchaseControllerAdapter(
             val result = try {
                 controller.restorePurchases()
             } catch (throwable: Throwable) {
-                println("[Superwall] PurchaseController.restorePurchases threw: $throwable")
+                log("PurchaseController.restorePurchases threw an exception", throwable)
                 RestorationResult.Failed(throwable.message ?: "PurchaseController threw: $throwable")
             }
             completion(result.toSWB())

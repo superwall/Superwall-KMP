@@ -95,7 +95,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
         options: SuperwallOptions?,
         completion: (Result<Unit>) -> Unit,
     ) {
-        val controllerAdapter = purchaseController?.let { PurchaseControllerAdapter(it, scope) }
+        val controllerAdapter = purchaseController?.let { PurchaseControllerAdapter(it, scope, ::logError) }
         purchaseControllerAdapter = controllerAdapter
 
         swb.configureWithApiKey(
@@ -298,7 +298,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
         feature: (() -> Unit)?,
     ) {
         val handlerAdapter = handler?.let { userHandler ->
-            PresentationHandlerAdapter(userHandler, scope) { finished ->
+            PresentationHandlerAdapter(userHandler, scope, ::logError) { finished ->
                 // Terminal callbacks arrive on the main thread.
                 activeHandlers.remove(finished)
             }
@@ -315,7 +315,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
                     try {
                         block()
                     } catch (throwable: Throwable) {
-                        println("[Superwall] register feature block threw: $throwable")
+                        logError("The register feature block threw an exception", throwable)
                     }
                 }
             }
@@ -397,6 +397,34 @@ internal class IosSuperwallBridge : SuperwallBridge {
             ?: purchaseToken
 
     // ---- Internals ------------------------------------------------------------
+
+    /**
+     * Routes an exception caught from app code (purchase controller,
+     * presentation handler, feature block) to the app's `handleLog` at
+     * [LogLevel.ERROR], like the Android bridge, with the console as the last
+     * resort. Only forwarded when a user delegate is set.
+     */
+    private fun logError(
+        message: String,
+        error: Throwable?,
+    ) {
+        val detail = error?.let { it.message ?: it.toString() }
+        println("[Superwall] $message" + (detail?.let { ": $it" } ?: ""))
+        val listener = delegateAdapter?.listener?.takeIf { it.forwardsToUserDelegate } ?: return
+        scope.launch {
+            try {
+                listener.handleLog(
+                    level = LogLevel.ERROR,
+                    scope = LogScope.SUPERWALL_CORE,
+                    message = message,
+                    info = null,
+                    error = detail,
+                )
+            } catch (throwable: Throwable) {
+                println("[Superwall] handleLog forwarding failed: $throwable")
+            }
+        }
+    }
 
     /** Routes a bridge-level warning through the installed listener when present. */
     private fun warn(message: String) {
