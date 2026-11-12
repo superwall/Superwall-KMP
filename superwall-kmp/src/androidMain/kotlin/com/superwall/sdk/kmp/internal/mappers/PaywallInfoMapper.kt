@@ -1,5 +1,6 @@
 package com.superwall.sdk.kmp.internal.mappers
 
+import com.superwall.sdk.kmp.models.entitlements.ProductStore
 import com.superwall.sdk.kmp.models.paywall.ComputedPropertyRequest
 import com.superwall.sdk.kmp.models.paywall.ComputedPropertyRequestType
 import com.superwall.sdk.kmp.models.paywall.FeatureGatingBehavior
@@ -79,6 +80,15 @@ internal fun NativeProductItem.toKmp(): PaywallProduct =
         id = fullProductId,
         name = name,
         entitlements = entitlements.map { it.toKmp() }.toSet(),
+        store =
+            when (type) {
+                is NativeProductItem.StoreProductType.PlayStore -> ProductStore.PLAY_STORE
+                is NativeProductItem.StoreProductType.AppStore -> ProductStore.APP_STORE
+                is NativeProductItem.StoreProductType.Stripe -> ProductStore.STRIPE
+                is NativeProductItem.StoreProductType.Paddle -> ProductStore.PADDLE
+                is NativeProductItem.StoreProductType.Custom -> ProductStore.CUSTOM
+                is NativeProductItem.StoreProductType.Other -> ProductStore.OTHER
+            },
     )
 
 // ---- Enums ----------------------------------------------------------------------

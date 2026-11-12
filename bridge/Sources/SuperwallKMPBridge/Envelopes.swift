@@ -805,6 +805,8 @@ public final class SWBProduct: NSObject {
   @objc public let name: String?
   /// Entitlements attached to the product.
   @objc public let entitlements: [SWBEntitlement]
+  /// NSNumber wrapping SWBProductStore.rawValue: the store the product is sold through.
+  @objc public private(set) var store: NSNumber?
 
   @objc public init(id: String, name: String?, entitlements: [SWBEntitlement]) {
     self.id = id
@@ -819,6 +821,14 @@ public final class SWBProduct: NSObject {
       name: native.name,
       entitlements: native.entitlements.map { SWBEntitlement($0) }
     )
+    let nativeStore: ProductStore
+    switch native.type {
+    case .appStore: nativeStore = .appStore
+    case .stripe: nativeStore = .stripe
+    case .paddle: nativeStore = .paddle
+    case .custom: nativeStore = .custom
+    }
+    store = NSNumber(value: SWBProductStore(nativeStore).rawValue)
   }
 }
 

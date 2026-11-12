@@ -91,6 +91,7 @@ internal fun SWBProduct.toModel(): PaywallProduct =
         id = id(),
         name = name(),
         entitlements = entitlements().mapNotNull { (it as? SWBEntitlement)?.toModel() }.toSet(),
+        store = productStoreFromNSNumber(store()),
     )
 
 internal fun SWBLocalNotification.toModel(): LocalNotification =
