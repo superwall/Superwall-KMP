@@ -5,12 +5,15 @@ import com.superwall.sdk.kmp.PurchaseController
 import com.superwall.sdk.kmp.internal.mappers.toNative
 import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.ProductReplacement
+import com.superwall.sdk.kmp.models.store.ProductReplacementMode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.superwall.sdk.delegate.PurchaseResult as NativePurchaseResult
 import com.superwall.sdk.delegate.RestorationResult as NativeRestorationResult
 import com.superwall.sdk.delegate.subscription_controller.PurchaseController as NativePurchaseController
+import com.superwall.sdk.store.ProductReplacement as NativeProductReplacement
 import com.superwall.sdk.store.abstractions.product.StoreProduct as NativeStoreProduct
 
 /**
@@ -43,34 +46,63 @@ internal class PurchaseControllerAdapter(
      * which is productId-based and store-agnostic.
      *
      * Since superwall-android 2.9.0 the SDK calls the five-argument overload
-     * that adds a `ProductReplacement`; its interface default forwards here
-     * without the replacement. So a purchase that should upgrade or downgrade
-     * an existing subscription reaches [PurchaseController.purchaseFromGooglePlay]
-     * as a plain purchase: the common controller has no way to receive the
-     * replacement mode or old purchase token yet.
+     * below instead; this one stays for any caller of the four-argument form.
      */
     override suspend fun purchase(
         activity: Activity,
         product: NativeStoreProduct,
         basePlanId: String?,
         offerId: String?,
+    ): NativePurchaseResult = purchase(product, basePlanId, offerId, replacement = null)
+
+    /**
+     * The overload superwall-android 2.9.0+ calls. A purchase that replaces
+     * an existing subscription reaches
+     * [PurchaseController.purchaseFromGooglePlayWithReplacement] (whose default
+     * falls back to [PurchaseController.purchaseFromGooglePlay]); every other
+     * purchase reaches [PurchaseController.purchaseFromGooglePlay].
+     */
+    override suspend fun purchase(
+        activity: Activity,
+        product: NativeStoreProduct,
+        basePlanId: String?,
+        offerId: String?,
+        replacement: NativeProductReplacement?,
+    ): NativePurchaseResult = purchase(product, basePlanId, offerId, replacement?.toKmp())
+
+    private suspend fun purchase(
+        product: NativeStoreProduct,
+        basePlanId: String?,
+        offerId: String?,
+        replacement: ProductReplacement?,
     ): NativePurchaseResult {
+        val callbackName =
+            if (replacement != null) "purchaseFromGooglePlayWithReplacement" else "purchaseFromGooglePlay"
         val result =
             try {
                 withContext(Dispatchers.Main.immediate) {
-                    controller.purchaseFromGooglePlay(
-                        productId = product.productIdentifier,
-                        basePlanId = basePlanId,
-                        offerId = offerId,
-                    )
+                    if (replacement != null) {
+                        controller.purchaseFromGooglePlayWithReplacement(
+                            productId = product.productIdentifier,
+                            basePlanId = basePlanId,
+                            offerId = offerId,
+                            replacement = replacement,
+                        )
+                    } else {
+                        controller.purchaseFromGooglePlay(
+                            productId = product.productIdentifier,
+                            basePlanId = basePlanId,
+                            offerId = offerId,
+                        )
+                    }
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (throwable: Throwable) {
-                log("PurchaseController.purchaseFromGooglePlay threw an exception", throwable)
+                log("PurchaseController.$callbackName threw an exception", throwable)
                 PurchaseResult.Failed(
                     throwable.localizedMessage ?: throwable.message
-                        ?: "PurchaseController.purchaseFromGooglePlay threw: $throwable",
+                        ?: "PurchaseController.$callbackName threw: $throwable",
                 )
             }
         return result.toNative()
@@ -94,3 +126,15 @@ internal class PurchaseControllerAdapter(
         return result.toNative()
     }
 }
+
+internal fun NativeProductReplacement.toKmp(): ProductReplacement =
+    ProductReplacement(
+        mode =
+            when (mode) {
+                NativeProductReplacement.Mode.DEFAULT -> ProductReplacementMode.STORE_DEFAULT
+                NativeProductReplacement.Mode.CHARGE_PRORATED -> ProductReplacementMode.CHARGE_PRORATED
+                NativeProductReplacement.Mode.CHARGE_FULL_PRICE -> ProductReplacementMode.CHARGE_FULL_PRICE
+            },
+        oldProductId = oldProductId,
+        oldPurchaseToken = oldPurchaseToken,
+    )

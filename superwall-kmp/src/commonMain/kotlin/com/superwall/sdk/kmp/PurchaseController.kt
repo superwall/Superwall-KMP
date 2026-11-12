@@ -2,6 +2,7 @@ package com.superwall.sdk.kmp
 
 import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.ProductReplacement
 
 /**
  * The interface that handles Superwall's subscription-related logic.
@@ -47,6 +48,29 @@ public interface PurchaseController {
         basePlanId: String?,
         offerId: String?,
     ): PurchaseResult
+
+    /**
+     * Called on Android instead of [purchaseFromGooglePlay] when the purchase
+     * replaces the user's existing subscription (an upgrade, downgrade or
+     * switch), with the [replacement] to pass to Google Play Billing as
+     * `SubscriptionUpdateParams`.
+     *
+     * The default implementation ignores [replacement] and calls
+     * [purchaseFromGooglePlay], so the new product is bought alongside the old
+     * subscription; override it to perform the replacement.
+     *
+     * @param productId The product identifier of the product the user would like to purchase.
+     * @param basePlanId An optional base plan identifier of the product that's being purchased.
+     * @param offerId An optional offer identifier of the product that's being purchased.
+     * @param replacement The subscription being replaced and how to charge for it.
+     * @return The [PurchaseResult] of your purchase logic.
+     */
+    public suspend fun purchaseFromGooglePlayWithReplacement(
+        productId: String,
+        basePlanId: String?,
+        offerId: String?,
+        replacement: ProductReplacement,
+    ): PurchaseResult = purchaseFromGooglePlay(productId, basePlanId, offerId)
 
     /**
      * Called when the user initiates a restore.
