@@ -53,6 +53,10 @@ public data class SuperwallOptions(
      * Observe purchases made outside of Superwall. When `true`, Superwall
      * will observe StoreKit/Play Store transactions and report them.
      * Defaults to `false`.
+     *
+     * On Android, superwall-android only sees purchases the app reports to it
+     * through its observer APIs (or its billing-flow wrapper), which this SDK
+     * does not expose yet; the option alone reports nothing there.
      */
     val shouldObservePurchases: Boolean = false,
     /**

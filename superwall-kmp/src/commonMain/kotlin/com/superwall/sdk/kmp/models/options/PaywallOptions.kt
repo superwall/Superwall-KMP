@@ -39,14 +39,16 @@ public data class PaywallOptions(
      */
     val automaticallyDismiss: Boolean = true,
     /**
-     * The view that appears behind Apple's payment sheet during a transaction.
-     * Defaults to [TransactionBackgroundView.SPINNER]. iOS only.
+     * The view that appears behind the store's payment sheet during a
+     * transaction. Defaults to [TransactionBackgroundView.SPINNER]. Applies on
+     * both platforms: on Android it is the spinner shown over the paywall
+     * while a purchase or restore is in progress.
      */
     val transactionBackgroundView: TransactionBackgroundView = TransactionBackgroundView.SPINNER,
     /**
      * Shows an alert asking the user if they'd like to try to restore on the
      * web, if you have added web checkout on the Superwall dashboard.
-     * Defaults to `true`.
+     * Defaults to `true`. iOS only; has no effect on Android.
      */
     val shouldShowWebRestorationAlert: Boolean = true,
     /**
@@ -57,7 +59,7 @@ public data class PaywallOptions(
     val overrideProductsByName: Map<String, String>? = null,
     /**
      * Shows a localized alert confirming a successful purchase via web
-     * checkout. Defaults to `true`.
+     * checkout. Defaults to `true`. iOS only; has no effect on Android.
      */
     val shouldShowWebPurchaseConfirmationAlert: Boolean = true,
     /**
@@ -76,8 +78,8 @@ public data class PaywallOptions(
 )
 
 /**
- * Defines the different types of views that can appear behind Apple's payment
- * sheet during a transaction. iOS only.
+ * Defines the different types of views that can appear behind the store's
+ * payment sheet during a transaction.
  */
 public enum class TransactionBackgroundView {
     /** Shows a spinner behind the payment sheet. */
