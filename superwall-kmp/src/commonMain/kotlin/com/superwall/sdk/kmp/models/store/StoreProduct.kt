@@ -7,7 +7,11 @@ import kotlin.time.Instant
  * A wrapper around a store product.
  */
 public data class StoreProduct(
-    /** The entitlements associated with this product. */
+    /**
+     * The entitlements associated with this product. Always empty on Android,
+     * where the native store product carries none; use
+     * `Superwall.getEntitlementsByProductIds` there.
+     */
     val entitlements: Set<Entitlement>,
     /** The product's identifier. */
     val productIdentifier: String,
@@ -73,11 +77,14 @@ public data class StoreProduct(
     val trialPeriodText: String,
     /** The locale of the product's price formatting. */
     val locale: String,
-    /** Whether the product is family shareable (App Store). */
+    /** Whether the product is family shareable (App Store; always `false` on Android). */
     val isFamilyShareable: Boolean,
     /** The price of the product in the local currency. */
     val price: Double,
-    /** The identifier of the subscription group the product belongs to (App Store). */
+    /**
+     * The identifier of the subscription group the product belongs to (App
+     * Store; always `null` on Android).
+     */
     val subscriptionGroupIdentifier: String? = null,
     /** The date the trial period ends. */
     val trialPeriodEndDate: Instant? = null,

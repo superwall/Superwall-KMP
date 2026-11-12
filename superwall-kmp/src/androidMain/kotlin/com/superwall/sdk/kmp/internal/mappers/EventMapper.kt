@@ -28,8 +28,8 @@ import com.superwall.sdk.store.transactions.TransactionError as NativeTransactio
  * Payload fields with no [SuperwallEventInfo] counterpart travel in
  * [SuperwallEventInfo.params] under the same keys the iOS mapper uses
  * (`permissionName`, `paywallIdentifier`, `paywallCount`, `pageViewData`,
- * `attributionMatch`), plus the Android-only `url` (resource load failures)
- * and `duration` (shimmer view completion).
+ * `attributionMatch`, `transactionProductId`), plus the Android-only `url`
+ * (resource load failures) and `duration` (shimmer view completion).
  *
  * Only the SDK-internal events (`ErrorThrown`, `ExpressionResult`) and any
  * case newer than this SDK version reach the fallback:
@@ -182,12 +182,15 @@ internal fun NativeSuperwallEventInfo.toKmp(): SuperwallEventInfo {
                 userAttributes = sanitizeParams(event.attributes),
                 params = params,
             )
+        // `product` is synthesized from the native TransactionProduct; the id
+        // is also under params["transactionProductId"], the only place iOS
+        // carries it.
         is NativeSuperwallEvent.NonRecurringProductPurchase ->
             SuperwallEventInfo(
                 eventType = EventType.NON_RECURRING_PRODUCT_PURCHASE,
                 product = event.product.toKmp(),
                 paywallInfo = event.paywallInfo.toKmp(),
-                params = params,
+                params = params.with("transactionProductId" to event.product.id),
             )
         is NativeSuperwallEvent.PaywallResponseLoadStart ->
             SuperwallEventInfo(

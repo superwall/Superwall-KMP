@@ -21,10 +21,10 @@ import com.superwall.sdk.kmp.models.store.StoreTransaction
  * without a field of their own are added here, under the same key on both
  * platforms: `permissionName` and `paywallIdentifier` (permission events),
  * `paywallCount` (preload events), `pageViewData` ([EventType.PAYWALL_PAGE_VIEW]),
- * `attributionMatch` ([EventType.ATTRIBUTION_MATCH]); on iOS only,
- * `transactionType` ([EventType.TRANSACTION_COMPLETE]) and
- * `transactionProductId` ([EventType.NON_RECURRING_PRODUCT_PURCHASE]); on
- * Android only, `url` ([EventType.PAYWALL_RESOURCE_LOAD_FAIL]) and `duration`
+ * `attributionMatch` ([EventType.ATTRIBUTION_MATCH]), `transactionProductId`
+ * ([EventType.NON_RECURRING_PRODUCT_PURCHASE], whose [product] is only set
+ * on Android); on iOS only, `transactionType` ([EventType.TRANSACTION_COMPLETE]);
+ * on Android only, `url` ([EventType.PAYWALL_RESOURCE_LOAD_FAIL]) and `duration`
  * ([EventType.SHIMMER_VIEW_COMPLETE]). An event newer than this SDK arrives
  * as [EventType.CUSTOM_PLACEMENT] with its native name in [name] and under
  * `rawEventType`.
