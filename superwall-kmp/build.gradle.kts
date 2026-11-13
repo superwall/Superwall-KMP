@@ -158,10 +158,6 @@ if (isMacOsHost && !bridgeFrameworkDir.exists()) {
     }
 }
 
-// Writes build/version.json with the resolved version, so the release workflow
-// can read it back the same way Superwall-Android's does (its `Get Version`
-// step parses this file). Keep the shape — {"version": "x.y.z"} — in sync with
-// the workflow's json-property lookup.
 // ---------------------------------------------------------------------------
 // SDK version constant for the native SDKs' platform-wrapper report.
 //
@@ -195,6 +191,10 @@ kotlin.sourceSets.commonMain {
     kotlin.srcDir(generateSdkVersionSource)
 }
 
+// Writes build/version.json with the resolved version, so the release workflow
+// can read it back the same way Superwall-Android's does (its `Get Version`
+// step parses this file). Keep the shape — {"version": "x.y.z"} — in sync with
+// the workflow's json-property lookup.
 tasks.register("generateBuildInfo") {
     val versionValue = version.toString()
     val outputFile = layout.buildDirectory.file("version.json")

@@ -104,9 +104,9 @@ internal class DelegateAdapter(
         error: String?,
     ) {
         // Unmappable native level/scope strings fall back to DEBUG/ALL with the
-        // raw value preserved (BridgeListener contract). The bridge's
-        // Native scopes without a common counterpart (analytics,
-        // webEntitlements, grantedEntitlements, customerCenter) land here too.
+        // raw value preserved (BridgeListener contract). Every SuperwallKit
+        // 4.19.1 scope has a common counterpart, so only a scope newer than
+        // the wrapper lands here.
         val mappedLevel = logLevelFromRawName(level)
         val mappedScope = logScopeFromRawName(scope)
         val sanitizedInfo = NSAnySanitizer.fromMapOrNull(info).orEmpty().toMutableMap()

@@ -6,6 +6,8 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 
 ## Breaking Changes
 - iOS: the minimum deployment target is now iOS 15, and the iOS side must be built with Xcode 26 (Swift 6.2) or later. SuperwallKit 4.18.0 raised both, and the `SuperwallKMPBridge` Swift package now declares iOS 15 and swift-tools-version 6.2 to match. Set your app's iOS deployment target to 15.0 or higher.
+- Several SDK events that used to reach `SuperwallDelegate.handleSuperwallEvent` as `EventType.CUSTOM_PLACEMENT` now arrive under their own `EventType` (listed under Fixes below). Code that matched them by name on `CUSTOM_PLACEMENT` needs to match the new types instead.
+- `EventType`, `LogScope` and `IntegrationAttribute` have new values, so an exhaustive `when` over any of them needs the new branches (or an `else`).
 
 ## Enhancements
 - Updates Android SDK to 2.10.2 [View Android SDK release notes](https://github.com/superwall/Superwall-Android/releases/tag/2.10.2).
