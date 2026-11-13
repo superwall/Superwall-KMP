@@ -5,7 +5,8 @@
 //  The Customer Center (SuperwallKit 4.18.0+): configuration envelopes Kotlin
 //  fills in, the action/purchase envelopes it reads back, the @objc delegate
 //  protocol Kotlin implements and the SuperwallKit.CustomerCenterDelegate that
-//  forwards to it.
+//  forwards to it. The present/dismiss facade methods are in
+//  SuperwallKMPBridge.swift, inside the SWBSuperwallBridge class body.
 //
 //  The configuration envelopes follow SWBSuperwallOptions: mutable properties
 //  set from Kotlin after `init()`, NSNumber for optional numbers and Bools
@@ -352,42 +353,5 @@ final class BridgeCustomerCenterDelegateForwarder: CustomerCenterDelegate {
 
   func customerCenterDidDismiss() {
     bridgeDelegate.customerCenterDidDismiss()
-  }
-}
-
-// MARK: - Facade
-
-extension SWBSuperwallBridge {
-  /// Presents the Customer Center on the main actor. Presenting while one is
-  /// shown does nothing (SuperwallKit logs it), and then `onDismiss` is not
-  /// called.
-  @objc public func presentCustomerCenter(
-    configuration: SWBCustomerCenterConfiguration?,
-    delegate: SWBCustomerCenterDelegate?,
-    onDismiss: (() -> Void)?
-  ) {
-    let nativeConfiguration = configuration?.native
-    Task { @MainActor in
-      let forwarder = delegate.map { BridgeCustomerCenterDelegateForwarder(bridgeDelegate: $0) }
-      Superwall.shared.presentCustomerCenter(
-        configuration: nativeConfiguration,
-        from: nil,
-        delegate: forwarder,
-        onDismiss: onDismiss
-      )
-    }
-  }
-
-  /// Dismisses the Customer Center, if one is shown. `completion` fires once
-  /// it has gone, or straight away when none is shown.
-  @objc public func dismissCustomerCenter(_ completion: @escaping () -> Void) {
-    Task { @MainActor in
-      // SuperwallKit returns without calling the completion when not configured.
-      guard Superwall.isInitialized else {
-        completion()
-        return
-      }
-      Superwall.shared.dismissCustomerCenter(completion: completion)
-    }
   }
 }

@@ -613,7 +613,8 @@ public object Superwall {
      * @param configuration The screens and actions to show; `null` uses
      * `SuperwallOptions.customerCenter`, or the default configuration.
      * @param delegate Receives Customer Center events until it is dismissed.
-     * @param onDismiss Called on the main thread after it is dismissed.
+     * @param onDismiss Called on the main thread after it is dismissed, or
+     * straight away when it could not be shown.
      */
     public fun presentCustomerCenter(
         configuration: CustomerCenterConfiguration? = null,

@@ -21,6 +21,7 @@
 import Combine
 import Foundation
 import SuperwallKit
+import UIKit
 import UserNotifications
 
 // MARK: - Option envelopes (input direction: Kotlin → SuperwallKit)
@@ -732,7 +733,8 @@ public final class SWBSuperwallBridge: NSObject {
   }
 
   /// Subscribes to subscription-status changes via Combine. Emits the current
-  /// value immediately, then every change, on the publisher's queue (main).
+  /// value immediately, then every change, usually on the thread that changed
+  /// the status, which is often a background one.
   /// Cancel via the returned token; the token is retained by the caller.
   @objc public func observeSubscriptionStatus(
     _ onChange: @escaping (SWBSubscriptionStatus) -> Void
@@ -1000,6 +1002,78 @@ public final class SWBSuperwallBridge: NSObject {
   /// exposes this as a UNUserNotificationCenter extension rather than on Superwall.
   @objc public func cancelAllScheduledNotifications() {
     UNUserNotificationCenter.current().removeAllPendingSuperwallNotificationRequests()
+  }
+
+  // MARK: Customer Center
+  // These stay in the class body, not in an extension next to the Customer
+  // Center types: Swift exports an extension's @objc members as an ObjC
+  // category, and Kotlin/Native imports category methods as top-level
+  // extension functions that need their own import, not as members.
+
+  /// Presents the Customer Center on the main actor. `onDismiss` runs on the
+  /// main thread once it has been dismissed, or straight away when it could
+  /// not be shown, as superwall-android does. Presenting while one is shown
+  /// does nothing (SuperwallKit logs it), and then `onDismiss` is not called.
+  @objc public func presentCustomerCenter(
+    configuration: SWBCustomerCenterConfiguration?,
+    delegate: SWBCustomerCenterDelegate?,
+    onDismiss: (() -> Void)?
+  ) {
+    let nativeConfiguration = configuration?.native
+    Task { @MainActor in
+      let forwarder = delegate.map { BridgeCustomerCenterDelegateForwarder(bridgeDelegate: $0) }
+      // One gate for SuperwallKit's dismissal and the refusal below.
+      let once = OnceGate()
+      let onDismissOnce: () -> Void = {
+        guard once.tryPass() else { return }
+        onDismiss?()
+      }
+      Superwall.shared.presentCustomerCenter(
+        configuration: nativeConfiguration,
+        from: nil,
+        delegate: forwarder,
+        onDismiss: onDismissOnce
+      )
+      // SuperwallKit only logs a presentation it couldn't start (nothing to
+      // present from, or UIKit refused it) and exposes no "is presented"
+      // state. UIKit links the presented controller in before `present`
+      // returns, so none in the hierarchy now means none was shown.
+      if !SWBSuperwallBridge.isCustomerCenterInHierarchy() {
+        onDismissOnce()
+      }
+    }
+  }
+
+  /// Dismisses the Customer Center, if one is shown. `completion` fires once
+  /// it has gone, or straight away when none is shown.
+  @objc public func dismissCustomerCenter(_ completion: @escaping () -> Void) {
+    Task { @MainActor in
+      // SuperwallKit returns without calling the completion when not configured.
+      guard Superwall.isInitialized else {
+        completion()
+        return
+      }
+      Superwall.shared.dismissCustomerCenter(completion: completion)
+    }
+  }
+
+  /// Whether a Customer Center is in any window's chain of presented view
+  /// controllers, which is where SuperwallKit presents it.
+  @MainActor
+  private static func isCustomerCenterInHierarchy() -> Bool {
+    for scene in UIApplication.shared.connectedScenes {
+      guard let windowScene = scene as? UIWindowScene else { continue }
+      for window in windowScene.windows {
+        var controller = window.rootViewController
+        while let current = controller {
+          if current is CustomerCenterViewController {
+            return true
+          }
+          controller = current.presentedViewController
+        }
+      }
+    }
+    return false
   }
 
   // MARK: Platform no-ops

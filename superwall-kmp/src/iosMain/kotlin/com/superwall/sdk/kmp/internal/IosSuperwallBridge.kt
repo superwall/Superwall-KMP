@@ -145,7 +145,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
         // has been called, so reporting the wrapper and the deferred delegate
         // install are safe now (doing either earlier would hit SuperwallKit's
         // throwaway pre-configure instance and be lost).
-        swb.setPlatformWrapper(PLATFORM_WRAPPER, version = SDK_VERSION)
+        swb.setPlatformWrapper(PLATFORM_WRAPPER, SDK_VERSION)
         installPendingDelegate()
     }
 
