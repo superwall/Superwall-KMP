@@ -19,14 +19,15 @@ import com.superwall.sdk.kmp.models.store.TransactionProduct
  * to that event are non-null. Delivered to `SuperwallDelegate.handleSuperwallEvent`.
  *
  * @property eventType The type of the event.
- * @property params Parameters associated with the event. Some payload
- * values that now have a field of their own are still added here, as they
- * were before the fields existed, under the same key on both platforms: `permissionName` and `paywallIdentifier` (permission events),
- * `paywallCount` (preload events), `pageViewData` ([EventType.PAYWALL_PAGE_VIEW]),
- * `attributionMatch` ([EventType.ATTRIBUTION_MATCH]), `transactionProductId`
- * ([EventType.NON_RECURRING_PRODUCT_PURCHASE], whose [product] is only set
- * on Android); on iOS only, `transactionType` ([EventType.TRANSACTION_COMPLETE]);
- * on Android only, `url` ([EventType.PAYWALL_RESOURCE_LOAD_FAIL]) and `duration`
+ * @property params Parameters associated with the event. Payload values
+ * that now have a field of their own are still added here, as they were
+ * before the fields existed, under the same key on both platforms:
+ * `permissionName` and `paywallIdentifier` (permission events), `paywallCount`
+ * (preload events), `pageViewData` ([EventType.PAYWALL_PAGE_VIEW]),
+ * `attributionMatch` ([EventType.ATTRIBUTION_MATCH]) and `transactionProductId`
+ * ([EventType.NON_RECURRING_PRODUCT_PURCHASE]); on iOS only, `transactionType`
+ * ([EventType.TRANSACTION_COMPLETE]); on Android only, `url`
+ * ([EventType.PAYWALL_RESOURCE_LOAD_FAIL]) and `duration`
  * ([EventType.SHIMMER_VIEW_COMPLETE]). An event newer than this SDK arrives
  * as [EventType.CUSTOM_PLACEMENT] with its native name in [name] and under
  * `rawEventType`.
@@ -36,7 +37,9 @@ import com.superwall.sdk.kmp.models.store.TransactionProduct
  * @property result The trigger result, for trigger-fire events.
  * @property paywallInfo Info about the paywall involved in the event.
  * @property transaction The store transaction involved in the event.
- * @property product The store product involved in the event.
+ * @property product The store product involved in the event. For
+ * [EventType.NON_RECURRING_PRODUCT_PURCHASE] it is set on Android only, built
+ * from the smaller [transactionProduct]; use [transactionProduct] there.
  * @property error A description of the error, for failure events.
  * @property triggeredPlacementName The name of the placement that triggered the event.
  * @property attempt The retry attempt number, for retry events.

@@ -65,6 +65,12 @@ scope.launch {
 - **`configure` runs once per process.** Repeat calls are no-ops whose completion
   fires with the first call's outcome; options and the purchase controller are
   installed only by the first one.
+  The one exception is Android's development-only `Superwall.teardown()`, after
+  which `configure` runs again; iOS has no teardown.
+- **Purchase controllers get the whole product.** The SDK calls the
+  `PurchaseController` overloads that take a `StoreProduct`; their defaults
+  forward to the product-id methods. Override them to handle custom store
+  products (`isCustomProduct`, `customTransactionId`).
 
 ---
 
