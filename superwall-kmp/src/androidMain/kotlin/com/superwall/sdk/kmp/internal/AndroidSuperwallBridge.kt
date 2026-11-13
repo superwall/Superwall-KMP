@@ -2,9 +2,11 @@ package com.superwall.sdk.kmp.internal
 
 import android.net.Uri
 import android.util.Log
+import com.superwall.sdk.kmp.CustomerCenterDelegate
 import com.superwall.sdk.kmp.PaywallPresentationHandler
 import com.superwall.sdk.kmp.PurchaseController
 import com.superwall.sdk.kmp.SuperwallError
+import com.superwall.sdk.kmp.internal.adapters.CustomerCenterDelegateAdapter
 import com.superwall.sdk.kmp.internal.adapters.DelegateAdapter
 import com.superwall.sdk.kmp.internal.adapters.OnBackPressedAdapter
 import com.superwall.sdk.kmp.internal.adapters.PresentationHandlerAdapter
@@ -12,41 +14,51 @@ import com.superwall.sdk.kmp.internal.adapters.PurchaseControllerAdapter
 import com.superwall.sdk.kmp.internal.mappers.sanitizeParams
 import com.superwall.sdk.kmp.internal.mappers.toKmp
 import com.superwall.sdk.kmp.internal.mappers.toNative
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
 import com.superwall.sdk.kmp.models.entitlements.Entitlements
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
+import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
+import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
 import com.superwall.sdk.kmp.models.results.PresentationResult
+import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
 import com.superwall.sdk.Superwall as NativeSuperwall
 import com.superwall.sdk.config.models.ConfigurationStatus as NativeConfigurationStatus
 import com.superwall.sdk.config.options.SuperwallOptions as NativeSuperwallOptions
 import com.superwall.sdk.identity.IdentityOptions as NativeIdentityOptions
 import com.superwall.sdk.identity.identify as nativeIdentify
 import com.superwall.sdk.identity.setUserAttributes as nativeSetUserAttributes
-import com.superwall.sdk.models.attribution.AttributionProvider as NativeAttributionProvider
 import com.superwall.sdk.network.device.InterfaceStyle as NativeInterfaceStyle
 import com.superwall.sdk.paywall.presentation.dismiss as nativeDismiss
+import com.superwall.sdk.paywall.presentation.dismissForNextPaywall as nativeDismissForNextPaywall
 import com.superwall.sdk.paywall.presentation.get_presentation_result.getPresentationResult as nativeGetPresentationResult
 import com.superwall.sdk.paywall.presentation.register as nativeRegister
+import com.superwall.sdk.web.openRestoreOnWeb as nativeOpenRestoreOnWeb
 
 /**
  * The Android [SuperwallBridge]: a port of the Flutter plugin's
  * `SuperwallHost.kt` minus all Pigeon transport, calling superwall-android
- * 2.7.11 directly (every native symbol verified against the 2.7.11 sources).
+ * directly (written against 2.7.11, now compiled against 2.10.2).
  *
  * Deliberate fixes over the Flutter host
  * - `configure`'s completion forwards the REAL native `Result<Unit>` instead
@@ -55,14 +67,15 @@ import com.superwall.sdk.paywall.presentation.register as nativeRegister
  * - `registerPlacement` creates a fresh [PresentationHandlerAdapter] per call
  *   — no placement-keyed registry, no one-handler-per-placement aliasing.
  * - `getEntitlementsByProductIds` calls the REAL native
- *   `Entitlements.byProductIds` (present in 2.7.11; the Flutter host's
+ *   `Entitlements.byProductIds` (present since 2.7.11; the Flutter host's
  *   "Android SDK doesn't have it" local-filter stub is obsolete).
  * - `getCustomerInfo` returns the REAL native `Superwall.getCustomerInfo()`
- *   (present in 2.7.11; the Flutter host synthesized a minimal stub).
+ *   (present since 2.7.11; the Flutter host synthesized a minimal stub).
  * - Integration attributes use the native
  *   `setIntegrationAttributes(Map<AttributionProvider, String>)` API instead
  *   of the Flutter host's `$`-prefixed user-attribute workaround, with
- *   merge/null-removes semantics implemented over the native replace-all call.
+ *   merge/null-removes semantics implemented over the native replace-all call
+ *   by [IntegrationAttributeStore].
  *
  * Threading SDK→app callbacks dispatch on
  * `Dispatchers.Main.immediate` via the attached [StreamHolder]'s scope
@@ -90,6 +103,10 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
     /** The installed [BridgeListener] (the common `DelegateMultiplexer`). */
     @Volatile
     private var listener: BridgeListener? = null
+
+    /** The collectors feeding the common flows; replaced on a configure after [teardown]. */
+    private var subscriptionStatusJob: Job? = null
+    private var configurationStatusJob: Job? = null
 
     /** The native delegate adapter wrapping [listener]; created once. */
     @Volatile
@@ -128,13 +145,21 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         }
     }
 
+    /** Merge/null-removes semantics over the native replace-all call. */
+    private val integrationAttributes =
+        IntegrationAttributeStore(
+            readNative = { NativeSuperwall.instance.integrationAttributes },
+            writeNative = { NativeSuperwall.instance.setIntegrationAttributes(it) },
+            log = ::logError,
+        )
+
     // ---- Configuration -----------------------------------------------------
 
     /**
      * Calls the static
      * `NativeSuperwall.configure(applicationContext, apiKey,
      * purchaseController, options, activityProvider, completion)`
-     * (verified signature: superwall-android 2.8.0 `Superwall.kt:526`).
+     * (verified signature: superwall-android 2.10.2 `Superwall.kt:479`).
      *
      * The `Application` comes from [ApplicationContextHolder]; when neither
      * the androidx.startup initializer nor `Superwall.androidSetup` ran, this
@@ -183,8 +208,15 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
             },
         )
 
-        // The native singleton exists synchronously after configure; install
-        // the delegate now so no early event is missed.
+        // The native singleton exists synchronously after configure; report the
+        // wrapper before the first config request goes out, and install the
+        // delegate now so no early event is missed.
+        NativeSuperwall.instance.setPlatformWrapper(PLATFORM_WRAPPER, SDK_VERSION)
+        // Not a native option: local resources live on the instance. Set
+        // before any paywall can load, as the options are.
+        options?.localResources?.takeIf { it.isNotEmpty() }?.let {
+            NativeSuperwall.instance.localResources = it.toNative()
+        }
         installNativeDelegateIfPossible()
     }
 
@@ -220,12 +252,15 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     override fun getConfigurationStatus(): ConfigurationStatus {
         if (!NativeSuperwall.initialized) return ConfigurationStatus.PENDING
-        return when (NativeSuperwall.instance.configurationState) {
+        return NativeSuperwall.instance.configurationState.toKmp()
+    }
+
+    private fun NativeConfigurationStatus.toKmp(): ConfigurationStatus =
+        when (this) {
             is NativeConfigurationStatus.Configured -> ConfigurationStatus.CONFIGURED
             is NativeConfigurationStatus.Failed -> ConfigurationStatus.FAILED
             is NativeConfigurationStatus.Pending -> ConfigurationStatus.PENDING
         }
-    }
 
     /**
      * Attaches the native subscription-status source to the common-owned flow:
@@ -239,7 +274,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
      * is invisible to app code and has no business occupying the looper.
      *
      * `customerInfo` is deliberately NOT collected here: superwall-android
-     * 2.7.11's `SuperwallDelegate.customerInfoDidChange` hook exists and is
+     * `SuperwallDelegate.customerInfoDidChange` hook exists and is
      * wired in [DelegateAdapter], and the common `DelegateMultiplexer` already
      * feeds `StreamHolder.customerInfo` from that hook — collecting the native
      * `Superwall.instance.customerInfo` StateFlow here as well would
@@ -249,11 +284,45 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         streamHolder = holder
         val native = NativeSuperwall.instance
         holder.subscriptionStatus.value = native.subscriptionStatus.value.toKmp()
-        holder.scope.launch(Dispatchers.Default) {
-            native.subscriptionStatus.collect { status ->
-                holder.subscriptionStatus.value = status.toKmp()
+        subscriptionStatusJob?.cancel()
+        subscriptionStatusJob =
+            holder.scope.launch(Dispatchers.Default) {
+                native.subscriptionStatus.collect { status ->
+                    holder.subscriptionStatus.value = status.toKmp()
+                }
             }
-        }
+    }
+
+    /**
+     * Collects `Superwall.configurationStateListener` on [Dispatchers.Default]
+     * for the same reason as the subscription status feed above. The current
+     * status is written first, so the flow is right before the collector's
+     * first emission.
+     */
+    override fun attachConfigurationStatus(holder: StreamHolder) {
+        val native = NativeSuperwall.instance
+        holder.configurationStatus.value = getConfigurationStatus()
+        configurationStatusJob?.cancel()
+        configurationStatusJob =
+            holder.scope.launch(Dispatchers.Default) {
+                native.configurationStateListener.collect { status ->
+                    holder.configurationStatus.value = status.toKmp()
+                }
+            }
+    }
+
+    /**
+     * The static `Superwall.teardown()` (superwall-android 2.10.2
+     * `Superwall.kt:576`). The feeds of the instance that is going away are
+     * cancelled first; the next configure attaches them to the new instance.
+     */
+    override fun teardown(): Boolean {
+        subscriptionStatusJob?.cancel()
+        subscriptionStatusJob = null
+        configurationStatusJob?.cancel()
+        configurationStatusJob = null
+        NativeSuperwall.teardown()
+        return true
     }
 
     // ---- Logging -----------------------------------------------------------
@@ -295,49 +364,11 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         setIntegrationAttributes(mapOf(attribute to value))
     }
 
-    /**
-     * The native `setIntegrationAttributes` REPLACES the whole map
-     * (`AttributionManager.kt`), so the common merge/null-removes contract is
-     * implemented by reading the current native attributes, applying the
-     * changes, and writing the merged map back.
-     */
     override fun setIntegrationAttributes(attributes: Map<IntegrationAttribute, String?>) {
-        val merged = currentNativeIntegrationAttributes().toMutableMap()
-        for ((attribute, value) in attributes) {
-            val native = attribute.toNativeAttributionProvider()
-            if (native == null) {
-                logError(
-                    "Integration attribute ${attribute.name} is not supported by " +
-                        "superwall-android and was skipped.",
-                    error = null,
-                )
-                continue
-            }
-            if (value == null) merged.remove(native) else merged[native] = value
-        }
-        NativeSuperwall.instance.setIntegrationAttributes(merged)
+        integrationAttributes.set(attributes)
     }
 
-    override fun getIntegrationAttributes(): Map<IntegrationAttribute, String?> =
-        currentNativeIntegrationAttributes()
-            .entries
-            .mapNotNull { (provider, value) ->
-                provider.toKmpIntegrationAttribute()?.let { it to value }
-            }.toMap()
-
-    /**
-     * Reads the native raw-name-keyed attribute map back into provider keys.
-     * Raw names that don't correspond to a known provider are dropped
-     * (degrade, never crash).
-     */
-    private fun currentNativeIntegrationAttributes(): Map<NativeAttributionProvider, String> =
-        NativeSuperwall.instance.integrationAttributes
-            .entries
-            .mapNotNull { (rawName, value) ->
-                NativeAttributionProvider.entries
-                    .firstOrNull { it.rawName == rawName }
-                    ?.let { it to value }
-            }.toMap()
+    override fun getIntegrationAttributes(): Map<IntegrationAttribute, String?> = integrationAttributes.get()
 
     override suspend fun getDeviceAttributes(): Map<String, Any?> =
         withContext(Dispatchers.IO) {
@@ -356,7 +387,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     /**
      * Calls the REAL native `Entitlements.byProductIds(Set<String>)` —
-     * verified present in superwall-android 2.8.0 (`store/Entitlements.kt:213`).
+     * verified present in superwall-android 2.10.2 (`store/Entitlements.kt:134`).
      * The Flutter host's local-filter stub ("Android SDK doesn't have
      * byProductIds yet") is obsolete against this SDK version.
      */
@@ -376,11 +407,32 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     /**
      * Returns the REAL native `Superwall.getCustomerInfo()` — verified present
-     * in superwall-android 2.8.0 (`Superwall.kt:245`, a synchronous StateFlow
+     * in superwall-android 2.10.2 (`Superwall.kt:275`, a synchronous StateFlow
      * read). The Flutter host's synthesized minimal stub is obsolete against
      * this SDK version.
      */
     override suspend fun getCustomerInfo(): CustomerInfo = NativeSuperwall.instance.getCustomerInfo().toKmp()
+
+    /** superwall-android has no customer info refresh; this is the current value. */
+    override suspend fun refreshCustomerInfo(): CustomerInfo = getCustomerInfo()
+
+    /** Granted entitlements are an iOS-only concept: always empty here. */
+    override fun getGrantedEntitlements(): Set<Entitlement> = emptySet()
+
+    /** Granted entitlements are an iOS-only concept: a no-op here. */
+    override fun setGrantedEntitlements(entitlements: Set<Entitlement>) {}
+
+    /** A synchronous read of the stored assignments (`AssignmentService.getAssignments`). */
+    override fun getAssignments(): Set<ConfirmedAssignment> =
+        NativeSuperwall.instance
+            .getAssignments()
+            .getOrElse { throwable ->
+                throw SuperwallError.Native(
+                    throwable.localizedMessage ?: throwable.message,
+                    throwable,
+                )
+            }.map { it.toKmp() }
+            .toSet()
 
     override suspend fun confirmAllAssignments(): Set<ConfirmedAssignment> =
         withContext(Dispatchers.IO) {
@@ -406,6 +458,40 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
                     )
                 },
             )
+        }
+
+    /**
+     * `Superwall.purchase(productId)` (verified signature: superwall-android
+     * 2.10.2 `Superwall.kt:985`). Its `Result.failure` (an unknown product,
+     * no activity, a billing error) becomes [PurchaseResult.Failed], as iOS
+     * reports failures in the result.
+     */
+    override suspend fun purchase(productId: String): PurchaseResult =
+        withContext(Dispatchers.IO) {
+            NativeSuperwall.instance.purchase(productId).fold(
+                onSuccess = { it.toKmp() },
+                onFailure = { throwable ->
+                    PurchaseResult.Failed(
+                        throwable.localizedMessage ?: throwable.message ?: "Unknown error",
+                    )
+                },
+            )
+        }
+
+    /**
+     * `Superwall.getProducts(vararg productIds)` (`Superwall.kt:993`), keyed
+     * by the requested (full) identifier.
+     */
+    override suspend fun getProducts(productIds: Set<String>): Map<String, StoreProduct> =
+        withContext(Dispatchers.IO) {
+            NativeSuperwall.instance
+                .getProducts(*productIds.toTypedArray())
+                .getOrElse { throwable ->
+                    throw SuperwallError.Native(
+                        throwable.localizedMessage ?: throwable.message,
+                        throwable,
+                    )
+                }.mapValues { (_, product) -> product.toKmp() }
         }
 
     // ---- Presentation --------------------------------------------------------
@@ -462,6 +548,58 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         }
     }
 
+    /** The native suspend extension hops to the main dispatcher itself. */
+    override suspend fun dismissForNextPaywall() {
+        NativeSuperwall.instance.nativeDismissForNextPaywall()
+    }
+
+    /**
+     * `Superwall.showAlert` (superwall-android 2.10.2 `Superwall.kt:663`).
+     * The native SDK runs [action] and [onClose] from the alert's click
+     * listeners, i.e. on the main thread; they are wrapped only so an
+     * exception from app code is logged instead of crashing the dialog.
+     */
+    override fun showAlert(
+        title: String?,
+        message: String?,
+        actionTitle: String?,
+        closeActionTitle: String,
+        action: (() -> Unit)?,
+        onClose: (() -> Unit)?,
+    ) {
+        fun guarded(
+            name: String,
+            block: (() -> Unit)?,
+        ): (() -> Unit)? =
+            block?.let {
+                {
+                    try {
+                        it()
+                    } catch (throwable: Throwable) {
+                        logError("The showAlert $name block threw an exception", throwable)
+                    }
+                }
+            }
+        // The alert is built on the paywall's view, so it has to be shown
+        // from the main thread; Main.immediate runs inline when already there.
+        callbackScope().launch {
+            NativeSuperwall.instance.showAlert(
+                title = title,
+                message = message,
+                actionTitle = actionTitle,
+                closeActionTitle = closeActionTitle,
+                action = guarded("action", action),
+                onClose = guarded("onClose", onClose),
+            )
+        }
+    }
+
+    override fun openRestoreOnWeb() {
+        NativeSuperwall.instance.nativeOpenRestoreOnWeb()
+    }
+
+    override fun getExternalAccountId(): String? = NativeSuperwall.instance.externalAccountId
+
     override fun isPaywallPresented(): Boolean = NativeSuperwall.instance.isPaywallPresented
 
     override fun getLatestPaywallInfo(): PaywallInfo? = NativeSuperwall.instance.latestPaywallInfo?.toKmp()
@@ -483,6 +621,46 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     override fun togglePaywallSpinner(isHidden: Boolean) {
         NativeSuperwall.instance.togglePaywallSpinner(isHidden)
+    }
+
+    // ---- Customer Center --------------------------------------------------------
+
+    /**
+     * `Superwall.presentCustomerCenter` (superwall-android 2.10.2
+     * `Superwall.kt:1143`) must be called on the main thread, so it is
+     * launched on the `Main.immediate` callback scope, which runs inline when
+     * the caller is already there. `onDismiss` comes back on main.
+     */
+    override fun presentCustomerCenter(
+        configuration: CustomerCenterConfiguration?,
+        delegate: CustomerCenterDelegate?,
+        onDismiss: (() -> Unit)?,
+    ) {
+        val nativeConfiguration = configuration?.toNative()
+        val nativeDelegate = delegate?.let { CustomerCenterDelegateAdapter(it, ::callbackScope, ::logError) }
+        val nativeOnDismiss: (() -> Unit)? =
+            onDismiss?.let { block ->
+                {
+                    try {
+                        block()
+                    } catch (throwable: Throwable) {
+                        logError("The presentCustomerCenter onDismiss block threw an exception", throwable)
+                    }
+                }
+            }
+        callbackScope().launch {
+            NativeSuperwall.instance.presentCustomerCenter(nativeConfiguration, nativeDelegate, nativeOnDismiss)
+        }
+    }
+
+    override suspend fun dismissCustomerCenter() {
+        withContext(Dispatchers.Main.immediate) {
+            suspendCancellableCoroutine { continuation ->
+                NativeSuperwall.instance.dismissCustomerCenter {
+                    if (continuation.isActive) continuation.resume(Unit)
+                }
+            }
+        }
     }
 
     // ---- Products / misc ------------------------------------------------------
@@ -507,6 +685,42 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
                 InterfaceStyle.AUTOMATIC, null -> null
             },
         )
+    }
+
+    override fun getAdConsent(): AdConsent? = NativeSuperwall.instance.adConsent.toKmp()
+
+    override fun setAdConsent(consent: AdConsent) {
+        NativeSuperwall.instance.adConsent = consent.toNative()
+    }
+
+    override fun refreshConfiguration() {
+        NativeSuperwall.instance.refreshConfiguration()
+    }
+
+    override fun getEventTrackingBehavior(): EventTrackingBehavior = NativeSuperwall.instance.eventTrackingBehavior.toKmp()
+
+    override fun setEventTrackingBehavior(behavior: EventTrackingBehavior) {
+        NativeSuperwall.instance.eventTrackingBehavior = behavior.toNative()
+    }
+
+    override fun cancelAllScheduledNotifications() {
+        NativeSuperwall.instance.cancelAllScheduledNotifications()
+    }
+
+    override fun setPushToken(token: String) {
+        NativeSuperwall.instance.setPushToken(token)
+    }
+
+    override fun setNotificationsEnabled(enabled: Boolean) {
+        if (enabled) {
+            NativeSuperwall.instance.optInToNotifications()
+        } else {
+            NativeSuperwall.instance.optOutOfNotifications()
+        }
+    }
+
+    override fun handleNotificationOpen(data: Map<String, String>) {
+        NativeSuperwall.instance.handleNotificationOpen(data)
     }
 
     /**
@@ -544,80 +758,3 @@ private fun Map<String, Any?>?.toNonNullParams(): Map<String, Any>? {
         .filterValues { it != null }
         .mapValues { (_, value) -> value as Any }
 }
-
-// ---- IntegrationAttribute <-> AttributionProvider ----------------------------
-
-/**
- * Maps the common [IntegrationAttribute] to the native
- * [NativeAttributionProvider], or `null` for the iOS-only
- * [IntegrationAttribute.FIREBASE_INSTALLATION_ID] (superwall-android 2.8.0
- * has no counterpart — the caller skips it with a logged warning; the native
- * enum's extra values — META, AMPLITUDE, MIXPANEL, GOOGLE_ADS, GOOGLE_APP_SET,
- * CUSTOM — have no common counterpart and surface only through
- * [toKmpIntegrationAttribute] as `null`).
- */
-private fun IntegrationAttribute.toNativeAttributionProvider(): NativeAttributionProvider? =
-    when (this) {
-        IntegrationAttribute.FIREBASE_INSTALLATION_ID -> null
-        IntegrationAttribute.SINGULAR_DEVICE_ID -> NativeAttributionProvider.SINGULAR_DEVICE_ID
-        IntegrationAttribute.ADJUST_ID -> NativeAttributionProvider.ADJUST_ID
-        IntegrationAttribute.AMPLITUDE_DEVICE_ID -> NativeAttributionProvider.AMPLITUDE_DEVICE_ID
-        IntegrationAttribute.AMPLITUDE_USER_ID -> NativeAttributionProvider.AMPLITUDE_USER_ID
-        IntegrationAttribute.APPSFLYER_ID -> NativeAttributionProvider.APPSFLYER_ID
-        IntegrationAttribute.BRAZE_ALIAS_NAME -> NativeAttributionProvider.BRAZE_ALIAS_NAME
-        IntegrationAttribute.BRAZE_ALIAS_LABEL -> NativeAttributionProvider.BRAZE_ALIAS_LABEL
-        IntegrationAttribute.ONESIGNAL_ID -> NativeAttributionProvider.ONESIGNAL_ID
-        IntegrationAttribute.FB_ANON_ID -> NativeAttributionProvider.FB_ANON_ID
-        IntegrationAttribute.FIREBASE_APP_INSTANCE_ID ->
-            NativeAttributionProvider.FIREBASE_APP_INSTANCE_ID
-        IntegrationAttribute.ITERABLE_USER_ID -> NativeAttributionProvider.ITERABLE_USER_ID
-        IntegrationAttribute.ITERABLE_CAMPAIGN_ID -> NativeAttributionProvider.ITERABLE_CAMPAIGN_ID
-        IntegrationAttribute.ITERABLE_TEMPLATE_ID -> NativeAttributionProvider.ITERABLE_TEMPLATE_ID
-        IntegrationAttribute.MIXPANEL_DISTINCT_ID -> NativeAttributionProvider.MIXPANEL_DISTINCT_ID
-        IntegrationAttribute.MPARTICLE_ID -> NativeAttributionProvider.MPARTICLE_ID
-        IntegrationAttribute.CLEVERTAP_ID -> NativeAttributionProvider.CLEVERTAP_ID
-        IntegrationAttribute.AIRSHIP_CHANNEL_ID -> NativeAttributionProvider.AIRSHIP_CHANNEL_ID
-        IntegrationAttribute.KOCHAVA_DEVICE_ID -> NativeAttributionProvider.KOCHAVA_DEVICE_ID
-        IntegrationAttribute.TENJIN_ID -> NativeAttributionProvider.TENJIN_ID
-        IntegrationAttribute.POSTHOG_USER_ID -> NativeAttributionProvider.POSTHOG_USER_ID
-        IntegrationAttribute.CUSTOMERIO_ID -> NativeAttributionProvider.CUSTOMERIO_ID
-        IntegrationAttribute.APPSTACK_ID -> NativeAttributionProvider.APPSTACK
-    }
-
-/**
- * Maps a native provider back to the common enum, or `null` when the native
- * value has no common counterpart (dropped — degrade, never crash).
- */
-private fun NativeAttributionProvider.toKmpIntegrationAttribute(): IntegrationAttribute? =
-    when (this) {
-        NativeAttributionProvider.SINGULAR_DEVICE_ID -> IntegrationAttribute.SINGULAR_DEVICE_ID
-        NativeAttributionProvider.ADJUST_ID -> IntegrationAttribute.ADJUST_ID
-        NativeAttributionProvider.AMPLITUDE_DEVICE_ID -> IntegrationAttribute.AMPLITUDE_DEVICE_ID
-        NativeAttributionProvider.AMPLITUDE_USER_ID -> IntegrationAttribute.AMPLITUDE_USER_ID
-        NativeAttributionProvider.APPSFLYER_ID -> IntegrationAttribute.APPSFLYER_ID
-        NativeAttributionProvider.BRAZE_ALIAS_NAME -> IntegrationAttribute.BRAZE_ALIAS_NAME
-        NativeAttributionProvider.BRAZE_ALIAS_LABEL -> IntegrationAttribute.BRAZE_ALIAS_LABEL
-        NativeAttributionProvider.ONESIGNAL_ID -> IntegrationAttribute.ONESIGNAL_ID
-        NativeAttributionProvider.FB_ANON_ID -> IntegrationAttribute.FB_ANON_ID
-        NativeAttributionProvider.FIREBASE_APP_INSTANCE_ID ->
-            IntegrationAttribute.FIREBASE_APP_INSTANCE_ID
-        NativeAttributionProvider.ITERABLE_USER_ID -> IntegrationAttribute.ITERABLE_USER_ID
-        NativeAttributionProvider.ITERABLE_CAMPAIGN_ID -> IntegrationAttribute.ITERABLE_CAMPAIGN_ID
-        NativeAttributionProvider.ITERABLE_TEMPLATE_ID -> IntegrationAttribute.ITERABLE_TEMPLATE_ID
-        NativeAttributionProvider.MIXPANEL_DISTINCT_ID -> IntegrationAttribute.MIXPANEL_DISTINCT_ID
-        NativeAttributionProvider.MPARTICLE_ID -> IntegrationAttribute.MPARTICLE_ID
-        NativeAttributionProvider.CLEVERTAP_ID -> IntegrationAttribute.CLEVERTAP_ID
-        NativeAttributionProvider.AIRSHIP_CHANNEL_ID -> IntegrationAttribute.AIRSHIP_CHANNEL_ID
-        NativeAttributionProvider.KOCHAVA_DEVICE_ID -> IntegrationAttribute.KOCHAVA_DEVICE_ID
-        NativeAttributionProvider.TENJIN_ID -> IntegrationAttribute.TENJIN_ID
-        NativeAttributionProvider.POSTHOG_USER_ID -> IntegrationAttribute.POSTHOG_USER_ID
-        NativeAttributionProvider.CUSTOMERIO_ID -> IntegrationAttribute.CUSTOMERIO_ID
-        NativeAttributionProvider.APPSTACK -> IntegrationAttribute.APPSTACK_ID
-        NativeAttributionProvider.META,
-        NativeAttributionProvider.AMPLITUDE,
-        NativeAttributionProvider.MIXPANEL,
-        NativeAttributionProvider.GOOGLE_ADS,
-        NativeAttributionProvider.GOOGLE_APP_SET,
-        NativeAttributionProvider.CUSTOM,
-        -> null
-    }

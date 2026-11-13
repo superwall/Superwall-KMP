@@ -1,16 +1,25 @@
 package com.superwall.sdk.kmp
 
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.EventType
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.events.SuperwallEventInfo
+import com.superwall.sdk.kmp.models.options.AdConsent
+import com.superwall.sdk.kmp.models.options.AdConsentStatus
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
+import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
+import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
+import com.superwall.sdk.kmp.models.results.PurchaseResult
+import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
+import com.superwall.sdk.kmp.models.triggers.Variant
+import com.superwall.sdk.kmp.models.triggers.VariantType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -165,6 +174,21 @@ class SuperwallFacadeTest {
                 "togglePaywallSpinner" to { Superwall.togglePaywallSpinner(true) },
                 "overrideProductsByName get" to { Superwall.overrideProductsByName },
                 "overrideProductsByName set" to { Superwall.overrideProductsByName = mapOf("primary" to "id") },
+                "adConsent" to { Superwall.adConsent },
+                "setAdConsent" to { Superwall.setAdConsent(AdConsent()) },
+                "eventTrackingBehavior get" to { Superwall.eventTrackingBehavior },
+                "eventTrackingBehavior set" to { Superwall.eventTrackingBehavior = EventTrackingBehavior.NONE },
+                "grantedEntitlements get" to { Superwall.grantedEntitlements },
+                "grantedEntitlements set" to { Superwall.grantedEntitlements = emptySet() },
+                "getAssignments" to { Superwall.getAssignments() },
+                "setInterfaceStyle" to { Superwall.setInterfaceStyle(InterfaceStyle.DARK) },
+                "refreshConfiguration" to { Superwall.refreshConfiguration() },
+                "cancelAllScheduledNotifications" to { Superwall.cancelAllScheduledNotifications() },
+                "setPushToken" to { Superwall.setPushToken("token") },
+                "optOutOfNotifications" to { Superwall.optOutOfNotifications() },
+                "optInToNotifications" to { Superwall.optInToNotifications() },
+                "handleNotificationOpen" to { Superwall.handleNotificationOpen(mapOf("sw" to "x")) },
+                "presentCustomerCenter" to { Superwall.presentCustomerCenter() },
             )
 
         for ((name, block) in guarded) {
@@ -180,8 +204,12 @@ class SuperwallFacadeTest {
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.getDeviceAttributes() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.getEntitlementsByProductIds(setOf("p")) }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.getCustomerInfo() }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.refreshCustomerInfo() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.confirmAllAssignments() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.restorePurchases() }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.purchase("product") }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.dismissCustomerCenter() }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.getProducts(setOf("product")) }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.getPresentationResult("placement") }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.dismiss() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.consume("token") }
@@ -542,5 +570,254 @@ class SuperwallFacadeTest {
             assertEquals("token_1", Superwall.consume("token_1"))
 
             assertTrue(fake.calls.containsAll(listOf("getUserId", "setSubscriptionStatus", "restorePurchases", "consume")))
+        }
+
+    @Test
+    fun runtimeSettersAndNotificationMembersForwardToBridge() =
+        runTest {
+            Superwall.configure("pk_test")
+            fake.calls.clear()
+
+            assertNull(Superwall.adConsent)
+            val consent = AdConsent(adPersonalization = AdConsentStatus.DENIED)
+            Superwall.setAdConsent(consent)
+            assertEquals(consent, Superwall.adConsent)
+
+            Superwall.eventTrackingBehavior = EventTrackingBehavior.SUPERWALL_ONLY
+            assertEquals(EventTrackingBehavior.SUPERWALL_ONLY, Superwall.eventTrackingBehavior)
+
+            Superwall.setInterfaceStyle(InterfaceStyle.DARK)
+            assertEquals(InterfaceStyle.DARK, fake.lastInterfaceStyle)
+            Superwall.setInterfaceStyle(null)
+            assertEquals(null, fake.lastInterfaceStyle)
+
+            val granted = setOf(Entitlement(id = "pro"))
+            Superwall.grantedEntitlements = granted
+            assertEquals(granted, Superwall.grantedEntitlements)
+
+            val assignments = setOf(ConfirmedAssignment(experimentId = "exp", variant = Variant("v", VariantType.TREATMENT, null)))
+            fake.cannedAssignments = assignments
+            assertEquals(assignments, Superwall.getAssignments())
+
+            val refreshed = fake.cannedCustomerInfo.copy(userId = "refreshed")
+            fake.cannedRefreshedCustomerInfo = refreshed
+            assertEquals(refreshed, Superwall.refreshCustomerInfo())
+
+            Superwall.refreshConfiguration()
+            Superwall.cancelAllScheduledNotifications()
+            Superwall.setPushToken("fcm-token")
+            assertEquals("fcm-token", fake.lastPushToken)
+            Superwall.optOutOfNotifications()
+            Superwall.optInToNotifications()
+            assertEquals(listOf(false, true), fake.notificationsEnabledCalls)
+            Superwall.handleNotificationOpen(mapOf("sw" to "payload"))
+            assertEquals(mapOf("sw" to "payload"), fake.lastNotificationOpenData)
+
+            assertTrue(
+                fake.calls.containsAll(
+                    listOf(
+                        "setEventTrackingBehavior",
+                        "getEventTrackingBehavior",
+                        "setInterfaceStyle",
+                        "setGrantedEntitlements",
+                        "getGrantedEntitlements",
+                        "getAssignments",
+                        "refreshCustomerInfo",
+                        "refreshConfiguration",
+                        "cancelAllScheduledNotifications",
+                        "setPushToken",
+                        "setNotificationsEnabled",
+                        "handleNotificationOpen",
+                    ),
+                ),
+            )
+        }
+
+    @Test
+    fun purchaseAndGetProductsForwardToBridge() =
+        runTest {
+            Superwall.configure("pk_test")
+
+            fake.cannedPurchaseResult = PurchaseResult.Failed("Product with id missing not found")
+            assertEquals(PurchaseResult.Failed("Product with id missing not found"), Superwall.purchase("missing"))
+            assertEquals("missing", fake.lastPurchasedProductId)
+
+            fake.cannedPurchaseResult = PurchaseResult.Pending
+            assertEquals(PurchaseResult.Pending, Superwall.purchase("annual"))
+
+            assertEquals(emptyMap(), Superwall.getProducts(setOf("annual", "monthly")))
+            assertEquals(setOf("annual", "monthly"), fake.lastRequestedProductIds)
+        }
+
+    @Test
+    fun customerCenterForwardsConfigurationDelegateAndDismissBlock() =
+        runTest {
+            Superwall.configure("pk_test")
+
+            val configuration =
+                CustomerCenterConfiguration.default.copy(
+                    support = CustomerCenterConfiguration.Support(email = "help@example.com"),
+                )
+            val delegate = object : CustomerCenterDelegate {}
+            val onDismiss = {}
+            Superwall.presentCustomerCenter(configuration, delegate, onDismiss)
+            Superwall.dismissCustomerCenter()
+
+            val presentation = fake.customerCenterPresentations.single()
+            assertEquals(configuration, presentation.configuration)
+            assertSame(delegate, presentation.delegate)
+            assertSame(onDismiss, presentation.onDismiss)
+            assertTrue(fake.calls.containsAll(listOf("presentCustomerCenter", "dismissCustomerCenter")))
+        }
+
+    // ---- Configuration status flow ---------------------------------------------------
+
+    @Test
+    fun configurationStatusFlowIsPendingBeforeConfigureAndFollowsTheBridge() {
+        assertEquals(ConfigurationStatus.PENDING, Superwall.configurationStatusFlow.value)
+
+        fake.cannedConfigurationStatus = ConfigurationStatus.CONFIGURED
+        Superwall.configure("pk_test")
+
+        assertEquals(ConfigurationStatus.CONFIGURED, Superwall.configurationStatusFlow.value)
+        // Later native changes arrive through the holder the bridge was given.
+        fake.configurationStatusHolders.single().configurationStatus.value = ConfigurationStatus.FAILED
+        assertEquals(ConfigurationStatus.FAILED, Superwall.configurationStatusFlow.value)
+    }
+
+    @Test
+    fun configurationStatusIsAttachedEvenWhenConfigureFails() {
+        fake.configureOutcome = Result.failure(SuperwallError.ConfigurationFailed("offline"))
+        fake.cannedConfigurationStatus = ConfigurationStatus.FAILED
+
+        Superwall.configure("pk_test")
+
+        assertEquals(ConfigurationStatus.FAILED, Superwall.configurationStatusFlow.value)
+        assertFalse("attachStreams" in fake.calls)
+    }
+
+    // ---- Events flow -----------------------------------------------------------------
+
+    @Test
+    fun eventsFlowEmitsWithoutADelegateAndTellsTheBridgeItIsObserved() =
+        runTest {
+            Superwall.configure("pk_test")
+            val listener = assertNotNull(fake.installedListener)
+            assertFalse(listener.observesEvents)
+            assertFalse(listener.forwardsToUserDelegate)
+
+            val received = mutableListOf<SuperwallEventInfo>()
+            val collector =
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                    Superwall.eventsFlow.collect { received += it }
+                }
+            assertTrue(listener.observesEvents)
+
+            val event = SuperwallEventInfo(eventType = EventType.APP_OPEN)
+            listener.handleSuperwallEvent(event)
+            testScheduler.advanceUntilIdle()
+            assertEquals(listOf(event), received)
+
+            collector.cancel()
+            testScheduler.advanceUntilIdle()
+            assertFalse(listener.observesEvents)
+        }
+
+    // ---- Teardown --------------------------------------------------------------------
+
+    @Test
+    fun teardownLetsConfigureRunAgainWithNewOptionsAndKeepsTheFlows() {
+        val statusFlow = Superwall.subscriptionStatusFlow
+        fake.statusAtAttach = SubscriptionStatus.Inactive
+        fake.cannedConfigurationStatus = ConfigurationStatus.CONFIGURED
+        Superwall.configure("pk_first")
+        assertEquals(SubscriptionStatus.Inactive, statusFlow.value)
+
+        assertTrue(Superwall.teardown())
+
+        assertEquals(SubscriptionStatus.Unknown, statusFlow.value)
+        assertEquals(ConfigurationStatus.PENDING, Superwall.configurationStatusFlow.value)
+        assertFailsWith<SuperwallError.NotConfigured> { Superwall.userId }
+
+        val options = SuperwallOptions(localeIdentifier = "fr_FR")
+        var outcome: Result<Unit>? = null
+        Superwall.configure("pk_second", options = options) { outcome = it }
+
+        assertEquals(2, fake.configureCount)
+        assertEquals("pk_second", fake.lastApiKey)
+        assertSame(options, fake.lastOptions)
+        assertEquals(Result.success(Unit), outcome)
+        assertEquals(2, fake.calls.count { it == "attachStreams" })
+        // The flow obtained before the teardown is fed by the new instance.
+        assertEquals(SubscriptionStatus.Inactive, statusFlow.value)
+    }
+
+    @Test
+    fun aConfigureCompletedAfterTeardownIsDropped() {
+        fake.configureOutcome = null
+        var firstOutcome: Result<Unit>? = null
+        Superwall.configure("pk_first") { firstOutcome = it }
+        val heldFirst = fake.heldConfigureCompletions.toList()
+        fake.heldConfigureCompletions.clear()
+
+        assertTrue(Superwall.teardown())
+        fake.configureOutcome = Result.success(Unit)
+        Superwall.configure("pk_second")
+        val attachesAfterSecond = fake.calls.count { it == "attachStreams" }
+
+        // The torn-down instance's completion arrives late: it reports nothing.
+        heldFirst.forEach { it(Result.failure(SuperwallError.ConfigurationFailed("gone"))) }
+
+        assertNull(firstOutcome)
+        assertEquals(attachesAfterSecond, fake.calls.count { it == "attachStreams" })
+    }
+
+    @Test
+    fun teardownWhereTheNativeSdkHasNoneChangesNothing() {
+        Superwall.configure("pk_test")
+        fake.cannedTeardownResult = false
+
+        assertFalse(Superwall.teardown())
+
+        Superwall.configure("pk_again")
+        assertEquals(1, fake.configureCount)
+        assertEquals("fake-user", Superwall.userId)
+    }
+
+    // ---- Android helpers -------------------------------------------------------------
+
+    @Test
+    fun androidHelpersForwardToBridge() =
+        runTest {
+            Superwall.configure("pk_test")
+
+            val action = {}
+            val onClose = {}
+            Superwall.showAlert(title = "Title", message = "Message", actionTitle = "Retry", action = action, onClose = onClose)
+            val alert = fake.alerts.single()
+            assertEquals("Title", alert.title)
+            assertEquals("Message", alert.message)
+            assertEquals("Retry", alert.actionTitle)
+            assertEquals("Done", alert.closeActionTitle)
+            assertSame(action, alert.action)
+            assertSame(onClose, alert.onClose)
+
+            Superwall.openRestoreOnWeb()
+            Superwall.dismissForNextPaywall()
+            assertNull(Superwall.externalAccountId)
+            fake.cannedExternalAccountId = "hashed-user"
+            assertEquals("hashed-user", Superwall.externalAccountId)
+
+            assertTrue(fake.calls.containsAll(listOf("showAlert", "openRestoreOnWeb", "dismissForNextPaywall", "getExternalAccountId")))
+        }
+
+    @Test
+    fun newGuardedMembersThrowBeforeConfigure() =
+        runTest {
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.showAlert() }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.openRestoreOnWeb() }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.dismissForNextPaywall() }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.externalAccountId }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.teardown() }
         }
 }

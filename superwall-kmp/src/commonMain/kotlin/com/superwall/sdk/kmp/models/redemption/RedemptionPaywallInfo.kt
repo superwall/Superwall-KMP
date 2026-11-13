@@ -15,4 +15,8 @@ public data class RedemptionPaywallInfo(
     val placementParams: Map<String, Any?>,
     val variantId: String,
     val experimentId: String,
+    /** The identifier of the product bought in the web checkout, if known. */
+    val productIdentifier: String? = null,
+    /** The product bought in the web checkout, with its paywall attributes, if known. */
+    val product: RedemptionPaywallProduct? = null,
 )

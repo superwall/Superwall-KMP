@@ -1,5 +1,6 @@
 package com.superwall.sdk.kmp.internal.mappers
 
+import com.superwall.sdk.kmp.models.entitlements.ProductStore
 import com.superwall.sdk.kmp.models.paywall.ComputedPropertyRequest
 import com.superwall.sdk.kmp.models.paywall.ComputedPropertyRequestType
 import com.superwall.sdk.kmp.models.paywall.FeatureGatingBehavior
@@ -7,7 +8,10 @@ import com.superwall.sdk.kmp.models.paywall.LocalNotification
 import com.superwall.sdk.kmp.models.paywall.LocalNotificationType
 import com.superwall.sdk.kmp.models.paywall.PaywallCloseReason
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
+import com.superwall.sdk.kmp.models.paywall.PaywallPresentationInfo
+import com.superwall.sdk.kmp.models.paywall.PaywallPresentationStyle
 import com.superwall.sdk.kmp.models.paywall.PaywallProduct
+import com.superwall.sdk.kmp.models.paywall.PaywallProductOffer
 import com.superwall.sdk.kmp.models.paywall.Survey
 import com.superwall.sdk.kmp.models.paywall.SurveyOption
 import com.superwall.sdk.kmp.models.paywall.SurveyShowCondition
@@ -21,6 +25,9 @@ import com.superwall.sdk.models.config.ComputedPropertyRequest as NativeComputed
 import com.superwall.sdk.models.config.FeatureGatingBehavior as NativeFeatureGatingBehavior
 import com.superwall.sdk.models.paywall.LocalNotification as NativeLocalNotification
 import com.superwall.sdk.models.paywall.LocalNotificationType as NativeLocalNotificationType
+import com.superwall.sdk.models.paywall.PaywallPresentationInfo as NativePaywallPresentationInfo
+import com.superwall.sdk.models.paywall.PaywallPresentationStyle as NativePaywallPresentationStyle
+import com.superwall.sdk.models.product.Offer as NativeOffer
 import com.superwall.sdk.models.product.ProductItem as NativeProductItem
 import com.superwall.sdk.paywall.presentation.PaywallCloseReason as NativePaywallCloseReason
 import com.superwall.sdk.paywall.presentation.PaywallInfo as NativePaywallInfo
@@ -29,7 +36,7 @@ import com.superwall.sdk.paywall.presentation.PaywallInfo as NativePaywallInfo
  * Maps the native [NativePaywallInfo] to the common [PaywallInfo]. Port of the
  * Flutter host's `PaywallInfoMapper.toPPaywallInfo` (utils/OptionsMapper.kt)
  * with the date convention changed to [kotlin.time.Instant]
- * superwall-android 2.8.0 renders its load-time fields as **strings**
+ * superwall-android renders its load-time fields as **strings**
  * (`DateFormatterUtil`, pattern `yyyy-MM-dd'T'HH:mm:ss.SSS` in the device's
  * default zone, empty string when absent), so [parseNativePaywallDate] parses
  * them leniently and degrades to `null` rather than crashing.
@@ -70,7 +77,31 @@ internal fun NativePaywallInfo.toKmp(): PaywallInfo =
         computedPropertyRequests = computedPropertyRequests.map { it.toKmp() },
         surveys = surveys.map { it.toKmp() },
         state = sanitizeParams(state)?.ifEmpty { null },
+        cacheKey = cacheKey,
+        buildId = buildId,
+        shimmerLoadStartTime = parseNativePaywallDate(shimmerLoadStartTime),
+        shimmerLoadCompleteTime = parseNativePaywallDate(shimmerLoadCompleteTime),
+        presentation = presentation.toKmp(),
+        isScrollEnabled = isScrollEnabled,
+        presentationId = presentationId,
+        databaseId = databaseId,
+        customerInfo = customerInfo.toKmp(),
+        // isLocal and introOfferEligibility are iOS only.
     )
+
+internal fun NativePaywallPresentationInfo.toKmp(): PaywallPresentationInfo =
+    PaywallPresentationInfo(style = style.toKmp(), delayMillis = delay)
+
+internal fun NativePaywallPresentationStyle.toKmp(): PaywallPresentationStyle =
+    when (this) {
+        NativePaywallPresentationStyle.Modal -> PaywallPresentationStyle.Modal
+        NativePaywallPresentationStyle.Fullscreen -> PaywallPresentationStyle.Fullscreen
+        NativePaywallPresentationStyle.FullscreenNoAnimation -> PaywallPresentationStyle.FullscreenNoAnimation
+        NativePaywallPresentationStyle.Push -> PaywallPresentationStyle.Push
+        NativePaywallPresentationStyle.None -> PaywallPresentationStyle.None
+        is NativePaywallPresentationStyle.Drawer -> PaywallPresentationStyle.Drawer(height, cornerRadius)
+        is NativePaywallPresentationStyle.Popup -> PaywallPresentationStyle.Popup(height, width, cornerRadius)
+    }
 
 // ---- PaywallProduct -------------------------------------------------------------------
 
@@ -79,6 +110,26 @@ internal fun NativeProductItem.toKmp(): PaywallProduct =
         id = fullProductId,
         name = name,
         entitlements = entitlements.map { it.toKmp() }.toSet(),
+        store =
+            when (type) {
+                is NativeProductItem.StoreProductType.PlayStore -> ProductStore.PLAY_STORE
+                is NativeProductItem.StoreProductType.AppStore -> ProductStore.APP_STORE
+                is NativeProductItem.StoreProductType.Stripe -> ProductStore.STRIPE
+                is NativeProductItem.StoreProductType.Paddle -> ProductStore.PADDLE
+                is NativeProductItem.StoreProductType.Custom -> ProductStore.CUSTOM
+                is NativeProductItem.StoreProductType.Other -> ProductStore.OTHER
+            },
+        // billingPlanType is iOS only.
+        trialDays = (type as? NativeProductItem.StoreProductType.Stripe)?.product?.trialDays,
+        basePlanIdentifier = (type as? NativeProductItem.StoreProductType.PlayStore)?.product?.basePlanIdentifier,
+        offer =
+            when (val offer = (type as? NativeProductItem.StoreProductType.PlayStore)?.product?.offer) {
+                is NativeOffer.Automatic -> PaywallProductOffer.Automatic
+                is NativeOffer.NoOffer -> PaywallProductOffer.NoOffer
+                is NativeOffer.Specified -> PaywallProductOffer.Specified(offer.offerIdentifier)
+                null -> null
+            },
+        fullIdentifier = fullProductId,
     )
 
 // ---- Enums ----------------------------------------------------------------------

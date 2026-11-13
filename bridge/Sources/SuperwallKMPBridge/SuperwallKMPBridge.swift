@@ -21,6 +21,8 @@
 import Combine
 import Foundation
 import SuperwallKit
+import UIKit
+import UserNotifications
 
 // MARK: - Option envelopes (input direction: Kotlin → SuperwallKit)
 // A nil/NSNumber-nil field means "not set — keep the SuperwallKit default",
@@ -32,6 +34,7 @@ public enum SWBNetworkEnvironment: Int {
   case release = 0
   case releaseCandidate = 1
   case developer = 2
+  case local = 3
 }
 
 /// Mirror of SuperwallOptions.TestModeBehavior.
@@ -58,7 +61,7 @@ public enum SWBTransactionBackgroundView: Int {
   case none = 1
 }
 
-/// Mirror of SuperwallKit.LogScope (all 24 cases in 4.16.1).
+/// Mirror of SuperwallKit.LogScope (all 26 cases of 4.19.1).
 @objc(SWBLogScope)
 public enum SWBLogScope: Int {
   case localizationManager = 0
@@ -85,6 +88,8 @@ public enum SWBLogScope: Int {
   case all = 21
   case analytics = 22
   case webEntitlements = 23
+  case grantedEntitlements = 24
+  case customerCenter = 25
 
   var native: LogScope {
     switch self {
@@ -112,6 +117,8 @@ public enum SWBLogScope: Int {
     case .all: return .all
     case .analytics: return .analytics
     case .webEntitlements: return .webEntitlements
+    case .grantedEntitlements: return .grantedEntitlements
+    case .customerCenter: return .customerCenter
     }
   }
 }
@@ -128,6 +135,34 @@ public final class SWBRestoreFailedOptions: NSObject {
   }
 }
 
+/// Mirror of SuperwallKit.AdConsent (4.18.0+). Each status is a Bool: true =
+/// `.granted`, false = `.denied`.
+@objc(SWBAdConsent)
+public final class SWBAdConsent: NSObject {
+  @objc public let adUserDataGranted: Bool
+  @objc public let adPersonalizationGranted: Bool
+
+  @objc public init(adUserDataGranted: Bool, adPersonalizationGranted: Bool) {
+    self.adUserDataGranted = adUserDataGranted
+    self.adPersonalizationGranted = adPersonalizationGranted
+    super.init()
+  }
+
+  convenience init(_ native: AdConsent) {
+    self.init(
+      adUserDataGranted: native.adUserData == .granted,
+      adPersonalizationGranted: native.adPersonalization == .granted
+    )
+  }
+
+  var native: AdConsent {
+    return AdConsent(
+      adUserData: adUserDataGranted ? .granted : .denied,
+      adPersonalization: adPersonalizationGranted ? .granted : .denied
+    )
+  }
+}
+
 /// Logging options. `level` wraps SWBLogLevel.rawValue; `scopes` wraps
 /// SWBLogScope.rawValue values. nil = keep native default.
 @objc(SWBLoggingOptions)
@@ -137,6 +172,37 @@ public final class SWBLoggingOptions: NSObject {
 
   @objc public override init() {
     super.init()
+  }
+}
+
+/// Notification-permissions-denied alert text (PaywallOptions.NotificationPermissionsDenied).
+/// Every field is set by Kotlin; the object's presence turns the alert on.
+@objc(SWBNotificationPermissionsDeniedOptions)
+public final class SWBNotificationPermissionsDeniedOptions: NSObject {
+  @objc public var title: String?
+  @objc public var message: String?
+  @objc public var actionButtonTitle: String?
+  @objc public var closeButtonTitle: String?
+
+  @objc public override init() {
+    super.init()
+  }
+
+  var native: PaywallOptions.NotificationPermissionsDenied {
+    let alert = PaywallOptions.NotificationPermissionsDenied()
+    if let title = title {
+      alert.title = title
+    }
+    if let message = message {
+      alert.message = message
+    }
+    if let actionButtonTitle = actionButtonTitle {
+      alert.actionButtonTitle = actionButtonTitle
+    }
+    if let closeButtonTitle = closeButtonTitle {
+      alert.closeButtonTitle = closeButtonTitle
+    }
+    return alert
   }
 }
 
@@ -154,6 +220,8 @@ public final class SWBPaywallOptions: NSObject {
   @objc public var transactionBackgroundView: NSNumber?
   @objc public var overrideProductsByName: [String: String]?
   @objc public var shouldShowWebPurchaseConfirmationAlert: NSNumber?
+  /// nil = no alert (SuperwallKit's default).
+  @objc public var notificationPermissionsDenied: SWBNotificationPermissionsDeniedOptions?
 
   @objc public override init() {
     super.init()
@@ -181,7 +249,23 @@ public final class SWBSuperwallOptions: NSObject {
   @objc public var shouldBypassAppTransactionCheck: NSNumber?
   /// iOS-only option.
   @objc public var maxConfigRetryCount: NSNumber?
+  /// iOS-only option. Wraps SuperwallOptions.StoreKitVersion.rawValue
+  /// (0 = storeKit1, 1 = storeKit2); nil = SuperwallKit's choice.
+  @objc public var storeKitVersion: NSNumber?
   @objc public var logging: SWBLoggingOptions?
+  /// nil = leave unset, so a TCF consent banner's stored answer applies.
+  @objc public var adConsent: SWBAdConsent?
+  /// nil = SuperwallKit's default Customer Center configuration.
+  @objc public var customerCenter: SWBCustomerCenterConfiguration?
+  /// Local resource id → the URL string of a file on disk. Entries whose
+  /// string isn't a URL are left out.
+  @objc public var localResources: [String: String]?
+  /// nil = no dev server. An empty string = SuperwallOptions.DevServer.default
+  /// (found on localhost); otherwise the dev server's address.
+  @objc public var devServerUrl: String?
+  /// When set, wins over `networkEnvironment`: the argument of
+  /// SuperwallOptions.NetworkEnvironment.custom, e.g. "https://api.example.com:8443".
+  @objc public var customNetworkEnvironmentDomain: String?
 
   @objc public override init() {
     super.init()
@@ -233,6 +317,9 @@ public final class SWBSuperwallOptions: NSObject {
       if let value = paywalls.shouldShowWebPurchaseConfirmationAlert {
         options.paywalls.shouldShowWebPurchaseConfirmationAlert = value.boolValue
       }
+      if let value = paywalls.notificationPermissionsDenied {
+        options.paywalls.notificationPermissionsDenied = value.native
+      }
     }
 
     if let value = networkEnvironment,
@@ -244,6 +331,30 @@ public final class SWBSuperwallOptions: NSObject {
         options.networkEnvironment = .releaseCandidate
       case .developer:
         options.networkEnvironment = .developer
+      case .local:
+        options.networkEnvironment = .local
+      }
+    }
+    if let domain = customNetworkEnvironmentDomain {
+      options.networkEnvironment = .custom(domain)
+    }
+    if let localResources = localResources {
+      var resources: [String: AssetResource] = [:]
+      for (resourceId, urlString) in localResources {
+        // A plain path has no scheme: read it as a file path.
+        if let url = URL(string: urlString), url.scheme != nil {
+          resources[resourceId] = url
+        } else if urlString.hasPrefix("/") {
+          resources[resourceId] = URL(fileURLWithPath: urlString)
+        }
+      }
+      options.localResources = resources
+    }
+    if let devServerUrl = devServerUrl {
+      if devServerUrl.isEmpty {
+        options.devServer = SuperwallOptions.DevServer.default
+      } else if let url = URL(string: devServerUrl) {
+        options.devServer = SuperwallOptions.DevServer.url(url)
       }
     }
     if let value = isExternalDataCollectionEnabled {
@@ -290,6 +401,16 @@ public final class SWBSuperwallOptions: NSObject {
     }
     if let value = maxConfigRetryCount {
       options.maxConfigRetryCount = value.intValue
+    }
+    if let value = storeKitVersion,
+      let version = SuperwallOptions.StoreKitVersion(rawValue: value.intValue) {
+      options.storeKitVersion = version
+    }
+    if let adConsent = adConsent {
+      options.adConsent = adConsent.native
+    }
+    if let customerCenter = customerCenter {
+      options.customerCenter = customerCenter.native
     }
     if let logging = logging {
       if let level = logging.level,
@@ -378,9 +499,10 @@ extension SWBLogLevel {
 /// handler wrappers, observations) is owned here so Kotlin-side references stay thin.
 @objc(SWBSuperwallBridge)
 public final class SWBSuperwallBridge: NSObject {
-  /// The bridge version, asserted by the klib at configure time against the
-  /// constant it was compiled against. Bumped in lockstep with
-  /// the superwall-kmp release that ships this bridge.
+  /// The bridge version: the superwall-kmp release that ships this bridge.
+  /// Informational only, nothing checks it at runtime; bump it with
+  /// version.env. (The version reported to SuperwallKit comes from Kotlin, see
+  /// `setPlatformWrapper`.)
   @objc public static let bridgeVersion: String = SWBBridgeVersion
 
   /// NSError domain used for all bridge-synthesized errors.
@@ -396,6 +518,11 @@ public final class SWBSuperwallBridge: NSObject {
   private var purchaseControllerForwarder: BridgePurchaseControllerForwarder?
   private var handlerWrappers: [ObjectIdentifier: PresentationHandlerWrapper] = [:]
   private let handlerLock = NSLock()
+  /// Whether the app set an ad consent through this bridge. SuperwallKit's own
+  /// flag (`SuperwallOptions.isAdConsentSet`) is internal, and its getter
+  /// returns the all-granted default before an assignment, so the bridge keeps
+  /// its own to report "not set" as nil, as superwall-android's Unspecified does.
+  private var isAdConsentSet = false
 
   private override init() {
     super.init()
@@ -437,6 +564,10 @@ public final class SWBSuperwallBridge: NSObject {
       controller = forwarder
     } else {
       controller = nil
+    }
+
+    if options?.adConsent != nil, !Superwall.isInitialized {
+      isAdConsentSet = true
     }
 
     Superwall.configure(
@@ -482,6 +613,15 @@ public final class SWBSuperwallBridge: NSObject {
     }
   }
 
+  /// Reports the wrapper SDK and its version to SuperwallKit, which sends them
+  /// with its requests and device attributes. Kotlin calls this right after
+  /// `configure` with the superwall-kmp version. A no-op before configure, where
+  /// `Superwall.shared` would be a throwaway instance.
+  @objc public func setPlatformWrapper(_ wrapper: String, version: String) {
+    guard Superwall.isInitialized else { return }
+    Superwall.shared.setPlatformWrapper(wrapper, version: version)
+  }
+
   /// Installs (or clears, with nil) the Kotlin-implemented delegate.
   /// The bridge retains the forwarder; pass nil to remove it.
   @objc public func setDelegate(_ delegate: SWBBridgeDelegate?) {
@@ -509,6 +649,27 @@ public final class SWBSuperwallBridge: NSObject {
     case .pending: return .pending
     @unknown default: return .pending
     }
+  }
+
+  /// Subscribes to configuration-status changes via Combine. Emits the current
+  /// value immediately, then every change, with an SWBConfigurationStatus raw
+  /// value. Call after configure: before it, `Superwall.shared` is a
+  /// throwaway instance. Cancel via the returned token.
+  @objc public func observeConfigurationStatus(
+    _ onChange: @escaping (Int) -> Void
+  ) -> SWBObservation {
+    let cancellable = Superwall.shared.$configurationStatus
+      .sink { status in
+        let swbStatus: SWBConfigurationStatus
+        switch status {
+        case .configured: swbStatus = .configured
+        case .failed: swbStatus = .failed
+        case .pending: swbStatus = .pending
+        @unknown default: swbStatus = .pending
+        }
+        onChange(swbStatus.rawValue)
+      }
+    return SWBObservation { cancellable.cancel() }
   }
 
   /// True once configuration completed successfully. Safe pre-configure (false).
@@ -627,7 +788,8 @@ public final class SWBSuperwallBridge: NSObject {
   }
 
   /// Subscribes to subscription-status changes via Combine. Emits the current
-  /// value immediately, then every change, on the publisher's queue (main).
+  /// value immediately, then every change, usually on the thread that changed
+  /// the status, which is often a background one.
   /// Cancel via the returned token; the token is retained by the caller.
   @objc public func observeSubscriptionStatus(
     _ onChange: @escaping (SWBSubscriptionStatus) -> Void
@@ -649,7 +811,9 @@ public final class SWBSuperwallBridge: NSObject {
 
   /// Subscribes to customer-info changes via Combine (deduplicated). Emits the
   /// current value immediately, then every distinct change.
-  /// Cancel via the returned token.
+  /// Cancel via the returned token. The Kotlin side does not use this: it feeds
+  /// `customerInfoFlow` from the delegate's `customerInfoDidChange` instead, as
+  /// on Android, since using both emitted every change twice.
   @objc public func observeCustomerInfo(
     _ onChange: @escaping (SWBCustomerInfo) -> Void
   ) -> SWBObservation {
@@ -659,6 +823,30 @@ public final class SWBSuperwallBridge: NSObject {
         onChange(SWBCustomerInfo(customerInfo))
       }
     return SWBObservation { cancellable.cancel() }
+  }
+
+  /// Fetches fresh customer info (SuperwallKit 4.19.0+), then returns it.
+  @objc public func refreshCustomerInfo(_ completion: @escaping (SWBCustomerInfo) -> Void) {
+    Task {
+      let customerInfo = await Superwall.shared.refreshCustomerInfo()
+      completion(SWBCustomerInfo(customerInfo))
+    }
+  }
+
+  /// The entitlements granted outside the store (SuperwallKit 4.17.0+).
+  @objc public func getGrantedEntitlements() -> [SWBEntitlement] {
+    return Superwall.shared.grantedEntitlements.map { SWBEntitlement($0) }
+  }
+
+  /// Replaces the granted entitlements. Only ids cross the bridge, matching the
+  /// native `Entitlement(id:)` initializer (as `setSubscriptionStatus` does).
+  @objc public func setGrantedEntitlementIds(_ ids: [String]) {
+    Superwall.shared.grantedEntitlements = Set(ids.map { Entitlement(id: $0) })
+  }
+
+  /// The stored experiment assignments, without confirming any.
+  @objc public func getAssignments() -> [SWBConfirmedAssignment] {
+    return Superwall.shared.getAssignments().map { SWBConfirmedAssignment($0) }
   }
 
   /// Confirms all experiment assignments and returns them.
@@ -675,6 +863,31 @@ public final class SWBSuperwallBridge: NSObject {
   @objc public func restorePurchases(_ completion: @escaping (SWBRestorationResult) -> Void) {
     Superwall.shared.restorePurchases { result in
       completion(SWBRestorationResult(result))
+    }
+  }
+
+  /// Purchases the product with the given identifier outside of a paywall.
+  /// SuperwallKit's `purchase` takes a StoreProduct, so the product is fetched
+  /// first; an identifier the store doesn't know completes with `.failed`, as
+  /// superwall-android's `purchase(productId)` does.
+  @objc public func purchase(productId: String, completion: @escaping (SWBPurchaseResult) -> Void) {
+    Task {
+      let products = await Superwall.shared.products(for: [productId])
+      guard let product = products.first(where: { $0.productIdentifier == productId }) else {
+        completion(SWBPurchaseResult(result: .failed, errorMessage: "Product with id \(productId) not found"))
+        return
+      }
+      let result = await Superwall.shared.purchase(product)
+      completion(SWBPurchaseResult(result))
+    }
+  }
+
+  /// Fetches the store products for the given identifiers. Identifiers the
+  /// store doesn't know are left out.
+  @objc public func getProducts(productIds: [String], completion: @escaping ([SWBStoreProduct]) -> Void) {
+    Task {
+      let products = await Superwall.shared.products(for: Set(productIds))
+      completion(products.map { SWBStoreProduct($0) })
     }
   }
 
@@ -801,6 +1014,123 @@ public final class SWBSuperwallBridge: NSObject {
     }
   }
 
+  /// The ad consent the app set, or nil while it hasn't set one.
+  @objc public func adConsent() -> SWBAdConsent? {
+    guard isAdConsentSet else { return nil }
+    return SWBAdConsent(Superwall.shared.adConsent)
+  }
+
+  /// Sets the ad consent (SuperwallKit 4.18.0+).
+  @objc public func setAdConsent(_ consent: SWBAdConsent) {
+    Superwall.shared.adConsent = consent.native
+    isAdConsentSet = true
+  }
+
+  /// Fetches the configuration again. Fire-and-forget.
+  @objc public func refreshConfiguration() {
+    Superwall.shared.refreshConfiguration(completion: nil)
+  }
+
+  /// The runtime event tracking behavior, as an SWBEventTrackingBehavior raw
+  /// value (a plain Int so Kotlin reads it like the option's NSNumber).
+  @objc public func eventTrackingBehaviorRawValue() -> Int {
+    switch Superwall.shared.eventTrackingBehavior {
+    case .all: return SWBEventTrackingBehavior.all.rawValue
+    case .superwallOnly: return SWBEventTrackingBehavior.superwallOnly.rawValue
+    case .none: return SWBEventTrackingBehavior.none.rawValue
+    @unknown default: return SWBEventTrackingBehavior.all.rawValue
+    }
+  }
+
+  /// Sets the runtime event tracking behavior from an SWBEventTrackingBehavior
+  /// raw value. Unknown values are ignored.
+  @objc public func setEventTrackingBehaviorRawValue(_ rawValue: Int) {
+    guard let behavior = SWBEventTrackingBehavior(rawValue: rawValue) else { return }
+    switch behavior {
+    case .all: Superwall.shared.eventTrackingBehavior = .all
+    case .superwallOnly: Superwall.shared.eventTrackingBehavior = .superwallOnly
+    case .none: Superwall.shared.eventTrackingBehavior = .none
+    }
+  }
+
+  /// Removes Superwall's pending local notifications (trial reminders). SuperwallKit
+  /// exposes this as a UNUserNotificationCenter extension rather than on Superwall.
+  @objc public func cancelAllScheduledNotifications() {
+    UNUserNotificationCenter.current().removeAllPendingSuperwallNotificationRequests()
+  }
+
+  // MARK: Customer Center
+  // These stay in the class body, not in an extension next to the Customer
+  // Center types: Swift exports an extension's @objc members as an ObjC
+  // category, and Kotlin/Native imports category methods as top-level
+  // extension functions that need their own import, not as members.
+
+  /// Presents the Customer Center on the main actor. `onDismiss` runs on the
+  /// main thread once it has been dismissed, or straight away when it could
+  /// not be shown, as superwall-android does. Presenting while one is shown
+  /// does nothing (SuperwallKit logs it), and then `onDismiss` is not called.
+  @objc public func presentCustomerCenter(
+    configuration: SWBCustomerCenterConfiguration?,
+    delegate: SWBCustomerCenterDelegate?,
+    onDismiss: (() -> Void)?
+  ) {
+    let nativeConfiguration = configuration?.native
+    Task { @MainActor in
+      let forwarder = delegate.map { BridgeCustomerCenterDelegateForwarder(bridgeDelegate: $0) }
+      // One gate for SuperwallKit's dismissal and the refusal below.
+      let once = OnceGate()
+      let onDismissOnce: () -> Void = {
+        guard once.tryPass() else { return }
+        onDismiss?()
+      }
+      Superwall.shared.presentCustomerCenter(
+        configuration: nativeConfiguration,
+        from: nil,
+        delegate: forwarder,
+        onDismiss: onDismissOnce
+      )
+      // SuperwallKit only logs a presentation it couldn't start (nothing to
+      // present from, or UIKit refused it) and exposes no "is presented"
+      // state. UIKit links the presented controller in before `present`
+      // returns, so none in the hierarchy now means none was shown.
+      if !SWBSuperwallBridge.isCustomerCenterInHierarchy() {
+        onDismissOnce()
+      }
+    }
+  }
+
+  /// Dismisses the Customer Center, if one is shown. `completion` fires once
+  /// it has gone, or straight away when none is shown.
+  @objc public func dismissCustomerCenter(_ completion: @escaping () -> Void) {
+    Task { @MainActor in
+      // SuperwallKit returns without calling the completion when not configured.
+      guard Superwall.isInitialized else {
+        completion()
+        return
+      }
+      Superwall.shared.dismissCustomerCenter(completion: completion)
+    }
+  }
+
+  /// Whether a Customer Center is in any window's chain of presented view
+  /// controllers, which is where SuperwallKit presents it.
+  @MainActor
+  private static func isCustomerCenterInHierarchy() -> Bool {
+    for scene in UIApplication.shared.connectedScenes {
+      guard let windowScene = scene as? UIWindowScene else { continue }
+      for window in windowScene.windows {
+        var controller = window.rootViewController
+        while let current = controller {
+          if current is CustomerCenterViewController {
+            return true
+          }
+          controller = current.presentedViewController
+        }
+      }
+    }
+    return false
+  }
+
   // MARK: Platform no-ops
 
   /// Play-Billing-only API: consuming purchases has no iOS counterpart. This is a
@@ -811,6 +1141,5 @@ public final class SWBSuperwallBridge: NSObject {
   }
 }
 
-/// Swift-side version constant (mirrored @objc as SWBSuperwallBridge.bridgeVersion,
-/// which is what the Kotlin klib asserts against at configure).
-public let SWBBridgeVersion = "0.1.0"
+/// Swift-side version constant, mirrored @objc as SWBSuperwallBridge.bridgeVersion.
+public let SWBBridgeVersion = "0.2.0"

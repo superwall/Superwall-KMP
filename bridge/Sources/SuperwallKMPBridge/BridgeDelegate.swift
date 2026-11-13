@@ -6,8 +6,8 @@
 //  and the internal SuperwallDelegate that subscribes to Superwall.shared and forwards.
 //
 //  The event switch is a faithful port of the Flutter host's
-//  SuperwallDelegateHost.handleSuperwallEvent (~70 cases in 4.14; 80 in SuperwallKit
-// 4.16.2), with the Flutter mislabels FIXED per
+//  SuperwallDelegateHost.handleSuperwallEvent (~70 cases in 4.14; 87 in SuperwallKit
+//  4.19.1), with the Flutter mislabels FIXED per
 //  - transactionRestore is its own event type (Flutter mislabeled it transactionComplete)
 //  - transactionComplete carries transaction, product AND type (Flutter dropped type)
 //  - nonRecurringProductPurchase carries the TransactionProduct id (Flutter dropped it)
@@ -22,7 +22,7 @@ import SuperwallKit
 
 // MARK: - Event type
 
-/// One value per SuperwallKit.SuperwallEvent case (SuperwallKit 4.16.1: 80 cases),
+/// One value per SuperwallKit.SuperwallEvent case (SuperwallKit 4.19.1: 87 cases),
 /// plus `.unknown` for forward compatibility with future SDK cases
 /// (degrade-never-crash; the raw case description lands in `SWBEventEnvelope.name`).
 @objc(SWBEventType)
@@ -107,6 +107,13 @@ public enum SWBEventType: Int {
   case testModeModalOpen = 77
   case testModeModalClose = 78
   case paywallPageView = 79
+  case teleportOpen = 80
+  case teleportReturn = 81
+  case customerCenterOpen = 82
+  case customerCenterClose = 83
+  case customerCenterAction = 84
+  case customerCenterSurveyResponse = 85
+  case customerCenterRefundRequest = 86
   /// A SuperwallEvent case this bridge build does not know (forward compat).
   case unknown = 999
 }
@@ -124,7 +131,8 @@ public final class SWBEventEnvelope: NSObject {
   /// The sanitized analytics params of the event (SuperwallEventInfo.params).
   @objc public let params: [String: Any]?
   /// paywallOpen/Close/Decline, transaction*, subscriptionStart, freeTrialStart,
-  /// paywall*Load*, surveyResponse, customPlacement, stripeCheckout*, paywallPageView.
+  /// paywall*Load*, surveyResponse, customPlacement, stripeCheckout*, paywallPageView,
+  /// teleportOpen, teleportReturn (nil when no paywall is presented).
   @objc public let paywallInfo: SWBPaywallInfo?
   /// transactionComplete (may be nil when a PurchaseController hid the transaction).
   @objc public let transaction: SWBStoreTransaction?
@@ -191,6 +199,10 @@ public final class SWBEventEnvelope: NSObject {
   @objc public let attributionMatch: SWBAttributionMatchInfo?
   /// paywallPageView only.
   @objc public let pageViewData: SWBPageViewData?
+  /// nonRecurringProductPurchase only: the whole TransactionProduct.
+  @objc public private(set) var transactionProduct: SWBTransactionProduct?
+  /// customerCenterOpen/Action/SurveyResponse/RefundRequest only.
+  @objc public private(set) var customerCenter: SWBCustomerCenterEventInfo?
 
   @objc public init(
     eventType: SWBEventType,
@@ -452,6 +464,7 @@ public final class SWBEventEnvelope: NSObject {
         paywallInfo: SWBPaywallInfo(paywallInfo),
         transactionProductId: product.id
       )
+      transactionProduct = SWBTransactionProduct(product)
     case .paywallResponseLoadStart(let triggeredPlacementName):
       self.init(.paywallResponseLoadStart, params: params, triggeredPlacementName: triggeredPlacementName)
     case .paywallResponseLoadNotFound(let triggeredPlacementName):
@@ -637,6 +650,46 @@ public final class SWBEventEnvelope: NSObject {
         paywallInfo: SWBPaywallInfo(paywallInfo),
         pageViewData: SWBPageViewData(data)
       )
+    case .teleportOpen(let paywallInfo):
+      self.init(.teleportOpen, params: params, paywallInfo: SWBPaywallInfo(paywallInfo))
+    case .teleportReturn(let paywallInfo):
+      self.init(.teleportReturn, params: params, paywallInfo: paywallInfo.map { SWBPaywallInfo($0) })
+    case let .customerCenterOpen(screen, presentation):
+      self.init(.customerCenterOpen, params: params)
+      let payload = SWBCustomerCenterEventInfo()
+      switch screen {
+      case .management: payload.screenRawValue = NSNumber(value: 0)
+      case .noPurchases: payload.screenRawValue = NSNumber(value: 1)
+      }
+      switch presentation {
+      case .sheet: payload.presentationStyleRawValue = NSNumber(value: 0)
+      case .embedded: payload.presentationStyleRawValue = NSNumber(value: 1)
+      }
+      customerCenter = payload
+    case .customerCenterClose:
+      self.init(.customerCenterClose, params: params)
+    case let .customerCenterAction(action, pathId, productId):
+      self.init(.customerCenterAction, params: params)
+      let payload = SWBCustomerCenterEventInfo()
+      payload.action = SWBCustomerCenterAction(action)
+      payload.pathId = pathId
+      payload.productId = productId
+      customerCenter = payload
+    case let .customerCenterSurveyResponse(surveyId, optionId, action, pathId, productId):
+      self.init(.customerCenterSurveyResponse, params: params)
+      let payload = SWBCustomerCenterEventInfo()
+      payload.surveyId = surveyId
+      payload.optionId = optionId
+      payload.action = SWBCustomerCenterAction(action)
+      payload.pathId = pathId
+      payload.productId = productId
+      customerCenter = payload
+    case let .customerCenterRefundRequest(productId, status):
+      self.init(.customerCenterRefundRequest, params: params)
+      let payload = SWBCustomerCenterEventInfo()
+      payload.productId = productId
+      payload.refundStatusRawValue = NSNumber(value: status.swbRawValue)
+      customerCenter = payload
     @unknown default:
       self.init(.unknown, params: params, name: String(describing: info.event))
     }

@@ -2,6 +2,8 @@ package com.superwall.sdk.kmp.internal
 
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
+import com.superwall.sdk.kmp.models.events.SuperwallEventInfo
+import com.superwall.sdk.kmp.models.options.ConfigurationStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -44,8 +46,9 @@ internal class StreamHolder {
     /**
      * Backing stream for `Superwall.customerInfoFlow`. No replay; a small
      * buffer with drop-oldest overflow keeps emission non-suspending from
-     * delegate callbacks. Android emissions are pending the upstream
-     * delegate-hook audit — the flow may stay empty there.
+     * delegate callbacks. Fed only by the [DelegateMultiplexer] from the
+     * native `customerInfoDidChange` hook, on both platforms, so each change
+     * emits once.
      */
     val customerInfo: MutableSharedFlow<CustomerInfo> =
         MutableSharedFlow(
@@ -55,6 +58,26 @@ internal class StreamHolder {
         )
 
     /** Whether [attach] has already run — repeat configures must not re-wire. */
+    /**
+     * Fed by the platform bridge from configure onward (see
+     * [SuperwallBridge.attachConfigurationStatus]); [ConfigurationStatus.PENDING]
+     * until then, which is also what the natives report before configure.
+     */
+    val configurationStatus: MutableStateFlow<ConfigurationStatus> =
+        MutableStateFlow(ConfigurationStatus.PENDING)
+
+    /**
+     * Every Superwall event, for `Superwall.eventsFlow`. No replay: an event
+     * is only delivered to collectors that are already collecting, as with
+     * the delegate. Same buffer policy as [customerInfo].
+     */
+    val events: MutableSharedFlow<SuperwallEventInfo> =
+        MutableSharedFlow(
+            replay = 0,
+            extraBufferCapacity = 64,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        )
+
     private var attached: Boolean = false
 
     /**
@@ -67,5 +90,16 @@ internal class StreamHolder {
         if (attached) return
         attached = true
         bridge.attachStreams(this)
+    }
+
+    /**
+     * Lets the next configure attach again, after the native SDK was torn
+     * down. The flows themselves are kept, so collectors of the public flows
+     * carry on across a teardown.
+     */
+    fun detach() {
+        attached = false
+        configurationStatus.value = ConfigurationStatus.PENDING
+        subscriptionStatus.value = SubscriptionStatus.Unknown
     }
 }

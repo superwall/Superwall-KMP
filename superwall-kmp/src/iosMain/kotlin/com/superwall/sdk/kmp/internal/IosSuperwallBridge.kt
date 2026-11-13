@@ -2,9 +2,13 @@
 
 package com.superwall.sdk.kmp.internal
 
+import com.superwall.sdk.kmp.internal.interop.SWB_CONFIGURATION_STATUS_FAILED
+import com.superwall.sdk.kmp.internal.interop.SWB_CONFIGURATION_STATUS_CONFIGURED
+import com.superwall.sdk.kmp.CustomerCenterDelegate
 import com.superwall.sdk.kmp.PaywallPresentationHandler
 import com.superwall.sdk.kmp.PurchaseController
 import com.superwall.sdk.kmp.SuperwallError
+import com.superwall.sdk.kmp.internal.adapters.CustomerCenterDelegateAdapter
 import com.superwall.sdk.kmp.internal.adapters.DelegateAdapter
 import com.superwall.sdk.kmp.internal.adapters.PresentationHandlerAdapter
 import com.superwall.sdk.kmp.internal.adapters.PurchaseControllerAdapter
@@ -17,28 +21,38 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBConfirmedAssignment
 import com.superwall.sdk.kmp.internal.ios.interop.SWBCustomerInfo
 import com.superwall.sdk.kmp.internal.ios.interop.SWBObservation
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPresentationResult
+import com.superwall.sdk.kmp.internal.ios.interop.SWBPurchaseResult
 import com.superwall.sdk.kmp.internal.ios.interop.SWBRestorationResult
+import com.superwall.sdk.kmp.internal.ios.interop.SWBStoreProduct
 import com.superwall.sdk.kmp.internal.ios.interop.SWBSuperwallBridge
+import com.superwall.sdk.kmp.internal.mappers.eventTrackingBehaviorFromSWBRaw
 import com.superwall.sdk.kmp.internal.mappers.integrationAttributeFromWireName
 import com.superwall.sdk.kmp.internal.mappers.integrationAttributeToSWB
 import com.superwall.sdk.kmp.internal.mappers.logLevelFromSWB
 import com.superwall.sdk.kmp.internal.mappers.logLevelToSWB
 import com.superwall.sdk.kmp.internal.mappers.toEntitlementSet
 import com.superwall.sdk.kmp.internal.mappers.toModel
+import com.superwall.sdk.kmp.internal.mappers.toSWBRaw
 import com.superwall.sdk.kmp.internal.mappers.toSWB
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
 import com.superwall.sdk.kmp.models.entitlements.Entitlements
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
+import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
+import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
 import com.superwall.sdk.kmp.models.results.PresentationResult
+import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -84,9 +98,19 @@ internal class IosSuperwallBridge : SuperwallBridge {
      */
     private val activeHandlers: MutableSet<PresentationHandlerAdapter> = mutableSetOf()
 
-    /** Retained observation tokens for the stream subscriptions. */
+    /**
+     * The delegate adapter of the Customer Center on screen, kept until it is
+     * dismissed. Only one Customer Center is shown at a time, so a new
+     * presentation replaces it (which also drops one whose presentation
+     * SuperwallKit refused and so never dismissed). Main-confined.
+     */
+    private var customerCenterDelegateAdapter: CustomerCenterDelegateAdapter? = null
+
+    /** Retained observation token for the subscription-status subscription. */
     private var subscriptionStatusObservation: SWBObservation? = null
-    private var customerInfoObservation: SWBObservation? = null
+
+    /** Retained observation token for the configuration-status subscription. */
+    private var configurationStatusObservation: SWBObservation? = null
 
     // ---- Configuration -----------------------------------------------------
 
@@ -96,7 +120,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
         options: SuperwallOptions?,
         completion: (Result<Unit>) -> Unit,
     ) {
-        val controllerAdapter = purchaseController?.let { PurchaseControllerAdapter(it, scope) }
+        val controllerAdapter = purchaseController?.let { PurchaseControllerAdapter(it, scope, ::logError) }
         purchaseControllerAdapter = controllerAdapter
 
         swb.configureWithApiKey(
@@ -123,9 +147,10 @@ internal class IosSuperwallBridge : SuperwallBridge {
         }
 
         // The native Superwall singleton exists synchronously once configure
-        // has been called, so the deferred delegate install is safe now
-        // (setting it earlier would hit SuperwallKit's throwaway pre-configure
-        // instance and be lost).
+        // has been called, so reporting the wrapper and the deferred delegate
+        // install are safe now (doing either earlier would hit SuperwallKit's
+        // throwaway pre-configure instance and be lost).
+        swb.setPlatformWrapper(PLATFORM_WRAPPER, SDK_VERSION)
         installPendingDelegate()
     }
 
@@ -164,23 +189,46 @@ internal class IosSuperwallBridge : SuperwallBridge {
             else -> ConfigurationStatus.PENDING
         }
 
+    /**
+     * The subscription-status observer emits the current value immediately
+     * and then every change — the initial emission closes the pre-attach seed
+     * gap. The token is retained for the lifetime of the bridge; delivery
+     * thread is irrelevant to the thread-safe flow mutation.
+     *
+     * Customer info is deliberately NOT observed here: SuperwallKit calls the
+     * delegate's `customerInfoDidChange` for every distinct change, and the
+     * common `DelegateMultiplexer` already feeds `StreamHolder.customerInfo`
+     * from it. Observing `$customerInfo` as well emitted every change twice
+     * (plus an extra current value at attach), which Android never did.
+     */
     override fun attachStreams(holder: StreamHolder) {
-        // Both observe* facades emit the current value immediately and then
-        // every (deduplicated, for customer info) change — the initial emission
-        // closes the pre-attach seed gap. The tokens are retained for the
-        // lifetime of the bridge; delivery thread is irrelevant to the
-        // thread-safe flow mutations.
         subscriptionStatusObservation = swb.observeSubscriptionStatus { status ->
             // The cinterop block signature is nullable although the Swift side
             // never emits nil; degrade an unexpected nil to Unknown.
             holder.subscriptionStatus.value = status?.toModel() ?: SubscriptionStatus.Unknown
         }
-        customerInfoObservation = swb.observeCustomerInfo { customerInfo ->
-            // Nullable-only-in-the-binding: skip an unexpected nil emission
-            // rather than fabricating an empty customer info.
-            customerInfo?.let { holder.customerInfo.tryEmit(it.toModel()) }
-        }
     }
+
+    /**
+     * The observer emits the current status immediately and then every
+     * change. Called after configure, when `Superwall.shared` is the real
+     * instance. The delivery thread doesn't matter to the thread-safe flow.
+     */
+    override fun attachConfigurationStatus(holder: StreamHolder) {
+        configurationStatusObservation?.cancel()
+        configurationStatusObservation =
+            swb.observeConfigurationStatus { raw ->
+                holder.configurationStatus.value =
+                    when (raw) {
+                        SWB_CONFIGURATION_STATUS_CONFIGURED -> ConfigurationStatus.CONFIGURED
+                        SWB_CONFIGURATION_STATUS_FAILED -> ConfigurationStatus.FAILED
+                        else -> ConfigurationStatus.PENDING
+                    }
+            }
+    }
+
+    /** SuperwallKit has no teardown: nothing is torn down. */
+    override fun teardown(): Boolean = false
 
     // ---- Logging -----------------------------------------------------------
 
@@ -215,14 +263,29 @@ internal class IosSuperwallBridge : SuperwallBridge {
         attribute: IntegrationAttribute,
         value: String?,
     ) {
-        swb.setIntegrationAttribute(integrationAttributeToSWB(attribute), value)
+        val swbAttribute = integrationAttributeToSWB(attribute)
+        if (swbAttribute == null) {
+            warnAndroidOnlyIntegrationAttributes(listOf(attribute))
+            return
+        }
+        swb.setIntegrationAttribute(swbAttribute, value)
     }
 
     override fun setIntegrationAttributes(attributes: Map<IntegrationAttribute, String?>) {
-        val swbAttributes: Map<Any?, Any> = attributes.entries.associate { (attribute, value) ->
-            NSNumber(long = integrationAttributeToSWB(attribute)) as Any? to (value ?: NSNull())
-        }
-        swb.setIntegrationAttributes(swbAttributes)
+        val skipped = attributes.keys.filter { integrationAttributeToSWB(it) == null }
+        if (skipped.isNotEmpty()) warnAndroidOnlyIntegrationAttributes(skipped)
+        val swbAttributes: Map<Any?, Any> = attributes.entries.mapNotNull { (attribute, value) ->
+            val swbAttribute = integrationAttributeToSWB(attribute) ?: return@mapNotNull null
+            NSNumber(long = swbAttribute) as Any? to (value ?: NSNull())
+        }.toMap()
+        if (swbAttributes.isNotEmpty()) swb.setIntegrationAttributes(swbAttributes)
+    }
+
+    private fun warnAndroidOnlyIntegrationAttributes(attributes: List<IntegrationAttribute>) {
+        warn(
+            "Integration attributes ${attributes.joinToString()} are Android only; " +
+                "SuperwallKit has no counterpart, so they were not set.",
+        )
     }
 
     override fun getIntegrationAttributes(): Map<IntegrationAttribute, String?> {
@@ -230,8 +293,8 @@ internal class IosSuperwallBridge : SuperwallBridge {
         val result = LinkedHashMap<IntegrationAttribute, String?>()
         for ((key, value) in wire) {
             val name = key as? String ?: continue
-            // Wire names without a common counterpart (e.g. the 4.16.x-only
-            // firebaseInstallationId / singularDeviceId) are skipped.
+            // Wire names without a common counterpart (a provider newer than
+            // the wrapper) are skipped.
             val attribute = integrationAttributeFromWireName(name) ?: continue
             result[attribute] = value as? String
         }
@@ -276,6 +339,23 @@ internal class IosSuperwallBridge : SuperwallBridge {
                 userId = "",
             )
 
+    override suspend fun refreshCustomerInfo(): CustomerInfo =
+        // Nullable-only-in-the-binding, as in getCustomerInfo: an unexpected
+        // nil falls back to the cached customer info.
+        awaitCompletion<SWBCustomerInfo?> { swb.refreshCustomerInfo(it) }?.toModel()
+            ?: getCustomerInfo()
+
+    override fun getGrantedEntitlements(): Set<Entitlement> = swb.getGrantedEntitlements().toEntitlementSet()
+
+    override fun setGrantedEntitlements(entitlements: Set<Entitlement>) {
+        swb.setGrantedEntitlementIds(entitlements.map { it.id })
+    }
+
+    override fun getAssignments(): Set<ConfirmedAssignment> =
+        swb.getAssignments()
+            .mapNotNull { (it as? SWBConfirmedAssignment)?.toModel() }
+            .toSet()
+
     override suspend fun confirmAllAssignments(): Set<ConfirmedAssignment> =
         // Nullable-only-in-the-binding: an unexpected nil reads as no assignments.
         awaitCompletion<List<*>?> { swb.confirmAllAssignments(it) }
@@ -288,6 +368,19 @@ internal class IosSuperwallBridge : SuperwallBridge {
         awaitCompletion<SWBRestorationResult?> { swb.restorePurchases(it) }?.toModel()
             ?: RestorationResult.Failed("Superwall restore completed without a result.")
 
+    override suspend fun purchase(productId: String): PurchaseResult =
+        // Nullable-only-in-the-binding: an unexpected nil reads as a failure.
+        awaitCompletion<SWBPurchaseResult?> { swb.purchaseWithProductId(productId, it) }?.toModel()
+            ?: PurchaseResult.Failed("Superwall purchase completed without a result.")
+
+    override suspend fun getProducts(productIds: Set<String>): Map<String, StoreProduct> =
+        // SuperwallKit returns a set of products; key them by identifier like
+        // superwall-android does.
+        awaitCompletion<List<*>?> { swb.getProductsWithProductIds(productIds.toList(), it) }
+            .orEmpty()
+            .mapNotNull { (it as? SWBStoreProduct)?.toModel() }
+            .associateBy { it.productIdentifier }
+
     // ---- Presentation --------------------------------------------------------
 
     override fun registerPlacement(
@@ -297,7 +390,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
         feature: (() -> Unit)?,
     ) {
         val handlerAdapter = handler?.let { userHandler ->
-            PresentationHandlerAdapter(userHandler, scope) { finished ->
+            PresentationHandlerAdapter(userHandler, scope, ::logError) { finished ->
                 // Terminal callbacks arrive on the main thread.
                 activeHandlers.remove(finished)
             }
@@ -314,7 +407,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
                     try {
                         block()
                     } catch (throwable: Throwable) {
-                        println("[Superwall] register feature block threw: $throwable")
+                        logError("The register feature block threw an exception", throwable)
                     }
                 }
             }
@@ -346,6 +439,25 @@ internal class IosSuperwallBridge : SuperwallBridge {
         awaitVoidCompletion { swb.dismiss(it) }
     }
 
+    // dismissForNextPaywall, showAlert, openRestoreOnWeb and the external
+    // account id exist publicly in superwall-android only (SuperwallKit keeps
+    // its dismissForNextPaywall internal), so these are documented no-ops.
+
+    override suspend fun dismissForNextPaywall() {}
+
+    override fun showAlert(
+        title: String?,
+        message: String?,
+        actionTitle: String?,
+        closeActionTitle: String,
+        action: (() -> Unit)?,
+        onClose: (() -> Unit)?,
+    ) {}
+
+    override fun openRestoreOnWeb() {}
+
+    override fun getExternalAccountId(): String? = null
+
     override fun isPaywallPresented(): Boolean = swb.isPaywallPresented()
 
     override fun getLatestPaywallInfo(): PaywallInfo? = swb.latestPaywallInfo()?.toModel()
@@ -362,6 +474,39 @@ internal class IosSuperwallBridge : SuperwallBridge {
 
     override fun togglePaywallSpinner(isHidden: Boolean) {
         swb.togglePaywallSpinnerWithIsHidden(isHidden)
+    }
+
+    // ---- Customer Center --------------------------------------------------------
+
+    override fun presentCustomerCenter(
+        configuration: CustomerCenterConfiguration?,
+        delegate: CustomerCenterDelegate?,
+        onDismiss: (() -> Unit)?,
+    ) {
+        val adapter = delegate?.let {
+            CustomerCenterDelegateAdapter(it, scope, ::logError) { dismissed ->
+                if (customerCenterDelegateAdapter === dismissed) customerCenterDelegateAdapter = null
+            }
+        }
+        scope.launch { customerCenterDelegateAdapter = adapter }
+
+        val wrappedOnDismiss: (() -> Unit)? = onDismiss?.let { block ->
+            {
+                scope.launch {
+                    try {
+                        block()
+                    } catch (throwable: Throwable) {
+                        logError("The presentCustomerCenter onDismiss block threw an exception", throwable)
+                    }
+                }
+            }
+        }
+
+        swb.presentCustomerCenterWithConfiguration(configuration?.toSWB(), adapter, wrappedOnDismiss)
+    }
+
+    override suspend fun dismissCustomerCenter() {
+        awaitVoidCompletion { swb.dismissCustomerCenter(it) }
     }
 
     // ---- Products / misc ------------------------------------------------------
@@ -382,6 +527,36 @@ internal class IosSuperwallBridge : SuperwallBridge {
         swb.setInterfaceStyle(style.toSWB())
     }
 
+    override fun getAdConsent(): AdConsent? = swb.adConsent()?.toModel()
+
+    override fun setAdConsent(consent: AdConsent) {
+        swb.setAdConsent(consent.toSWB())
+    }
+
+    override fun refreshConfiguration() {
+        swb.refreshConfiguration()
+    }
+
+    override fun getEventTrackingBehavior(): EventTrackingBehavior =
+        eventTrackingBehaviorFromSWBRaw(swb.eventTrackingBehaviorRawValue())
+
+    override fun setEventTrackingBehavior(behavior: EventTrackingBehavior) {
+        swb.setEventTrackingBehaviorRawValue(behavior.toSWBRaw())
+    }
+
+    override fun cancelAllScheduledNotifications() {
+        swb.cancelAllScheduledNotifications()
+    }
+
+    // Push tokens and notification opens are reported by superwall-android
+    // only; SuperwallKit has no counterpart, so these are documented no-ops.
+
+    override fun setPushToken(token: String) {}
+
+    override fun setNotificationsEnabled(enabled: Boolean) {}
+
+    override fun handleNotificationOpen(data: Map<String, String>) {}
+
     override fun enableExperimentalDeviceVariables(enabled: Boolean) {
         // The SWB facade exposes no post-configure toggle: on iOS the option is
         // applied at configure via SWBSuperwallOptions.enableExperimentalDeviceVariables,
@@ -396,6 +571,34 @@ internal class IosSuperwallBridge : SuperwallBridge {
             ?: purchaseToken
 
     // ---- Internals ------------------------------------------------------------
+
+    /**
+     * Routes an exception caught from app code (purchase controller,
+     * presentation handler, feature block) to the app's `handleLog` at
+     * [LogLevel.ERROR], like the Android bridge, with the console as the last
+     * resort. Only forwarded when a user delegate is set.
+     */
+    private fun logError(
+        message: String,
+        error: Throwable?,
+    ) {
+        val detail = error?.let { it.message ?: it.toString() }
+        println("[Superwall] $message" + (detail?.let { ": $it" } ?: ""))
+        val listener = delegateAdapter?.listener?.takeIf { it.forwardsToUserDelegate } ?: return
+        scope.launch {
+            try {
+                listener.handleLog(
+                    level = LogLevel.ERROR,
+                    scope = LogScope.SUPERWALL_CORE,
+                    message = message,
+                    info = null,
+                    error = detail,
+                )
+            } catch (throwable: Throwable) {
+                println("[Superwall] handleLog forwarding failed: $throwable")
+            }
+        }
+    }
 
     /** Routes a bridge-level warning through the installed listener when present. */
     private fun warn(message: String) {

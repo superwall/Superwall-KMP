@@ -34,28 +34,42 @@ import platform.darwin.NSObject
  *
  * Threading: callbacks arrive synchronously on SuperwallKit's main actor;
  * user closures are delivered through [scope] (`Dispatchers.Main.immediate`),
- * and their exceptions are caught. `onCustomCallback` launches
+ * and their exceptions are caught and reported through [log] (the app's
+ * `handleLog`, as on Android). `onCustomCallback` launches
  * the user's suspend closure — never blocking — and bridges the result back
  * through the async completion exactly once.
  */
 internal class PresentationHandlerAdapter(
     private val handler: PaywallPresentationHandler,
     private val scope: CoroutineScope,
+    private val log: (message: String, error: Throwable?) -> Unit,
     private val onFinished: (PresentationHandlerAdapter) -> Unit,
 ) : NSObject(), SWBPaywallPresentationHandlerProtocol {
-    private fun deliver(block: () -> Unit) {
+    private fun deliver(
+        callbackName: String,
+        block: () -> Unit,
+    ) {
         scope.launch {
             try {
                 block()
             } catch (throwable: Throwable) {
-                println("[Superwall] PaywallPresentationHandler callback threw: $throwable")
+                log("PaywallPresentationHandler.$callbackName threw an exception", throwable)
             }
         }
     }
 
     override fun onPresent(paywallInfo: SWBPaywallInfo) {
         val info = paywallInfo.toModel()
-        deliver { handler.onPresentHandler?.invoke(info) }
+        deliver("onPresent") { handler.onPresentHandler?.invoke(info) }
+    }
+
+    override fun onWillDismiss(
+        paywallInfo: SWBPaywallInfo,
+        result: SWBPaywallResult,
+    ) {
+        val info = paywallInfo.toModel()
+        val paywallResult = result.toModel()
+        deliver("onWillDismiss") { handler.onWillDismissHandler?.invoke(info, paywallResult) }
     }
 
     override fun onDismiss(
@@ -64,7 +78,7 @@ internal class PresentationHandlerAdapter(
     ) {
         val info = paywallInfo.toModel()
         val paywallResult = result.toModel()
-        deliver { handler.onDismissHandler?.invoke(info, paywallResult) }
+        deliver("onDismiss") { handler.onDismissHandler?.invoke(info, paywallResult) }
         // Mirror of the Swift wrapper's release condition: only a real close
         // (closeReason != none) ends the registration.
         if (paywallInfo.closeReason() != SWBPaywallCloseReasonNone) {
@@ -73,7 +87,7 @@ internal class PresentationHandlerAdapter(
     }
 
     override fun onError(error: String) {
-        deliver { handler.onErrorHandler?.invoke(error) }
+        deliver("onError") { handler.onErrorHandler?.invoke(error) }
         // Deliberate delta vs the Flutter host (which leaked here): a failed
         // presentation gets no dismiss/skip, so release now.
         onFinished(this)
@@ -81,7 +95,7 @@ internal class PresentationHandlerAdapter(
 
     override fun onSkip(reason: SWBPaywallSkippedReason) {
         val skippedReason = reason.toModel()
-        deliver { handler.onSkipHandler?.invoke(skippedReason) }
+        deliver("onSkip") { handler.onSkipHandler?.invoke(skippedReason) }
         onFinished(this)
     }
 
@@ -94,7 +108,7 @@ internal class PresentationHandlerAdapter(
             val result = try {
                 handler.onCustomCallbackHandler?.invoke(model) ?: CustomCallbackResult.failure()
             } catch (throwable: Throwable) {
-                println("[Superwall] onCustomCallback handler threw: $throwable")
+                log("PaywallPresentationHandler.onCustomCallback threw an exception", throwable)
                 CustomCallbackResult.failure(mapOf("error" to (throwable.message ?: throwable.toString())))
             }
             completion(result.toSWB())

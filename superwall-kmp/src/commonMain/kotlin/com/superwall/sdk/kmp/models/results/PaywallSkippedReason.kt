@@ -30,4 +30,11 @@ public sealed interface PaywallSkippedReason {
      * dashboard and double check its spelling.
      */
     public data object PlacementNotFound : PaywallSkippedReason
+
+    /**
+     * The user already has an active subscription. Android only, and only
+     * from older campaign setups: superwall-android still declares the
+     * reason, SuperwallKit doesn't have it.
+     */
+    public data object UserIsSubscribed : PaywallSkippedReason
 }

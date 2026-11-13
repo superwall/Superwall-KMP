@@ -1,21 +1,29 @@
 package com.superwall.sdk.kmp.internal.mappers
 
+import com.superwall.sdk.kmp.models.options.AdConsent
+import com.superwall.sdk.kmp.models.options.AdConsentStatus
 import com.superwall.sdk.kmp.models.options.DeviceTier
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.Logging
 import com.superwall.sdk.kmp.models.options.NetworkEnvironment
 import com.superwall.sdk.kmp.models.options.PaywallOptions
+import com.superwall.sdk.kmp.models.options.PresentationHost
 import com.superwall.sdk.kmp.models.options.RestoreFailed
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.TestModeBehavior
 import com.superwall.sdk.kmp.models.options.TransactionBackgroundView
+import com.superwall.sdk.kmp.models.options.CustomNetworkEnvironment
+import com.superwall.sdk.kmp.models.options.PaywallResource
+import com.superwall.sdk.paywall.view.webview.PaywallResource as NativePaywallResource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import com.superwall.sdk.analytics.Tier as NativeTier
+import com.superwall.sdk.config.options.AdConsent as NativeAdConsent
+import com.superwall.sdk.config.options.AdConsentStatus as NativeAdConsentStatus
 import com.superwall.sdk.config.options.PaywallOptions as NativePaywallOptions
 import com.superwall.sdk.config.options.SuperwallOptions as NativeSuperwallOptions
 import com.superwall.sdk.logger.LogLevel as NativeLogLevel
@@ -86,7 +94,89 @@ class OptionsMapperTest {
         )
     }
 
+    @Test
+    fun paywallOptions_androidLoadingAndHostOptions_mapToNative() {
+        val native =
+            PaywallOptions(
+                optimisticLoading = true,
+                timeoutAfter = kotlin.time.Duration.parse("12s"),
+                presentationHost = PresentationHost.IN_WINDOW,
+            ).toNative()
+
+        assertEquals(true, native.optimisticLoading)
+        assertEquals(kotlin.time.Duration.parse("12s"), native.timeoutAfter)
+        assertEquals(NativePaywallOptions.PresentationHost.IN_WINDOW, native.presentationHost)
+    }
+
+    @Test
+    fun paywallOptions_androidLoadingAndHostOptions_defaultsMatchNative() {
+        val native = PaywallOptions().toNative()
+        val nativeDefaults = NativePaywallOptions()
+
+        assertEquals(nativeDefaults.optimisticLoading, native.optimisticLoading)
+        assertEquals(nativeDefaults.timeoutAfter, native.timeoutAfter)
+        assertEquals(nativeDefaults.presentationHost, native.presentationHost)
+    }
+
+    // ---- AdConsent ---------------------------------------------------------------
+
+    @Test
+    fun adConsent_unsetOption_staysNativeUnspecified() {
+        assertEquals(NativeAdConsent.Unspecified, SuperwallOptions().toNative().adConsent)
+    }
+
+    @Test
+    fun adConsent_setOption_mapsToNativeCustom() {
+        val native =
+            SuperwallOptions(
+                adConsent = AdConsent(adUserData = AdConsentStatus.GRANTED, adPersonalization = AdConsentStatus.DENIED),
+            ).toNative()
+
+        assertEquals(
+            NativeAdConsent.Custom(adUserData = NativeAdConsentStatus.Granted, adPersonalization = NativeAdConsentStatus.Denied),
+            native.adConsent,
+        )
+    }
+
+    @Test
+    fun adConsent_nativeToCommon_unspecifiedIsNullAndCustomRoundTrips() {
+        assertNull(NativeAdConsent.Unspecified.toKmp())
+        val consent = AdConsent(adUserData = AdConsentStatus.DENIED, adPersonalization = AdConsentStatus.GRANTED)
+        assertEquals(consent, consent.toNative().toKmp())
+    }
+
     // ---- PaywallOptions --------------------------------------------------------
+
+    /**
+     * Reads the native RestoreFailed's "set by the app" backing field: only
+     * strings left unset there are localized by superwall-android.
+     */
+    private fun NativePaywallOptions.RestoreFailed.customValue(field: String): String? =
+        NativePaywallOptions.RestoreFailed::class.java
+            .getDeclaredField(field)
+            .apply { isAccessible = true }
+            .get(this) as String?
+
+    @Test
+    fun restoreFailed_defaultTextIsLeftUnsetSoTheNativeSdkLocalizesIt() {
+        val native = PaywallOptions().toNative().restoreFailed
+
+        assertNull(native.customValue("customTitle"))
+        assertNull(native.customValue("customMessage"))
+        assertNull(native.customValue("customCloseButtonTitle"))
+    }
+
+    @Test
+    fun restoreFailed_customTextIsSetAndTheRestLeftUnset() {
+        val native =
+            PaywallOptions(restoreFailed = RestoreFailed(title = "Nothing to restore"))
+                .toNative()
+                .restoreFailed
+
+        assertEquals("Nothing to restore", native.customValue("customTitle"))
+        assertNull(native.customValue("customMessage"))
+        assertNull(native.customValue("customCloseButtonTitle"))
+    }
 
     @Test
     fun paywallOptions_nonDefaultValues_mapToNativeFields() {
@@ -152,6 +242,48 @@ class OptionsMapperTest {
 
         assertEquals(NativeLogLevel.warn, native.level)
         assertEquals(setOf(NativeLogScope.network, NativeLogScope.cache), native.scopes.toSet())
+    }
+
+    @Test
+    fun logging_unsetLevel_keepsTheNativeDefault() {
+        // superwall-android defaults to warn; the wrapper used to force info.
+        assertEquals(NativeSuperwallOptions.Logging().level, Logging().toNative().level)
+        assertEquals(NativeLogLevel.warn, SuperwallOptions().toNative().logging.level)
+    }
+
+    @Test
+    fun networkEnvironment_local_mapsToACustomLocalhostEnvironment() {
+        val environment = SuperwallOptions(networkEnvironment = NetworkEnvironment.LOCAL).toNative().networkEnvironment
+
+        assertTrue(environment is NativeSuperwallOptions.NetworkEnvironment.Custom)
+        assertEquals("localhost", environment.baseHost)
+        assertEquals("localhost", environment.collectorHost)
+        assertEquals("http", environment.scheme)
+        assertEquals(3000, environment.port)
+    }
+
+    @Test
+    fun customNetworkEnvironment_winsOverTheNamedEnvironment() {
+        val environment =
+            SuperwallOptions(
+                networkEnvironment = NetworkEnvironment.DEVELOPER,
+                customNetworkEnvironment =
+                    CustomNetworkEnvironment(baseHost = "api.example.com", collectorHost = "events.example.com", port = 8443),
+            ).toNative().networkEnvironment
+
+        assertTrue(environment is NativeSuperwallOptions.NetworkEnvironment.Custom)
+        assertEquals("api.example.com", environment.baseHost)
+        assertEquals("events.example.com", environment.collectorHost)
+        assertEquals("https", environment.scheme)
+        assertEquals(8443, environment.port)
+    }
+
+    @Test
+    fun localResources_androidResourceMapsToNativeFromResources() {
+        // FromUri needs android.net.Uri, which host tests don't have.
+        val native = mapOf("hero" to PaywallResource.FromAndroidResource(42)).toNative()
+
+        assertEquals(mapOf<String, NativePaywallResource>("hero" to NativePaywallResource.FromResources(42)), native)
     }
 
     @Test
@@ -240,34 +372,32 @@ class OptionsMapperTest {
 
     // ---- LogScope ----------------------------------------------------------------
 
+    /** Common scopes superwall-android has no counterpart for. */
+    private val iosOnlyScopes = setOf(LogScope.ANALYTICS, LogScope.GRANTED_ENTITLEMENTS)
+
     @Test
     fun logScope_commonToNativeRoundTripsExhaustively() {
         for (common in LogScope.entries) {
-            assertEquals(common, common.toNative().toKmp())
+            if (common in iosOnlyScopes) {
+                assertNull(common.toNative(), "expected $common to have no Android counterpart")
+            } else {
+                assertEquals(common, common.toNative()!!.toKmp())
+            }
         }
     }
-
-    private val unmappedNativeScopes =
-        setOf(
-            NativeLogScope.webEntitlements,
-            NativeLogScope.customerInfo,
-            NativeLogScope.jsEvaluator,
-            NativeLogScope.paywallTransactions,
-            NativeLogScope.nativePurchaseController,
-            NativeLogScope.deepLinks,
-        )
 
     @Test
     fun logScope_nativeToCommonCoversEveryNativeCase() {
         for (native in NativeLogScope.entries) {
             val mapped = native.toKmp()
-            if (native in unmappedNativeScopes) {
-                // No common counterpart: null so the caller degrades to ALL + rawScope.
-                assertNull(mapped, "expected $native to be unmapped")
-            } else {
-                assertEquals(native, mapped!!.toNative(), "round trip failed for $native")
-            }
+            assertEquals(native, mapped?.toNative(), "round trip failed for $native")
         }
+    }
+
+    @Test
+    fun logging_iosOnlyScopesAreLeftOutOfTheNativeScopes() {
+        val native = Logging(scopes = setOf(LogScope.ANALYTICS, LogScope.BILLING)).toNative()
+        assertEquals(setOf(NativeLogScope.billing), native.scopes.toSet())
     }
 
     @Test
@@ -282,7 +412,8 @@ class OptionsMapperTest {
     @Test
     fun logScopeFromNativeString_unknownOrUnmappedReturnsNullSoCallerCanDegrade() {
         assertNull(logScopeFromNativeString("someBrandNewScope"))
-        // A real native scope with no common counterpart also returns null.
-        assertNull(logScopeFromNativeString("webEntitlements"))
+        // Scopes added in superwall-android 2.9+ have their own common values.
+        assertEquals(LogScope.WEB_ENTITLEMENTS, logScopeFromNativeString("webEntitlements"))
+        assertEquals(LogScope.BILLING, logScopeFromNativeString("billing"))
     }
 }

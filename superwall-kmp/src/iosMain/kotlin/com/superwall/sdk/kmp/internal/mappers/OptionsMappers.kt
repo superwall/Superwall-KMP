@@ -2,11 +2,17 @@
 
 package com.superwall.sdk.kmp.internal.mappers
 
-import com.superwall.sdk.kmp.internal.InterfaceStyle
+import com.superwall.sdk.kmp.models.options.PaywallResource
+import com.superwall.sdk.kmp.models.options.DevServer
+import com.superwall.sdk.kmp.internal.interop.SWB_NETWORK_ENVIRONMENT_LOCAL
 import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_ALL
 import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_NONE
 import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_SUPERWALL_ONLY
 import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_ALL
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_ANALYTICS
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_CUSTOMER_CENTER
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_GRANTED_ENTITLEMENTS
+import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_WEB_ENTITLEMENTS
 import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_BOUNCE_BUTTON
 import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_CACHE
 import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_CONFIG_MANAGER
@@ -31,12 +37,15 @@ import com.superwall.sdk.kmp.internal.interop.SWB_LOG_SCOPE_TRANSACTIONS
 import com.superwall.sdk.kmp.internal.interop.SWB_NETWORK_ENVIRONMENT_DEVELOPER
 import com.superwall.sdk.kmp.internal.interop.SWB_NETWORK_ENVIRONMENT_RELEASE
 import com.superwall.sdk.kmp.internal.interop.SWB_NETWORK_ENVIRONMENT_RELEASE_CANDIDATE
+import com.superwall.sdk.kmp.internal.interop.SWB_STORE_KIT_VERSION_STOREKIT1
+import com.superwall.sdk.kmp.internal.interop.SWB_STORE_KIT_VERSION_STOREKIT2
 import com.superwall.sdk.kmp.internal.interop.SWB_TEST_MODE_BEHAVIOR_ALWAYS
 import com.superwall.sdk.kmp.internal.interop.SWB_TEST_MODE_BEHAVIOR_AUTOMATIC
 import com.superwall.sdk.kmp.internal.interop.SWB_TEST_MODE_BEHAVIOR_NEVER
 import com.superwall.sdk.kmp.internal.interop.SWB_TEST_MODE_BEHAVIOR_WHEN_ENABLED_FOR_USER
 import com.superwall.sdk.kmp.internal.interop.SWB_TRANSACTION_BACKGROUND_VIEW_NONE
 import com.superwall.sdk.kmp.internal.interop.SWB_TRANSACTION_BACKGROUND_VIEW_SPINNER
+import com.superwall.sdk.kmp.internal.ios.interop.SWBAdConsent
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIdentityOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBInterfaceStyle
 import com.superwall.sdk.kmp.internal.ios.interop.SWBInterfaceStyleAutomatic
@@ -49,15 +58,20 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBLogLevelInfo
 import com.superwall.sdk.kmp.internal.ios.interop.SWBLogLevelNone
 import com.superwall.sdk.kmp.internal.ios.interop.SWBLogLevelWarn
 import com.superwall.sdk.kmp.internal.ios.interop.SWBLoggingOptions
+import com.superwall.sdk.kmp.internal.ios.interop.SWBNotificationPermissionsDeniedOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPaywallOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBRestoreFailedOptions
 import com.superwall.sdk.kmp.internal.ios.interop.SWBSuperwallOptions
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
+import com.superwall.sdk.kmp.models.options.AdConsentStatus
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
+import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.NetworkEnvironment
 import com.superwall.sdk.kmp.models.options.PaywallOptions
+import com.superwall.sdk.kmp.models.options.StoreKitVersion
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.options.TestModeBehavior
 import com.superwall.sdk.kmp.models.options.TransactionBackgroundView
@@ -69,13 +83,33 @@ import platform.Foundation.NSNumber
 // "nil = keep native default" convention is only exercised when the whole
 // options object is absent. Android-only members (preloadDeviceOverrides,
 // onBackPressed, passIdentifiersToPlayStore, useMockReviews) have no iOS
-// counterpart and are intentionally not mapped.
+// counterpart and are intentionally not mapped, nor are the Android-only
+// PaywallOptions optimisticLoading, timeoutAfter and presentationHost.
 // ---------------------------------------------------------------------------
 
 internal fun SuperwallOptions.toSWB(): SWBSuperwallOptions {
     val options = SWBSuperwallOptions()
     options.setPaywalls(paywalls.toSWB())
     options.setNetworkEnvironment(NSNumber(long = networkEnvironment.toSWBRaw()))
+    // SuperwallKit's custom environment is one "scheme://host[:port]" string;
+    // it has no setting for the collector host.
+    customNetworkEnvironment?.let { custom ->
+        val port = custom.port?.let { ":$it" } ?: ""
+        options.setCustomNetworkEnvironmentDomain("${custom.scheme}://${custom.baseHost}$port")
+    }
+    if (localResources.isNotEmpty()) {
+        // Android resource ids mean nothing here and are left out.
+        val urls: Map<String, String> =
+            localResources.mapNotNull { (id, resource) -> (resource as? PaywallResource.FromUri)?.let { id to it.uri } }.toMap()
+        @Suppress("UNCHECKED_CAST")
+        options.setLocalResources(urls as Map<Any?, *>)
+    }
+    when (val server = devServer) {
+        null -> Unit
+        // The empty string is the bridge's spelling of DevServer.default.
+        DevServer.Default -> options.setDevServerUrl("")
+        is DevServer.Url -> options.setDevServerUrl(server.url)
+    }
     options.setIsExternalDataCollectionEnabled(NSNumber(bool = isExternalDataCollectionEnabled))
     // ALL is the common default and indistinguishable from "unset"; leaving
     // the SWB field nil lets the deprecated boolean keep its effect (the
@@ -90,14 +124,44 @@ internal fun SuperwallOptions.toSWB(): SWBSuperwallOptions {
     options.setShouldObservePurchases(NSNumber(bool = shouldObservePurchases))
     options.setShouldBypassAppTransactionCheck(NSNumber(bool = shouldBypassAppTransactionCheck))
     options.setMaxConfigRetryCount(NSNumber(int = maxConfigRetryCount))
+    storeKitVersion?.let { version ->
+        options.setStoreKitVersion(
+            NSNumber(
+                long = when (version) {
+                    StoreKitVersion.STOREKIT1 -> SWB_STORE_KIT_VERSION_STOREKIT1
+                    StoreKitVersion.STOREKIT2 -> SWB_STORE_KIT_VERSION_STOREKIT2
+                },
+            ),
+        )
+    }
     options.setLogging(
         SWBLoggingOptions().also { swbLogging ->
-            swbLogging.setLevel(NSNumber(long = logLevelToSWB(logging.level)))
-            swbLogging.setScopes(logging.scopes.map { NSNumber(long = logScopeToSWB(it)) })
+            // Unset keeps SuperwallKit's own default (info).
+            logging.level?.let { swbLogging.setLevel(NSNumber(long = logLevelToSWB(it))) }
+            // Android-only scopes have no SuperwallKit counterpart and are left
+            // out; when that leaves none, the native default scopes stay.
+            val swbScopes = logging.scopes.mapNotNull { scope -> logScopeToSWB(scope)?.let { NSNumber(long = it) } }
+            if (swbScopes.isNotEmpty() || logging.scopes.isEmpty()) swbLogging.setScopes(swbScopes)
         },
     )
+    // Unset stays nil, so a TCF consent banner's stored answer still applies.
+    adConsent?.let { options.setAdConsent(it.toSWB()) }
+    customerCenter?.let { options.setCustomerCenter(it.toSWB()) }
     return options
 }
+
+internal fun AdConsent.toSWB(): SWBAdConsent =
+    // Positional, as the other SWB initializers are called: (adUserDataGranted, adPersonalizationGranted).
+    SWBAdConsent(
+        adUserData == AdConsentStatus.GRANTED,
+        adPersonalization == AdConsentStatus.GRANTED,
+    )
+
+internal fun SWBAdConsent.toModel(): AdConsent =
+    AdConsent(
+        adUserData = if (adUserDataGranted()) AdConsentStatus.GRANTED else AdConsentStatus.DENIED,
+        adPersonalization = if (adPersonalizationGranted()) AdConsentStatus.GRANTED else AdConsentStatus.DENIED,
+    )
 
 internal fun PaywallOptions.toSWB(): SWBPaywallOptions {
     val options = SWBPaywallOptions()
@@ -126,6 +190,16 @@ internal fun PaywallOptions.toSWB(): SWBPaywallOptions {
         options.setOverrideProductsByName(overrides as Map<Any?, *>)
     }
     options.setShouldShowWebPurchaseConfirmationAlert(NSNumber(bool = shouldShowWebPurchaseConfirmationAlert))
+    notificationPermissionsDenied?.let { alert ->
+        options.setNotificationPermissionsDenied(
+            SWBNotificationPermissionsDeniedOptions().also {
+                it.setTitle(alert.title)
+                it.setMessage(alert.message)
+                it.setActionButtonTitle(alert.actionButtonTitle)
+                it.setCloseButtonTitle(alert.closeButtonTitle)
+            },
+        )
+    }
     return options
 }
 
@@ -136,13 +210,22 @@ private fun NetworkEnvironment.toSWBRaw(): Long =
         NetworkEnvironment.RELEASE -> SWB_NETWORK_ENVIRONMENT_RELEASE
         NetworkEnvironment.RELEASE_CANDIDATE -> SWB_NETWORK_ENVIRONMENT_RELEASE_CANDIDATE
         NetworkEnvironment.DEVELOPER -> SWB_NETWORK_ENVIRONMENT_DEVELOPER
+        NetworkEnvironment.LOCAL -> SWB_NETWORK_ENVIRONMENT_LOCAL
     }
 
-private fun EventTrackingBehavior.toSWBRaw(): Long =
+internal fun EventTrackingBehavior.toSWBRaw(): Long =
     when (this) {
         EventTrackingBehavior.ALL -> SWB_EVENT_TRACKING_BEHAVIOR_ALL
         EventTrackingBehavior.SUPERWALL_ONLY -> SWB_EVENT_TRACKING_BEHAVIOR_SUPERWALL_ONLY
         EventTrackingBehavior.NONE -> SWB_EVENT_TRACKING_BEHAVIOR_NONE
+    }
+
+/** The reverse of [toSWBRaw]; an unknown raw value reads as the native default, ALL. */
+internal fun eventTrackingBehaviorFromSWBRaw(raw: Long): EventTrackingBehavior =
+    when (raw) {
+        SWB_EVENT_TRACKING_BEHAVIOR_SUPERWALL_ONLY -> EventTrackingBehavior.SUPERWALL_ONLY
+        SWB_EVENT_TRACKING_BEHAVIOR_NONE -> EventTrackingBehavior.NONE
+        else -> EventTrackingBehavior.ALL
     }
 
 private fun TestModeBehavior.toSWBRaw(): Long =
@@ -188,11 +271,10 @@ internal fun logLevelFromSWB(level: SWBLogLevel): LogLevel =
 
 /**
  * Maps a common [LogScope] to the SWB raw value (the `SWBLogScope` raw Int —
- * carried as an NSNumber across the bridge). The bridge's two 4.16.x-only
- * scopes (`analytics`, `webEntitlements`) have no common counterpart and only
- * appear in the read direction ([logScopeFromRawName]).
+ * carried as an NSNumber across the bridge), or `null` for the Android-only
+ * scopes, which SuperwallKit has no counterpart for.
  */
-internal fun logScopeToSWB(scope: LogScope): Long =
+internal fun logScopeToSWB(scope: LogScope): Long? =
     when (scope) {
         LogScope.LOCALIZATION_MANAGER -> SWB_LOG_SCOPE_LOCALIZATION_MANAGER
         LogScope.BOUNCE_BUTTON -> SWB_LOG_SCOPE_BOUNCE_BUTTON
@@ -216,6 +298,17 @@ internal fun logScopeToSWB(scope: LogScope): Long =
         LogScope.PAYWALL_VIEW_CONTROLLER -> SWB_LOG_SCOPE_PAYWALL_VIEW_CONTROLLER
         LogScope.CACHE -> SWB_LOG_SCOPE_CACHE
         LogScope.ALL -> SWB_LOG_SCOPE_ALL
+        LogScope.ANALYTICS -> SWB_LOG_SCOPE_ANALYTICS
+        LogScope.WEB_ENTITLEMENTS -> SWB_LOG_SCOPE_WEB_ENTITLEMENTS
+        LogScope.GRANTED_ENTITLEMENTS -> SWB_LOG_SCOPE_GRANTED_ENTITLEMENTS
+        LogScope.CUSTOMER_CENTER -> SWB_LOG_SCOPE_CUSTOMER_CENTER
+        LogScope.CUSTOMER_INFO,
+        LogScope.JS_EVALUATOR,
+        LogScope.PAYWALL_TRANSACTIONS,
+        LogScope.NATIVE_PURCHASE_CONTROLLER,
+        LogScope.DEEP_LINKS,
+        LogScope.BILLING,
+        -> null
     }
 
 /**
@@ -231,8 +324,8 @@ internal fun logLevelFromRawName(raw: String): LogLevel? {
 /**
  * Maps the raw native scope string delivered by `handleLog` (camelCase, e.g.
  * `"paywallPresentation"`) to a common [LogScope], or `null` when unmappable
- * (including the 4.16.x-only `analytics`/`webEntitlements` scopes) — the
- * caller falls back to [LogScope.ALL] and preserves `info["rawScope"]`.
+ * (a scope newer than the wrapper) — the caller falls back to
+ * [LogScope.ALL] and preserves `info["rawScope"]`.
  */
 internal fun logScopeFromRawName(raw: String): LogScope? {
     val normalized = raw.normalizedEnumKey()

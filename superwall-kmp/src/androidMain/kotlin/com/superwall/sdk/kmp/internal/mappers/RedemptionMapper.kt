@@ -6,6 +6,7 @@ import com.superwall.sdk.kmp.models.redemption.Ownership
 import com.superwall.sdk.kmp.models.redemption.PurchaserInfo
 import com.superwall.sdk.kmp.models.redemption.RedemptionInfo
 import com.superwall.sdk.kmp.models.redemption.RedemptionPaywallInfo
+import com.superwall.sdk.kmp.models.redemption.RedemptionPaywallProduct
 import com.superwall.sdk.kmp.models.redemption.RedemptionResult
 import com.superwall.sdk.kmp.models.redemption.StoreIdentifiers
 import com.superwall.sdk.models.internal.ErrorInfo as NativeErrorInfo
@@ -102,6 +103,43 @@ internal fun NativeRedemptionResult.PaywallInfo.toKmp(): RedemptionPaywallInfo =
         placementParams = sanitizeParams(placementParams).orEmpty(),
         variantId = variantId,
         experimentId = experimentId,
+        productIdentifier = productIdentifier,
+        product = product?.toKmp(),
+    )
+
+internal fun NativeRedemptionResult.PaywallInfo.PaywallProduct.toKmp(): RedemptionPaywallProduct =
+    RedemptionPaywallProduct(
+        identifier = identifier,
+        languageCode = languageCode,
+        locale = locale,
+        currencyCode = currencyCode,
+        currencySymbol = currencySymbol,
+        period = period,
+        periodly = periodly,
+        localizedPeriod = localizedPeriod,
+        periodAlt = periodAlt,
+        periodDays = periodDays,
+        periodWeeks = periodWeeks,
+        periodMonths = periodMonths,
+        periodYears = periodYears,
+        rawPrice = rawPrice,
+        price = price,
+        dailyPrice = dailyPrice,
+        weeklyPrice = weeklyPrice,
+        monthlyPrice = monthlyPrice,
+        yearlyPrice = yearlyPrice,
+        rawTrialPeriodPrice = rawTrialPeriodPrice,
+        trialPeriodPrice = trialPeriodPrice,
+        trialPeriodDailyPrice = trialPeriodDailyPrice,
+        trialPeriodWeeklyPrice = trialPeriodWeeklyPrice,
+        trialPeriodMonthlyPrice = trialPeriodMonthlyPrice,
+        trialPeriodYearlyPrice = trialPeriodYearlyPrice,
+        trialPeriodDays = trialPeriodDays,
+        trialPeriodWeeks = trialPeriodWeeks,
+        trialPeriodMonths = trialPeriodMonths,
+        trialPeriodYears = trialPeriodYears,
+        trialPeriodText = trialPeriodText,
+        trialPeriodEndDate = trialPeriodEndDate,
     )
 
 internal fun NativeErrorInfo.toKmp(): ErrorInfo = ErrorInfo(message = message)

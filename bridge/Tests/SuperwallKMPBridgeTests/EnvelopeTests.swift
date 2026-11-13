@@ -347,12 +347,35 @@ final class EnvelopeConstructionTests: XCTestCase {
       (.networkDecodingFail, .networkDecodingFail),
       (.customerInfoDidChange, .customerInfoDidChange),
       (.testModeModalOpen, .testModeModalOpen),
-      (.testModeModalClose, .testModeModalClose)
+      (.testModeModalClose, .testModeModalClose),
+      (.customerCenterOpen(screen: .management, presentation: .sheet), .customerCenterOpen),
+      (.customerCenterClose, .customerCenterClose),
+      (.customerCenterAction(action: .refund, pathId: "path_1", productId: "pro"), .customerCenterAction),
+      (
+        .customerCenterSurveyResponse(
+          surveyId: "survey_1",
+          optionId: "option_1",
+          action: .refund,
+          pathId: "path_1",
+          productId: nil
+        ),
+        .customerCenterSurveyResponse
+      ),
+      (.customerCenterRefundRequest(productId: "pro", status: .success), .customerCenterRefundRequest)
     ]
     for (event, expected) in cases {
       let envelope = SWBEventEnvelope(SuperwallEventInfo(event: event, params: [:]))
       XCTAssertEqual(envelope.eventType, expected, "\(event) mapped to \(envelope.eventType)")
     }
+  }
+
+  func testTeleportReturnWithoutPaywallHasNoPaywallInfo() {
+    let envelope = SWBEventEnvelope(
+      SuperwallEventInfo(event: .teleportReturn(paywallInfo: nil), params: ["k": "v"])
+    )
+    XCTAssertEqual(envelope.eventType, .teleportReturn)
+    XCTAssertNil(envelope.paywallInfo)
+    XCTAssertEqual(envelope.params?["k"] as? String, "v")
   }
 
   // MARK: Redemption
@@ -497,5 +520,198 @@ final class OnceGateTests: XCTestCase {
     XCTAssertTrue(gate.tryPass())
     XCTAssertFalse(gate.tryPass())
     XCTAssertFalse(gate.tryPass())
+  }
+}
+
+final class CustomerCenterEnvelopeTests: XCTestCase {
+  func testPathTypeAndActionTypeRawValues() {
+    // The Kotlin side codes against these numbers (SWBRawValues.kt).
+    XCTAssertEqual(SWBCustomerCenterPathType.restore.rawValue, 0)
+    XCTAssertEqual(SWBCustomerCenterPathType.custom.rawValue, 6)
+    XCTAssertEqual(SWBCustomerCenterActionType.restore.rawValue, 0)
+    XCTAssertEqual(SWBCustomerCenterActionType.custom.rawValue, 6)
+    XCTAssertEqual(CustomerCenterRefundStatus.success.swbRawValue, 0)
+    XCTAssertEqual(CustomerCenterRefundStatus.userCancelled.swbRawValue, 1)
+    XCTAssertEqual(CustomerCenterRefundStatus.error.swbRawValue, 2)
+  }
+
+  func testConfigurationMapsToSuperwallKitTypes() {
+    let refund = SWBCustomerCenterPath()
+    refund.typeRawValue = SWBCustomerCenterPathType.refund.rawValue
+    refund.refundWindowMillis = NSNumber(value: Int64(86_400_000))
+
+    let url = SWBCustomerCenterPath()
+    url.typeRawValue = SWBCustomerCenterPathType.url.rawValue
+    url.url = "https://example.com/faq"
+    url.title = "FAQ"
+    url.opensExternally = true
+
+    let badUrl = SWBCustomerCenterPath()
+    badUrl.typeRawValue = SWBCustomerCenterPathType.url.rawValue
+    badUrl.url = nil
+
+    let configuration = SWBCustomerCenterConfiguration()
+    configuration.managementScreen.paths = [refund, url, badUrl]
+    configuration.accentLight = "#112233"
+    configuration.accentDark = "#445566"
+    configuration.checksAppStoreForUpdates = NSNumber(value: false)
+
+    let native = configuration.native
+    XCTAssertEqual(native.managementScreen.paths.count, 2, "a URL path without a URL is left out")
+    XCTAssertEqual(native.managementScreen.paths[0].type, .refund(window: 86_400))
+    XCTAssertEqual(native.managementScreen.paths[1].type, .url(URL(string: "https://example.com/faq")!, openMethod: .external))
+    XCTAssertEqual(native.managementScreen.paths[1].title, "FAQ")
+    XCTAssertEqual(native.appearance.accent, .init(light: "#112233", dark: "#445566"))
+    XCTAssertFalse(native.support.checksAppStoreForUpdates)
+    XCTAssertTrue(native.support.warnsAboutUpdates, "nil keeps SuperwallKit's default")
+  }
+
+  func testActionEnvelopeCarriesPayloads() {
+    let url = SWBCustomerCenterAction(.url(URL(string: "https://example.com")!))
+    XCTAssertEqual(url.typeRawValue, SWBCustomerCenterActionType.url.rawValue)
+    XCTAssertEqual(url.url, "https://example.com")
+
+    let custom = SWBCustomerCenterAction(.custom(identifier: "vip"))
+    XCTAssertEqual(custom.typeRawValue, SWBCustomerCenterActionType.custom.rawValue)
+    XCTAssertEqual(custom.customIdentifier, "vip")
+  }
+
+  func testAdConsentRoundTrips() {
+    let consent = SWBAdConsent(adUserDataGranted: true, adPersonalizationGranted: false)
+    XCTAssertEqual(consent.native.adUserData, .granted)
+    XCTAssertEqual(consent.native.adPersonalization, .denied)
+    let back = SWBAdConsent(consent.native)
+    XCTAssertTrue(back.adUserDataGranted)
+    XCTAssertFalse(back.adPersonalizationGranted)
+  }
+
+  func testPurchaseResultEnvelopeFromNative() {
+    XCTAssertEqual(SWBPurchaseResult(.purchased).result, .purchased)
+    let failed = SWBPurchaseResult(.failed(NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "nope"])))
+    XCTAssertEqual(failed.result, .failed)
+    XCTAssertEqual(failed.errorMessage, "nope")
+  }
+}
+
+final class LogScopeAndIntegrationAttributeTests: XCTestCase {
+  func testNewRawValuesAndNativeCounterparts() {
+    // The Kotlin side codes against these numbers (SWBRawValues.kt, EntitlementMappers.kt).
+    XCTAssertEqual(SWBLogScope.analytics.rawValue, 22)
+    XCTAssertEqual(SWBLogScope.webEntitlements.rawValue, 23)
+    XCTAssertEqual(SWBLogScope.grantedEntitlements.rawValue, 24)
+    XCTAssertEqual(SWBLogScope.customerCenter.rawValue, 25)
+    XCTAssertEqual(SWBLogScope.grantedEntitlements.native, .grantedEntitlements)
+    XCTAssertEqual(SWBLogScope.customerCenter.native, .customerCenter)
+    XCTAssertEqual(SWBIntegrationAttribute.airbridgeId.rawValue, 23)
+    XCTAssertEqual(SWBIntegrationAttribute.airbridgeId.native, .airbridgeId)
+  }
+}
+
+final class NewOptionsTests: XCTestCase {
+  func testStoreKitVersionAndNotificationAlertMapToSuperwallKit() {
+    let options = SWBSuperwallOptions()
+    options.storeKitVersion = NSNumber(value: 0)
+    let paywalls = SWBPaywallOptions()
+    let alert = SWBNotificationPermissionsDeniedOptions()
+    alert.title = "Turn on notifications"
+    paywalls.notificationPermissionsDenied = alert
+    options.paywalls = paywalls
+
+    let native = options.native
+    XCTAssertEqual(native.storeKitVersion, .storeKit1)
+    XCTAssertEqual(native.paywalls.notificationPermissionsDenied?.title, "Turn on notifications")
+    XCTAssertEqual(native.paywalls.notificationPermissionsDenied?.closeButtonTitle, "Not now")
+  }
+
+  func testUnsetStoreKitVersionAndAlertKeepSuperwallKitDefaults() {
+    let native = SWBSuperwallOptions().native
+    XCTAssertEqual(native.storeKitVersion, SuperwallOptions().storeKitVersion)
+    XCTAssertNil(native.paywalls.notificationPermissionsDenied)
+  }
+}
+
+final class StoreTransactionStateTests: XCTestCase {
+  func testRawValuesMatchKotlinAndMapEveryNativeCase() {
+    // The Kotlin side codes against these numbers (SWBRawValues.kt).
+    XCTAssertEqual(SWBStoreTransactionState(.purchasing).rawValue, 0)
+    XCTAssertEqual(SWBStoreTransactionState(.purchased).rawValue, 1)
+    XCTAssertEqual(SWBStoreTransactionState(.failed).rawValue, 2)
+    XCTAssertEqual(SWBStoreTransactionState(.restored).rawValue, 3)
+    XCTAssertEqual(SWBStoreTransactionState(.deferred).rawValue, 4)
+  }
+}
+
+final class SubscriptionPeriodUnitTests: XCTestCase {
+  func testUnitRawValuesMatchKotlin() {
+    // Carried as SWBStoreProduct.subscriptionPeriodUnitRawValue (SWBRawValues.kt).
+    XCTAssertEqual(SubscriptionPeriod.Unit.day.rawValue, 0)
+    XCTAssertEqual(SubscriptionPeriod.Unit.week.rawValue, 1)
+    XCTAssertEqual(SubscriptionPeriod.Unit.month.rawValue, 2)
+    XCTAssertEqual(SubscriptionPeriod.Unit.year.rawValue, 3)
+  }
+}
+
+final class PaywallPresentationRawValueTests: XCTestCase {
+  func testRawValuesMatchKotlin() {
+    // The Kotlin side codes against these numbers (SWBRawValues.kt).
+    XCTAssertEqual(SWBPaywallPresentationStyle.modal.rawValue, 0)
+    XCTAssertEqual(SWBPaywallPresentationStyle.drawer.rawValue, 4)
+    XCTAssertEqual(SWBPaywallPresentationStyle.popup.rawValue, 5)
+    XCTAssertEqual(SWBPaywallPresentationStyle.none.rawValue, 6)
+    XCTAssertEqual(IntroOfferEligibility.eligible.rawValue, 0)
+    XCTAssertEqual(IntroOfferEligibility.ineligible.rawValue, 1)
+    XCTAssertEqual(IntroOfferEligibility.automatic.rawValue, 2)
+  }
+}
+
+final class ParityOptionsTests: XCTestCase {
+  func testLocalResourcesDevServerAndLocalEnvironmentReachNativeOptions() {
+    let options = SWBSuperwallOptions()
+    options.localResources = [
+      "hero": "file:///tmp/hero.png",
+      "logo": "/tmp/logo.png",
+      "bad": "neither a url nor a path"
+    ]
+    options.devServerUrl = ""
+    options.networkEnvironment = NSNumber(value: SWBNetworkEnvironment.local.rawValue)
+
+    let native = options.native
+    XCTAssertEqual(native.localResources["hero"] as? URL, URL(string: "file:///tmp/hero.png"))
+    XCTAssertEqual(native.localResources["logo"] as? URL, URL(fileURLWithPath: "/tmp/logo.png"))
+    XCTAssertNil(native.localResources["bad"])
+    XCTAssertEqual(native.devServer, SuperwallOptions.DevServer.default)
+    XCTAssertEqual(native.networkEnvironment.description, "local")
+  }
+
+  func testDevServerUrlAndCustomEnvironmentWinOverTheNamedOne() {
+    let options = SWBSuperwallOptions()
+    options.devServerUrl = "http://192.168.1.10:6100"
+    options.networkEnvironment = NSNumber(value: SWBNetworkEnvironment.developer.rawValue)
+    options.customNetworkEnvironmentDomain = "https://api.example.com:8443"
+
+    let native = options.native
+    XCTAssertEqual(native.devServer, SuperwallOptions.DevServer.url(URL(string: "http://192.168.1.10:6100")!))
+    XCTAssertEqual(native.networkEnvironment.description, "custom")
+  }
+
+  func testUnsetParityOptionsKeepSuperwallKitDefaults() {
+    let native = SWBSuperwallOptions().native
+    XCTAssertTrue(native.localResources.isEmpty)
+    XCTAssertNil(native.devServer)
+    XCTAssertEqual(native.networkEnvironment.description, "release")
+  }
+}
+
+final class StoreProductParityRawValueTests: XCTestCase {
+  func testRawValuesMatchKotlin() {
+    // The Kotlin side codes against these numbers (SWBRawValues.kt).
+    XCTAssertEqual(SWBNetworkEnvironment.local.rawValue, 3)
+    XCTAssertEqual(StoreProductDiscount.PaymentMode.payAsYouGo.rawValue, 0)
+    XCTAssertEqual(StoreProductDiscount.PaymentMode.payUpFront.rawValue, 1)
+    XCTAssertEqual(StoreProductDiscount.PaymentMode.freeTrial.rawValue, 2)
+    XCTAssertEqual(StoreProductDiscount.DiscountType.introductory.rawValue, 0)
+    XCTAssertEqual(StoreProductDiscount.DiscountType.promotional.rawValue, 1)
+    XCTAssertEqual(AppStoreProduct.BillingPlanType.upFront.rawValue, 0)
+    XCTAssertEqual(AppStoreProduct.BillingPlanType.monthly.rawValue, 1)
   }
 }

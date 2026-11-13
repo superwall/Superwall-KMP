@@ -1,7 +1,9 @@
 package com.superwall.sdk.kmp.internal
 
+import com.superwall.sdk.kmp.CustomerCenterDelegate
 import com.superwall.sdk.kmp.PaywallPresentationHandler
 import com.superwall.sdk.kmp.PurchaseController
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
 import com.superwall.sdk.kmp.models.entitlements.Entitlements
@@ -9,32 +11,28 @@ import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.events.SuperwallEventInfo
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
+import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
+import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
 import com.superwall.sdk.kmp.models.redemption.RedemptionResult
 import com.superwall.sdk.kmp.models.results.PresentationResult
+import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 
 /**
- * The interface style the paywall UI should adopt.
- *
- * Internal for now: the bridge forwards it to the native SDKs; it is promoted
- * to a public model if/when the facade exposes an interface-style API.
+ * The wrapper name both bridges pass, with [SDK_VERSION], to the native
+ * `setPlatformWrapper` at configure. The native SDKs send it with their
+ * requests and device attributes, as the Flutter, React Native and Expo
+ * wrappers do with their own names.
  */
-internal enum class InterfaceStyle {
-    /** Force light mode. */
-    LIGHT,
-
-    /** Force dark mode. */
-    DARK,
-
-    /** Follow the system appearance. */
-    AUTOMATIC,
-}
+internal const val PLATFORM_WRAPPER: String = "KMP"
 
 /**
  * The callback seam through which native SDK delegate events flow up into
@@ -71,6 +69,14 @@ internal interface BridgeListener {
      * delivered regardless of this flag and are exempt.
      */
     val forwardsToUserDelegate: Boolean
+
+    /**
+     * Whether anything collects `Superwall.eventsFlow`. Platform adapters map
+     * and deliver [handleSuperwallEvent] when this or
+     * [forwardsToUserDelegate] is `true`, so the flow works without a
+     * delegate while the other hooks stay free.
+     */
+    val observesEvents: Boolean
 
     /** Native subscription status changed from [from] to [to]. */
     fun subscriptionStatusDidChange(
@@ -215,6 +221,22 @@ internal interface SuperwallBridge {
      */
     fun attachStreams(holder: StreamHolder)
 
+    /**
+     * Feeds [StreamHolder.configurationStatus] from the native SDK's
+     * configuration status, starting with the current value. Called right
+     * after [configure] returns, when the native singleton exists but
+     * configuration is still pending, so the flow sees pending, failed and
+     * configured. A repeat call replaces the previous feed.
+     */
+    fun attachConfigurationStatus(holder: StreamHolder)
+
+    /**
+     * Tears the native SDK down so that [configure] can run again. Android
+     * only (development use, e.g. hot reload): returns `true` when the SDK was
+     * torn down, `false` on iOS, where SuperwallKit has no teardown.
+     */
+    fun teardown(): Boolean
+
     // ---- Logging -----------------------------------------------------------
 
     /** The current log level of the native SDK. */
@@ -296,11 +318,45 @@ internal interface SuperwallBridge {
      */
     suspend fun getCustomerInfo(): CustomerInfo
 
+    /**
+     * Fetches the customer info again where the native SDK can (iOS);
+     * Android has no refresh and returns the current customer info.
+     */
+    suspend fun refreshCustomerInfo(): CustomerInfo
+
+    /**
+     * The entitlements granted outside the store. iOS only: Android returns
+     * an empty set.
+     */
+    fun getGrantedEntitlements(): Set<Entitlement>
+
+    /**
+     * Replaces the entitlements granted outside the store. iOS only (only the
+     * ids are passed on); a no-op on Android.
+     */
+    fun setGrantedEntitlements(entitlements: Set<Entitlement>)
+
     /** Confirms all unconfirmed experiment assignments and returns them. */
     suspend fun confirmAllAssignments(): Set<ConfirmedAssignment>
 
+    /** The experiment assignments stored so far, without confirming any. */
+    fun getAssignments(): Set<ConfirmedAssignment>
+
     /** Restores purchases via the native SDK (or the user's [PurchaseController]). */
     suspend fun restorePurchases(): RestorationResult
+
+    /**
+     * Purchases the store product [productId] through the native SDK (or the
+     * user's [PurchaseController]). Failure, including an unknown product,
+     * stays in the domain type.
+     */
+    suspend fun purchase(productId: String): PurchaseResult
+
+    /**
+     * Fetches the store products for [productIds], keyed by the requested id.
+     * Ids the store doesn't know are left out.
+     */
+    suspend fun getProducts(productIds: Set<String>): Map<String, StoreProduct>
 
     // ---- Presentation --------------------------------------------------------
 
@@ -336,6 +392,36 @@ internal interface SuperwallBridge {
     /** Info about the most recently presented paywall, if any. */
     fun getLatestPaywallInfo(): PaywallInfo?
 
+    /**
+     * Dismisses the presented paywall as "closed for the next paywall", the
+     * close reason that keeps the feature block from running. Android only; a
+     * no-op on iOS, where SuperwallKit keeps this internal.
+     */
+    suspend fun dismissForNextPaywall()
+
+    /**
+     * Shows an alert over the presented paywall; does nothing when none is
+     * presented. [action] and [onClose] run on the main thread. Android only;
+     * a no-op on iOS, where SuperwallKit has no public counterpart.
+     */
+    fun showAlert(
+        title: String?,
+        message: String?,
+        actionTitle: String?,
+        closeActionTitle: String,
+        action: (() -> Unit)?,
+        onClose: (() -> Unit)?,
+    )
+
+    /** Opens the web restore page. Android only; a no-op on iOS. */
+    fun openRestoreOnWeb()
+
+    /**
+     * The id superwall-android passes to Google Play as the obfuscated
+     * account id. Android only; `null` on iOS.
+     */
+    fun getExternalAccountId(): String?
+
     /** Preloads all paywalls the user may see, per campaign audience filters. */
     fun preloadAllPaywalls()
 
@@ -351,6 +437,20 @@ internal interface SuperwallBridge {
 
     /** Toggles the loading spinner on the presented paywall. */
     fun togglePaywallSpinner(isHidden: Boolean)
+
+    /**
+     * Presents the Customer Center on the main thread. Presenting while one is
+     * already shown does nothing natively. [delegate] and [onDismiss] are
+     * delivered on the main thread; the bridge keeps [delegate] until dismissal.
+     */
+    fun presentCustomerCenter(
+        configuration: CustomerCenterConfiguration?,
+        delegate: CustomerCenterDelegate?,
+        onDismiss: (() -> Unit)?,
+    )
+
+    /** Dismisses the Customer Center, if one is shown, resuming once it has gone. */
+    suspend fun dismissCustomerCenter()
 
     // ---- Products / misc ------------------------------------------------------
 
@@ -368,6 +468,36 @@ internal interface SuperwallBridge {
      * follows the system appearance).
      */
     fun setInterfaceStyle(style: InterfaceStyle?)
+
+    /** The ad consent the app set, or `null` while it never set one. */
+    fun getAdConsent(): AdConsent?
+
+    /** Sets the user's ad consent. */
+    fun setAdConsent(consent: AdConsent)
+
+    /** Fetches the Superwall configuration again. Fire-and-forget on both natives. */
+    fun refreshConfiguration()
+
+    /** The native SDK's current event tracking behavior. */
+    fun getEventTrackingBehavior(): EventTrackingBehavior
+
+    /** Changes which events the native SDK sends, at runtime. */
+    fun setEventTrackingBehavior(behavior: EventTrackingBehavior)
+
+    /** Removes the local notifications Superwall scheduled (e.g. trial reminders). */
+    fun cancelAllScheduledNotifications()
+
+    /** Reports the app's FCM registration token. Android only; a no-op on iOS. */
+    fun setPushToken(token: String)
+
+    /**
+     * Opts the device out of ([enabled] `false`) or back into Superwall push
+     * notifications. Android only; a no-op on iOS.
+     */
+    fun setNotificationsEnabled(enabled: Boolean)
+
+    /** Reports a tapped notification's data. Android only; a no-op on iOS. */
+    fun handleNotificationOpen(data: Map<String, String>)
 
     /**
      * Enables experimental device variables in audience filters. Actually

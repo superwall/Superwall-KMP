@@ -6,17 +6,30 @@ import com.superwall.sdk.kmp.models.results.PaywallPresentationRequestStatusType
 import com.superwall.sdk.kmp.models.results.TriggerResult
 import com.superwall.sdk.kmp.models.triggers.VariantType
 import java.net.URI
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterAction
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterRefundStatus
+import com.superwall.sdk.kmp.models.events.AttributionMatchInfo
+import com.superwall.sdk.kmp.models.events.CustomerCenterEventInfo
+import com.superwall.sdk.kmp.models.events.CustomerCenterScreenType
+import com.superwall.sdk.kmp.models.events.PageViewData
+import com.superwall.sdk.kmp.models.events.WebviewError
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import com.superwall.sdk.analytics.superwall.AttributionMatchInfo as NativeAttributionMatchInfo
 import com.superwall.sdk.analytics.superwall.SuperwallEvent as NativeSuperwallEvent
 import com.superwall.sdk.analytics.superwall.SuperwallEventInfo as NativeSuperwallEventInfo
+import com.superwall.sdk.customercenter.CustomerCenterAction as NativeCustomerCenterAction
+import com.superwall.sdk.customercenter.CustomerCenterRefundStatus as NativeCustomerCenterRefundStatus
+import com.superwall.sdk.customercenter.CustomerCenterScreenType as NativeCustomerCenterScreenType
 import com.superwall.sdk.models.customer.CustomerInfo as NativeCustomerInfo
 import com.superwall.sdk.models.triggers.Experiment as NativeExperiment
 import com.superwall.sdk.models.triggers.TriggerResult as NativeTriggerResult
 import com.superwall.sdk.paywall.presentation.internal.PaywallPresentationRequestStatus as NativePaywallPresentationRequestStatus
 import com.superwall.sdk.paywall.presentation.internal.PaywallPresentationRequestStatusReason as NativePaywallPresentationRequestStatusReason
+import com.superwall.sdk.paywall.view.webview.WebviewError as NativeWebviewError
+import com.superwall.sdk.paywall.view.webview.messaging.PageViewData as NativePageViewData
 
 /**
  * Event-type mapping tests for EventMapper.kt over a representative sample of
@@ -209,30 +222,122 @@ class EventMapperTest {
     }
 
     @Test
-    fun permissionEvents_carryPermissionName() {
+    fun permissionEvents_carryPermissionNameAndPaywallIdentifier() {
+        val expected = mapOf("k" to "v", "permissionName" to "camera", "paywallIdentifier" to "pw-1")
+
         val requested =
-            infoOf(NativeSuperwallEvent.PermissionRequested("camera", "pw-1")).toKmp()
+            infoOf(NativeSuperwallEvent.PermissionRequested("camera", "pw-1"), mapOf("k" to "v")).toKmp()
         assertEquals(EventType.PERMISSION_REQUESTED, requested.eventType)
         assertEquals("camera", requested.name)
+        assertEquals(expected, requested.params)
 
-        val granted = infoOf(NativeSuperwallEvent.PermissionGranted("camera", "pw-1")).toKmp()
+        val granted =
+            infoOf(NativeSuperwallEvent.PermissionGranted("camera", "pw-1"), mapOf("k" to "v")).toKmp()
         assertEquals(EventType.PERMISSION_GRANTED, granted.eventType)
         assertEquals("camera", granted.name)
+        assertEquals(expected, granted.params)
 
-        val denied = infoOf(NativeSuperwallEvent.PermissionDenied("camera", "pw-1")).toKmp()
+        val denied =
+            infoOf(NativeSuperwallEvent.PermissionDenied("camera", "pw-1"), mapOf("k" to "v")).toKmp()
         assertEquals(EventType.PERMISSION_DENIED, denied.eventType)
         assertEquals("camera", denied.name)
+        assertEquals(expected, denied.params)
     }
 
     @Test
-    fun paywallPreloadEvents_mapToTheirEventTypes() {
+    fun paywallPreloadEvents_carryPaywallCount() {
+        val start = infoOf(NativeSuperwallEvent.PaywallPreloadStart(2)).toKmp()
+        assertEquals(EventType.PAYWALL_PRELOAD_START, start.eventType)
+        assertEquals(mapOf<String, Any?>("paywallCount" to 2L), start.params)
+
+        val complete = infoOf(NativeSuperwallEvent.PaywallPreloadComplete(3)).toKmp()
+        assertEquals(EventType.PAYWALL_PRELOAD_COMPLETE, complete.eventType)
+        assertEquals(mapOf<String, Any?>("paywallCount" to 3L), complete.params)
+    }
+
+    @Test
+    fun paywallResourceLoadFail_carriesUrlAndError() {
+        val info =
+            infoOf(NativeSuperwallEvent.PaywallResourceLoadFail("https://a.b/c.js", "404")).toKmp()
+
+        assertEquals(EventType.PAYWALL_RESOURCE_LOAD_FAIL, info.eventType)
+        assertEquals("404", info.error)
+        assertEquals(mapOf<String, Any?>("url" to "https://a.b/c.js"), info.params)
+    }
+
+    @Test
+    fun shimmerViewComplete_carriesDuration() {
+        val info = infoOf(NativeSuperwallEvent.ShimmerViewComplete(1.5)).toKmp()
+
+        assertEquals(EventType.SHIMMER_VIEW_COMPLETE, info.eventType)
+        assertEquals(mapOf<String, Any?>("duration" to 1.5), info.params)
+    }
+
+    @Test
+    fun attributionMatch_mapsToItsEventTypeWithTheMatchInParams() {
+        val info =
+            infoOf(
+                NativeSuperwallEvent.AttributionMatch(
+                    NativeAttributionMatchInfo(
+                        provider = NativeAttributionMatchInfo.Provider.MMP,
+                        matched = true,
+                        source = "meta",
+                        confidence = NativeAttributionMatchInfo.Confidence.HIGH,
+                        matchScore = 0.9,
+                    ),
+                ),
+            ).toKmp()
+
+        assertEquals(EventType.ATTRIBUTION_MATCH, info.eventType)
+        assertNull(info.name)
         assertEquals(
-            EventType.PAYWALL_PRELOAD_START,
-            infoOf(NativeSuperwallEvent.PaywallPreloadStart(2)).toKmp().eventType,
+            mapOf<String, Any?>(
+                "attributionMatch" to
+                    mapOf(
+                        "provider" to "mmp",
+                        "matched" to true,
+                        "source" to "meta",
+                        "confidence" to "high",
+                        "matchScore" to 0.9,
+                    ),
+            ),
+            info.params,
         )
+    }
+
+    @Test
+    fun pageViewData_isKeyedLikeTheIosMapper() {
+        val data =
+            NativePageViewData(
+                pageNodeId = "node-2",
+                flowPosition = 1,
+                pageName = "Plans",
+                navigationNodeId = "nav-1",
+                previousPageNodeId = "node-1",
+                previousFlowPosition = 0,
+                navigationType = "forward",
+                timeOnPreviousPageMs = 1200,
+            )
+
         assertEquals(
-            EventType.PAYWALL_PRELOAD_COMPLETE,
-            infoOf(NativeSuperwallEvent.PaywallPreloadComplete(2)).toKmp().eventType,
+            mapOf<String, Any?>(
+                "pageNodeId" to "node-2",
+                "flowPosition" to 1L,
+                "pageName" to "Plans",
+                "navigationNodeId" to "nav-1",
+                "previousPageNodeId" to "node-1",
+                "previousFlowPosition" to 0L,
+                "navigationType" to "forward",
+                "timeOnPreviousPageMs" to 1200L,
+            ),
+            data.toParamsMap(),
+        )
+        // Absent optionals are left out rather than written as null.
+        assertEquals(
+            setOf("pageNodeId", "flowPosition", "pageName", "navigationNodeId", "navigationType"),
+            data.copy(previousPageNodeId = null, previousFlowPosition = null, timeOnPreviousPageMs = null)
+                .toParamsMap()
+                .keys,
         )
     }
 
@@ -276,28 +381,197 @@ class EventMapperTest {
         assertEquals("exp-1", reason.experiment.id)
     }
 
-    // ---- Fallback: no common EventType counterpart --------------------------------------
+    // ---- Events that used to fall back to CUSTOM_PLACEMENT ---------------------------------
 
     @Test
-    fun eventsWithoutCommonCounterpart_degradeToCustomPlacementWithRawName() {
-        val event = NativeSuperwallEvent.TestModeModalOpen()
-        val info = infoOf(event, params = mapOf("k" to "v")).toKmp()
+    fun testModeModalEvents_mapToTheirEventTypes() {
+        val open = infoOf(NativeSuperwallEvent.TestModeModalOpen(), params = mapOf("k" to "v")).toKmp()
+        assertEquals(EventType.TEST_MODE_MODAL_OPEN, open.eventType)
+        assertNull(open.name)
+        assertEquals(mapOf("k" to "v"), open.params)
 
-        assertEquals(EventType.CUSTOM_PLACEMENT, info.eventType)
-        assertEquals(event.rawName, info.name)
-        assertEquals(mapOf("k" to "v"), info.params)
+        val close = infoOf(NativeSuperwallEvent.TestModeModalClose()).toKmp()
+        assertEquals(EventType.TEST_MODE_MODAL_CLOSE, close.eventType)
     }
 
     @Test
-    fun reviewGrantedAndDenied_degradeToFallbackButKeepCount() {
+    fun reviewGrantedAndDenied_mapToTheirEventTypesWithCount() {
         val granted = infoOf(NativeSuperwallEvent.ReviewGranted(4)).toKmp()
-        assertEquals(EventType.CUSTOM_PLACEMENT, granted.eventType)
-        assertEquals("review_granted", granted.name)
+        assertEquals(EventType.REVIEW_GRANTED, granted.eventType)
+        assertNull(granted.name)
         assertEquals(4L, granted.reviewRequestedCount)
 
         val denied = infoOf(NativeSuperwallEvent.ReviewDenied(5)).toKmp()
-        assertEquals(EventType.CUSTOM_PLACEMENT, denied.eventType)
-        assertEquals("review_denied", denied.name)
+        assertEquals(EventType.REVIEW_DENIED, denied.eventType)
+        assertNull(denied.name)
         assertEquals(5L, denied.reviewRequestedCount)
+    }
+
+    @Test
+    fun customerCenterEvents_mapToTheirEventTypes() {
+        val expectations =
+            listOf<Pair<NativeSuperwallEvent, EventType>>(
+                NativeSuperwallEvent.CustomerCenterOpen(NativeCustomerCenterScreenType.MANAGEMENT) to
+                    EventType.CUSTOMER_CENTER_OPEN,
+                NativeSuperwallEvent.CustomerCenterClose() to EventType.CUSTOMER_CENTER_CLOSE,
+                NativeSuperwallEvent.CustomerCenterAction(
+                    action = NativeCustomerCenterAction.Refund,
+                    pathId = "path-1",
+                    productId = "pro",
+                ) to EventType.CUSTOMER_CENTER_ACTION,
+                NativeSuperwallEvent.CustomerCenterSurveyResponse(
+                    surveyId = "survey-1",
+                    optionId = "option-1",
+                    action = NativeCustomerCenterAction.Refund,
+                    pathId = "path-1",
+                    productId = null,
+                ) to EventType.CUSTOMER_CENTER_SURVEY_RESPONSE,
+                NativeSuperwallEvent.CustomerCenterRefundRequest(
+                    productId = "pro",
+                    status = NativeCustomerCenterRefundStatus.SUCCESS,
+                ) to EventType.CUSTOMER_CENTER_REFUND_REQUEST,
+            )
+
+        for ((native, expected) in expectations) {
+            val info = infoOf(native, params = mapOf("k" to "v")).toKmp()
+            assertEquals(expected, info.eventType, "wrong EventType for ${native.rawName}")
+            assertNull(info.name)
+            assertEquals(mapOf("k" to "v"), info.params)
+        }
+    }
+
+    // ---- Typed payload fields ---------------------------------------------------------
+
+    @Test
+    fun customerInfoDidChange_carriesFromAndTo() {
+        fun customerInfo(userId: String) =
+            NativeCustomerInfo(subscriptions = emptyList(), nonSubscriptions = emptyList(), userId = userId, entitlements = emptyList())
+
+        val info = infoOf(NativeSuperwallEvent.CustomerInfoDidChange(customerInfo("before"), customerInfo("after"))).toKmp()
+
+        assertEquals("before", info.previousCustomerInfo?.userId)
+        assertEquals("after", info.customerInfo?.userId)
+    }
+
+    @Test
+    fun permissionAndPreloadEvents_carryTypedFields() {
+        val requested = infoOf(NativeSuperwallEvent.PermissionRequested("camera", "pw-1")).toKmp()
+        assertEquals("camera", requested.permissionName)
+        assertEquals("pw-1", requested.paywallIdentifier)
+
+        assertEquals(2, infoOf(NativeSuperwallEvent.PaywallPreloadStart(2)).toKmp().paywallCount)
+        assertEquals(3, infoOf(NativeSuperwallEvent.PaywallPreloadComplete(3)).toKmp().paywallCount)
+    }
+
+    @Test
+    fun resourceLoadFailAndShimmerComplete_carryTypedFields() {
+        assertEquals(
+            "https://a.b/c.js",
+            infoOf(NativeSuperwallEvent.PaywallResourceLoadFail("https://a.b/c.js", "404")).toKmp().resourceUrl,
+        )
+        assertEquals(1.5, infoOf(NativeSuperwallEvent.ShimmerViewComplete(1.5)).toKmp().shimmerDuration)
+    }
+
+    @Test
+    fun attributionMatch_carriesTypedInfo() {
+        val info =
+            infoOf(
+                NativeSuperwallEvent.AttributionMatch(
+                    NativeAttributionMatchInfo(
+                        provider = NativeAttributionMatchInfo.Provider.MMP,
+                        matched = true,
+                        source = "meta",
+                        confidence = NativeAttributionMatchInfo.Confidence.HIGH,
+                        matchScore = 0.9,
+                    ),
+                ),
+            ).toKmp()
+
+        assertEquals(
+            AttributionMatchInfo(provider = "mmp", matched = true, source = "meta", confidence = "high", matchScore = 0.9),
+            info.attributionMatch,
+        )
+    }
+
+    @Test
+    fun pageViewData_mapsToTheTypedModel() {
+        val data =
+            NativePageViewData(
+                pageNodeId = "node-2",
+                flowPosition = 1,
+                pageName = "Plans",
+                navigationNodeId = "nav-1",
+                previousPageNodeId = "node-1",
+                previousFlowPosition = 0,
+                navigationType = "forward",
+                timeOnPreviousPageMs = 1200,
+            )
+
+        assertEquals(
+            PageViewData(
+                pageNodeId = "node-2",
+                flowPosition = 1,
+                pageName = "Plans",
+                navigationNodeId = "nav-1",
+                previousPageNodeId = "node-1",
+                previousFlowPosition = 0,
+                navigationType = "forward",
+                timeOnPreviousPageMs = 1200L,
+            ),
+            data.toKmp(),
+        )
+    }
+
+    @Test
+    fun webviewErrors_mapEveryNativeCase() {
+        assertEquals(
+            WebviewError.NetworkError(code = -2, description = "no host", url = "https://a.b"),
+            NativeWebviewError.NetworkError(-2, "no host", "https://a.b").toKmp(),
+        )
+        assertEquals(WebviewError.Timeout("slow"), NativeWebviewError.Timeout("slow").toKmp())
+        assertEquals(WebviewError.MaxAttemptsReached(listOf("a")), NativeWebviewError.MaxAttemptsReached(listOf("a")).toKmp())
+        assertEquals(WebviewError.NoUrls, NativeWebviewError.NoUrls.toKmp())
+        assertEquals(WebviewError.AllUrlsFailed(listOf("a", "b")), NativeWebviewError.AllUrlsFailed(listOf("a", "b")).toKmp())
+    }
+
+    @Test
+    fun customerCenterEvents_carryTheirPayloads() {
+        assertEquals(
+            CustomerCenterEventInfo(screen = CustomerCenterScreenType.NO_PURCHASES),
+            infoOf(NativeSuperwallEvent.CustomerCenterOpen(NativeCustomerCenterScreenType.NO_PURCHASES)).toKmp().customerCenter,
+        )
+        assertNull(infoOf(NativeSuperwallEvent.CustomerCenterClose()).toKmp().customerCenter)
+        assertEquals(
+            CustomerCenterEventInfo(action = CustomerCenterAction.Refund, pathId = "path-1", productId = "pro"),
+            infoOf(
+                NativeSuperwallEvent.CustomerCenterAction(action = NativeCustomerCenterAction.Refund, pathId = "path-1", productId = "pro"),
+            ).toKmp().customerCenter,
+        )
+        assertEquals(
+            CustomerCenterEventInfo(
+                surveyId = "survey-1",
+                optionId = "option-1",
+                action = CustomerCenterAction.Refund,
+                pathId = "path-1",
+            ),
+            infoOf(
+                NativeSuperwallEvent.CustomerCenterSurveyResponse(
+                    surveyId = "survey-1",
+                    optionId = "option-1",
+                    action = NativeCustomerCenterAction.Refund,
+                    pathId = "path-1",
+                    productId = null,
+                ),
+            ).toKmp().customerCenter,
+        )
+        assertEquals(
+            CustomerCenterEventInfo(productId = "pro", refundStatus = CustomerCenterRefundStatus.USER_CANCELLED),
+            infoOf(
+                NativeSuperwallEvent.CustomerCenterRefundRequest(
+                    productId = "pro",
+                    status = NativeCustomerCenterRefundStatus.USER_CANCELLED,
+                ),
+            ).toKmp().customerCenter,
+        )
     }
 }

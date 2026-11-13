@@ -1,21 +1,26 @@
 package com.superwall.sdk.kmp
 
 import com.superwall.sdk.kmp.internal.BridgeListener
-import com.superwall.sdk.kmp.internal.InterfaceStyle
 import com.superwall.sdk.kmp.internal.StreamHolder
 import com.superwall.sdk.kmp.internal.SuperwallBridge
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
 import com.superwall.sdk.kmp.models.entitlements.Entitlements
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
+import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
+import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
 import com.superwall.sdk.kmp.models.results.PresentationResult
+import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 
 /**
@@ -89,6 +94,23 @@ internal class FakeBridge : SuperwallBridge {
         calls += "attachStreams"
         attachedHolders += holder
         statusAtAttach?.let { holder.subscriptionStatus.value = it }
+    }
+
+    val configurationStatusHolders: MutableList<StreamHolder> = mutableListOf()
+
+    /** Mirrors the natives: the holder's flow starts from the current status. */
+    override fun attachConfigurationStatus(holder: StreamHolder) {
+        calls += "attachConfigurationStatus"
+        configurationStatusHolders += holder
+        holder.configurationStatus.value = cannedConfigurationStatus
+    }
+
+    /** `true` plays Android (the SDK is torn down), `false` plays iOS. */
+    var cannedTeardownResult: Boolean = true
+
+    override fun teardown(): Boolean {
+        calls += "teardown"
+        return cannedTeardownResult
     }
 
     // ---- Canned state ------------------------------------------------------------
@@ -245,6 +267,32 @@ internal class FakeBridge : SuperwallBridge {
         return cannedCustomerInfo
     }
 
+    var cannedRefreshedCustomerInfo: CustomerInfo? = null
+
+    override suspend fun refreshCustomerInfo(): CustomerInfo {
+        calls += "refreshCustomerInfo"
+        return cannedRefreshedCustomerInfo ?: cannedCustomerInfo
+    }
+
+    var cannedGrantedEntitlements: Set<Entitlement> = emptySet()
+
+    override fun getGrantedEntitlements(): Set<Entitlement> {
+        calls += "getGrantedEntitlements"
+        return cannedGrantedEntitlements
+    }
+
+    override fun setGrantedEntitlements(entitlements: Set<Entitlement>) {
+        calls += "setGrantedEntitlements"
+        cannedGrantedEntitlements = entitlements
+    }
+
+    var cannedAssignments: Set<ConfirmedAssignment> = emptySet()
+
+    override fun getAssignments(): Set<ConfirmedAssignment> {
+        calls += "getAssignments"
+        return cannedAssignments
+    }
+
     override suspend fun confirmAllAssignments(): Set<ConfirmedAssignment> {
         calls += "confirmAllAssignments"
         return cannedConfirmedAssignments
@@ -253,6 +301,24 @@ internal class FakeBridge : SuperwallBridge {
     override suspend fun restorePurchases(): RestorationResult {
         calls += "restorePurchases"
         return cannedRestorationResult
+    }
+
+    var cannedPurchaseResult: PurchaseResult = PurchaseResult.Purchased
+    var lastPurchasedProductId: String? = null
+
+    override suspend fun purchase(productId: String): PurchaseResult {
+        calls += "purchase"
+        lastPurchasedProductId = productId
+        return cannedPurchaseResult
+    }
+
+    var cannedProducts: Map<String, StoreProduct> = emptyMap()
+    var lastRequestedProductIds: Set<String>? = null
+
+    override suspend fun getProducts(productIds: Set<String>): Map<String, StoreProduct> {
+        calls += "getProducts"
+        lastRequestedProductIds = productIds
+        return cannedProducts
     }
 
     // ---- Presentation ------------------------------------------------------------------
@@ -287,6 +353,44 @@ internal class FakeBridge : SuperwallBridge {
 
     override suspend fun dismiss() {
         calls += "dismiss"
+    }
+
+    override suspend fun dismissForNextPaywall() {
+        calls += "dismissForNextPaywall"
+    }
+
+    data class Alert(
+        val title: String?,
+        val message: String?,
+        val actionTitle: String?,
+        val closeActionTitle: String,
+        val action: (() -> Unit)?,
+        val onClose: (() -> Unit)?,
+    )
+
+    val alerts: MutableList<Alert> = mutableListOf()
+
+    override fun showAlert(
+        title: String?,
+        message: String?,
+        actionTitle: String?,
+        closeActionTitle: String,
+        action: (() -> Unit)?,
+        onClose: (() -> Unit)?,
+    ) {
+        calls += "showAlert"
+        alerts += Alert(title, message, actionTitle, closeActionTitle, action, onClose)
+    }
+
+    override fun openRestoreOnWeb() {
+        calls += "openRestoreOnWeb"
+    }
+
+    var cannedExternalAccountId: String? = null
+
+    override fun getExternalAccountId(): String? {
+        calls += "getExternalAccountId"
+        return cannedExternalAccountId
     }
 
     override fun isPaywallPresented(): Boolean {
@@ -325,6 +429,29 @@ internal class FakeBridge : SuperwallBridge {
         lastSpinnerIsHidden = isHidden
     }
 
+    // ---- Customer Center -------------------------------------------------------------------
+
+    data class CustomerCenterPresentation(
+        val configuration: CustomerCenterConfiguration?,
+        val delegate: CustomerCenterDelegate?,
+        val onDismiss: (() -> Unit)?,
+    )
+
+    val customerCenterPresentations: MutableList<CustomerCenterPresentation> = mutableListOf()
+
+    override fun presentCustomerCenter(
+        configuration: CustomerCenterConfiguration?,
+        delegate: CustomerCenterDelegate?,
+        onDismiss: (() -> Unit)?,
+    ) {
+        calls += "presentCustomerCenter"
+        customerCenterPresentations += CustomerCenterPresentation(configuration, delegate, onDismiss)
+    }
+
+    override suspend fun dismissCustomerCenter() {
+        calls += "dismissCustomerCenter"
+    }
+
     // ---- Products / misc -------------------------------------------------------------------
 
     override fun getOverrideProductsByName(): Map<String, String>? {
@@ -342,6 +469,59 @@ internal class FakeBridge : SuperwallBridge {
     override fun setInterfaceStyle(style: InterfaceStyle?) {
         calls += "setInterfaceStyle"
         lastInterfaceStyle = style
+    }
+
+    var cannedAdConsent: AdConsent? = null
+
+    override fun getAdConsent(): AdConsent? {
+        calls += "getAdConsent"
+        return cannedAdConsent
+    }
+
+    override fun setAdConsent(consent: AdConsent) {
+        calls += "setAdConsent"
+        cannedAdConsent = consent
+    }
+
+    override fun refreshConfiguration() {
+        calls += "refreshConfiguration"
+    }
+
+    var cannedEventTrackingBehavior: EventTrackingBehavior = EventTrackingBehavior.ALL
+
+    override fun getEventTrackingBehavior(): EventTrackingBehavior {
+        calls += "getEventTrackingBehavior"
+        return cannedEventTrackingBehavior
+    }
+
+    override fun setEventTrackingBehavior(behavior: EventTrackingBehavior) {
+        calls += "setEventTrackingBehavior"
+        cannedEventTrackingBehavior = behavior
+    }
+
+    override fun cancelAllScheduledNotifications() {
+        calls += "cancelAllScheduledNotifications"
+    }
+
+    var lastPushToken: String? = null
+
+    override fun setPushToken(token: String) {
+        calls += "setPushToken"
+        lastPushToken = token
+    }
+
+    val notificationsEnabledCalls: MutableList<Boolean> = mutableListOf()
+
+    override fun setNotificationsEnabled(enabled: Boolean) {
+        calls += "setNotificationsEnabled"
+        notificationsEnabledCalls += enabled
+    }
+
+    var lastNotificationOpenData: Map<String, String>? = null
+
+    override fun handleNotificationOpen(data: Map<String, String>) {
+        calls += "handleNotificationOpen"
+        lastNotificationOpenData = data
     }
 
     val enableExperimentalDeviceVariablesCalls: MutableList<Boolean> = mutableListOf()
