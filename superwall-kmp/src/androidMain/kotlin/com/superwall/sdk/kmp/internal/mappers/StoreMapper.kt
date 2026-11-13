@@ -6,6 +6,7 @@ import com.superwall.sdk.kmp.models.store.SubscriptionPeriod
 import com.superwall.sdk.kmp.models.store.SubscriptionPeriodUnit
 import com.superwall.sdk.kmp.models.store.StoreTransaction
 import com.superwall.sdk.kmp.models.store.StoreTransactionState
+import com.superwall.sdk.kmp.models.store.TransactionProduct
 import java.util.Date
 import java.util.Locale
 import kotlin.time.Instant
@@ -88,18 +89,63 @@ internal fun NativeStoreProductType.toKmp(): StoreProduct =
         storeFrontCountryCode = storeFrontCountryCode,
         // Only the StoreProduct wrapper knows whether it's API-backed.
         isCustomProduct = (this as? NativeStoreProduct)?.isCustomProduct ?: false,
+        customTransactionId = (this as? NativeStoreProduct)?.customTransactionId,
+        // introductoryDiscount, discounts, billingPlanType,
+        // isBillingPlanAvailable and introOfferToken are iOS only.
     )
 
-internal fun NativeSubscriptionPeriod.toKmp(): SubscriptionPeriod =
-    SubscriptionPeriod(
-        value = value,
-        unit =
-            when (unit) {
-                NativeSubscriptionPeriod.Unit.day -> SubscriptionPeriodUnit.DAY
-                NativeSubscriptionPeriod.Unit.week -> SubscriptionPeriodUnit.WEEK
-                NativeSubscriptionPeriod.Unit.month -> SubscriptionPeriodUnit.MONTH
-                NativeSubscriptionPeriod.Unit.year -> SubscriptionPeriodUnit.YEAR
+internal fun NativeSubscriptionPeriod.toKmp(): SubscriptionPeriod = SubscriptionPeriod(value = value, unit = unit.toKmp())
+
+internal fun NativeSubscriptionPeriod.Unit.toKmp(): SubscriptionPeriodUnit =
+    when (this) {
+        NativeSubscriptionPeriod.Unit.day -> SubscriptionPeriodUnit.DAY
+        NativeSubscriptionPeriod.Unit.week -> SubscriptionPeriodUnit.WEEK
+        NativeSubscriptionPeriod.Unit.month -> SubscriptionPeriodUnit.MONTH
+        NativeSubscriptionPeriod.Unit.year -> SubscriptionPeriodUnit.YEAR
+    }
+
+/**
+ * Maps the native [NativeTransactionProduct] field for field to the common
+ * [TransactionProduct], which has the same shape on iOS.
+ */
+internal fun NativeTransactionProduct.toKmpTransactionProduct(): TransactionProduct =
+    TransactionProduct(
+        id = id,
+        price =
+            TransactionProduct.Price(
+                raw = price.raw.toDouble(),
+                localized = price.localized,
+                daily = price.daily,
+                weekly = price.weekly,
+                monthly = price.monthly,
+                yearly = price.yearly,
+            ),
+        trialPeriod =
+            trialPeriod?.let {
+                TransactionProduct.TrialPeriod(
+                    days = it.days,
+                    weeks = it.weeks,
+                    months = it.months,
+                    years = it.years,
+                    text = it.text,
+                    endAt = it.endAt?.toKmpInstant(),
+                )
             },
+        period =
+            period?.let {
+                TransactionProduct.Period(
+                    alt = it.alt,
+                    ly = it.ly,
+                    unit = it.unit.toKmp(),
+                    days = it.days,
+                    weeks = it.weeks,
+                    months = it.months,
+                    years = it.years,
+                )
+            },
+        locale = locale,
+        languageCode = languageCode,
+        currency = TransactionProduct.Currency(code = currency.code, symbol = currency.symbol),
     )
 
 /**
@@ -178,7 +224,7 @@ internal fun NativeStoreTransaction.toKmp(): StoreTransaction =
  */
 internal fun NativeStoreTransactionType.toKmp(): StoreTransaction =
     when (this) {
-        is NativeStoreTransaction -> toKmp()
+        is NativeStoreTransaction -> toKmp().copy(id = id)
         else -> toKmpTransaction(configRequestId = "", appSessionId = "")
     }
 

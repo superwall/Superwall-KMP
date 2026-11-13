@@ -276,6 +276,28 @@ extension CustomerCenterRefundStatus {
   }
 }
 
+/// The payload of the Customer Center events (SuperwallEvent.customerCenter*).
+/// Sparse: only the fields of the event at hand are set. Built only by the bridge.
+@objc(SWBCustomerCenterEventInfo)
+public final class SWBCustomerCenterEventInfo: NSObject {
+  /// customerCenterOpen: 0 = management, 1 = noPurchases.
+  @objc public internal(set) var screenRawValue: NSNumber?
+  /// customerCenterOpen: 0 = sheet, 1 = embedded.
+  @objc public internal(set) var presentationStyleRawValue: NSNumber?
+  /// customerCenterAction, customerCenterSurveyResponse.
+  @objc public internal(set) var action: SWBCustomerCenterAction?
+  /// customerCenterAction, customerCenterSurveyResponse.
+  @objc public internal(set) var pathId: String?
+  /// customerCenterAction, customerCenterSurveyResponse, customerCenterRefundRequest.
+  @objc public internal(set) var productId: String?
+  /// customerCenterSurveyResponse.
+  @objc public internal(set) var surveyId: String?
+  /// customerCenterSurveyResponse.
+  @objc public internal(set) var optionId: String?
+  /// customerCenterRefundRequest: 0 = success, 1 = userCancelled, 2 = error.
+  @objc public internal(set) var refundStatusRawValue: NSNumber?
+}
+
 // MARK: - Delegate
 
 /// Completion-handler mirror of SuperwallKit.CustomerCenterDelegate, which

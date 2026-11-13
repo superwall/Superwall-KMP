@@ -141,3 +141,34 @@ internal const val SWB_CUSTOMER_CENTER_ACTION_TYPE_CUSTOM: Long = 6 // SWBCustom
 internal const val SWB_CUSTOMER_CENTER_REFUND_STATUS_SUCCESS: Long = 0 // .success
 internal const val SWB_CUSTOMER_CENTER_REFUND_STATUS_USER_CANCELLED: Long = 1 // .userCancelled
 internal const val SWB_CUSTOMER_CENTER_REFUND_STATUS_ERROR: Long = 2 // .error
+
+// SWBNetworkEnvironment.local (SuperwallKMPBridge.swift)
+internal const val SWB_NETWORK_ENVIRONMENT_LOCAL: Long = 3 // SWBNetworkEnvironment.local
+
+// SuperwallKit StoreProductDiscount.PaymentMode, carried as SWBStoreProductDiscount.paymentModeRawValue
+internal const val SWB_DISCOUNT_PAYMENT_MODE_PAY_AS_YOU_GO: Long = 0 // StoreProductDiscount.PaymentMode.payAsYouGo
+internal const val SWB_DISCOUNT_PAYMENT_MODE_PAY_UP_FRONT: Long = 1 // StoreProductDiscount.PaymentMode.payUpFront
+internal const val SWB_DISCOUNT_PAYMENT_MODE_FREE_TRIAL: Long = 2 // StoreProductDiscount.PaymentMode.freeTrial
+
+// SuperwallKit StoreProductDiscount.DiscountType, carried as SWBStoreProductDiscount.typeRawValue
+internal const val SWB_DISCOUNT_TYPE_INTRODUCTORY: Long = 0 // StoreProductDiscount.DiscountType.introductory
+internal const val SWB_DISCOUNT_TYPE_PROMOTIONAL: Long = 1 // StoreProductDiscount.DiscountType.promotional
+
+// SuperwallKit AppStoreProduct.BillingPlanType, carried as billingPlanTypeRawValue
+// on SWBStoreProduct and SWBProduct
+internal const val SWB_BILLING_PLAN_TYPE_UP_FRONT: Long = 0 // AppStoreProduct.BillingPlanType.upFront
+internal const val SWB_BILLING_PLAN_TYPE_MONTHLY: Long = 1 // AppStoreProduct.BillingPlanType.monthly
+
+// SWBCustomerCenterEventInfo.screenRawValue (CustomerCenter.swift / BridgeDelegate.swift)
+internal const val SWB_CUSTOMER_CENTER_SCREEN_MANAGEMENT: Long = 0 // CustomerCenterScreenType.management
+internal const val SWB_CUSTOMER_CENTER_SCREEN_NO_PURCHASES: Long = 1 // CustomerCenterScreenType.noPurchases
+
+// SWBCustomerCenterEventInfo.presentationStyleRawValue
+internal const val SWB_CUSTOMER_CENTER_PRESENTATION_SHEET: Long = 0 // CustomerCenterPresentationStyle.sheet
+internal const val SWB_CUSTOMER_CENTER_PRESENTATION_EMBEDDED: Long = 1 // CustomerCenterPresentationStyle.embedded
+
+// SWBConfigurationStatus (Envelopes.swift), as passed to the
+// observeConfigurationStatus block
+internal const val SWB_CONFIGURATION_STATUS_PENDING: Long = 0 // SWBConfigurationStatus.pending
+internal const val SWB_CONFIGURATION_STATUS_CONFIGURED: Long = 1 // SWBConfigurationStatus.configured
+internal const val SWB_CONFIGURATION_STATUS_FAILED: Long = 2 // SWBConfigurationStatus.failed

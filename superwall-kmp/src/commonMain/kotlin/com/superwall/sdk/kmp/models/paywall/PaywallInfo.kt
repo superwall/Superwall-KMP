@@ -1,5 +1,6 @@
 package com.superwall.sdk.kmp.models.paywall
 
+import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.triggers.Experiment
 import kotlin.time.Instant
 
@@ -94,4 +95,11 @@ public data class PaywallInfo(
     val isLocal: Boolean? = null,
     /** Whether users see the paywall's introductory offers. iOS only; `null` on Android. */
     val introOfferEligibility: IntroOfferEligibility? = null,
+    /** The database identifier of the paywall. Android only; `null` on iOS. */
+    val databaseId: String? = null,
+    /**
+     * The customer info at the time the paywall info was created. Android
+     * only; `null` on iOS.
+     */
+    val customerInfo: CustomerInfo? = null,
 )

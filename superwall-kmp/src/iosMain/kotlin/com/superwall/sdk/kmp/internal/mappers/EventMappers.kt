@@ -2,6 +2,17 @@
 
 package com.superwall.sdk.kmp.internal.mappers
 
+import com.superwall.sdk.kmp.models.events.TransactionType
+import com.superwall.sdk.kmp.models.events.PageViewData
+import com.superwall.sdk.kmp.models.events.CustomerCenterScreenType
+import com.superwall.sdk.kmp.models.events.CustomerCenterPresentationStyle
+import com.superwall.sdk.kmp.models.events.CustomerCenterEventInfo
+import com.superwall.sdk.kmp.models.events.AttributionMatchInfo
+import com.superwall.sdk.kmp.internal.ios.interop.SWBCustomerCenterEventInfo
+import com.superwall.sdk.kmp.internal.interop.SWB_CUSTOMER_CENTER_SCREEN_NO_PURCHASES
+import com.superwall.sdk.kmp.internal.interop.SWB_CUSTOMER_CENTER_SCREEN_MANAGEMENT
+import com.superwall.sdk.kmp.internal.interop.SWB_CUSTOMER_CENTER_PRESENTATION_SHEET
+import com.superwall.sdk.kmp.internal.interop.SWB_CUSTOMER_CENTER_PRESENTATION_EMBEDDED
 import com.superwall.sdk.kmp.internal.interop.NSAnySanitizer
 import com.superwall.sdk.kmp.internal.ios.interop.SWBAttributionMatchInfo
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEventEnvelope
@@ -108,10 +119,11 @@ import platform.Foundation.NSNumber
  * The envelope is flat and sparse, so the payload copy is uniform; only the
  * event-type discriminator needs a mapping. Fidelity notes:
  *
- * - Envelope fields with no [SuperwallEventInfo] counterpart (transactionType,
- *   transactionProductId, permissionName, paywallIdentifier, paywallCount,
- *   attributionMatch, pageViewData) are preserved inside [SuperwallEventInfo.params],
- *   under the same keys the Android mapper uses where Android has the field.
+ * - Envelope fields that had no [SuperwallEventInfo] counterpart before 0.2.0
+ *   (transactionType, transactionProductId, permissionName, paywallIdentifier,
+ *   paywallCount, attributionMatch, pageViewData) are also still written into
+ *   [SuperwallEventInfo.params], under the same keys the Android mapper uses
+ *   where Android has the field.
  * - Permission events also carry the permission name in
  *   [SuperwallEventInfo.name], as on Android.
  * - Only `.unknown` (a SuperwallKit case newer than this bridge) has no
@@ -164,8 +176,71 @@ internal fun SWBEventEnvelope.toModel(): SuperwallEventInfo {
         integrationAttributes = NSAnySanitizer.fromMapOrNull(integrationAttributes()),
         reviewRequestedCount = reviewRequestedCount()?.longLongValue,
         missingProductIdentifiers = missingProductIdentifiers()?.mapNotNull { it as? String },
+        transactionType = transactionType()?.let(::transactionTypeFromNSNumber),
+        transactionProduct = transactionProduct()?.toModel(),
+        attributionMatch = attributionMatch()?.toModel(),
+        pageViewData = pageViewData()?.toModel(),
+        permissionName = permissionName(),
+        paywallIdentifier = paywallIdentifier(),
+        paywallCount = paywallCount()?.longLongValue?.toInt(),
+        // previousCustomerInfo, customerInfo, webviewError, resourceUrl and
+        // shimmerDuration are payloads only superwall-android's events carry.
+        customerCenter = customerCenter()?.toModel(),
     )
 }
+
+/** `null` for a transaction type newer than the bridge. */
+private fun transactionTypeFromNSNumber(value: NSNumber): TransactionType? =
+    when (value.longLongValue) {
+        SWB_TRANSACTION_TYPE_NON_RECURRING_PRODUCT_PURCHASE -> TransactionType.NON_RECURRING_PRODUCT_PURCHASE
+        SWB_TRANSACTION_TYPE_FREE_TRIAL_START -> TransactionType.FREE_TRIAL_START
+        SWB_TRANSACTION_TYPE_SUBSCRIPTION_START -> TransactionType.SUBSCRIPTION_START
+        else -> null
+    }
+
+private fun SWBAttributionMatchInfo.toModel(): AttributionMatchInfo =
+    AttributionMatchInfo(
+        provider = provider(),
+        matched = matched(),
+        source = source(),
+        confidence = confidence(),
+        matchScore = matchScore()?.doubleValue,
+        reason = reason(),
+    )
+
+private fun SWBPageViewData.toModel(): PageViewData =
+    PageViewData(
+        pageNodeId = pageNodeId(),
+        flowPosition = flowPosition().toInt(),
+        pageName = pageName(),
+        navigationNodeId = navigationNodeId(),
+        previousPageNodeId = previousPageNodeId(),
+        previousFlowPosition = previousFlowPosition()?.longLongValue?.toInt(),
+        navigationType = navigationType(),
+        timeOnPreviousPageMs = timeOnPreviousPageMs()?.longLongValue,
+    )
+
+private fun SWBCustomerCenterEventInfo.toModel(): CustomerCenterEventInfo =
+    CustomerCenterEventInfo(
+        screen =
+            when (screenRawValue()?.longLongValue) {
+                SWB_CUSTOMER_CENTER_SCREEN_MANAGEMENT -> CustomerCenterScreenType.MANAGEMENT
+                SWB_CUSTOMER_CENTER_SCREEN_NO_PURCHASES -> CustomerCenterScreenType.NO_PURCHASES
+                else -> null
+            },
+        presentationStyle =
+            when (presentationStyleRawValue()?.longLongValue) {
+                SWB_CUSTOMER_CENTER_PRESENTATION_SHEET -> CustomerCenterPresentationStyle.SHEET
+                SWB_CUSTOMER_CENTER_PRESENTATION_EMBEDDED -> CustomerCenterPresentationStyle.EMBEDDED
+                else -> null
+            },
+        action = action()?.toModel(),
+        pathId = pathId(),
+        productId = productId(),
+        surveyId = surveyId(),
+        optionId = optionId(),
+        refundStatus = refundStatusRawValue()?.let { customerCenterRefundStatusFromSWBRaw(it.longLongValue) },
+    )
 
 /**
  * SWBEventType -> common [EventType]; `null` marks a bridge event type with

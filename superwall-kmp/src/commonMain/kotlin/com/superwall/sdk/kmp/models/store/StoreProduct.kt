@@ -113,10 +113,40 @@ public data class StoreProduct(
     val storeFrontCountryCode: String? = null,
     /**
      * Whether this is a custom store product, bought through your
-     * `PurchaseController` rather than Google Play. Android only; always
-     * `false` on iOS.
+     * `PurchaseController` rather than the store. Android knows this for every
+     * product. SuperwallKit doesn't expose it, so on iOS it is `true` only
+     * while [customTransactionId] is set: on the product handed to your
+     * `PurchaseController`.
      */
     val isCustomProduct: Boolean = false,
+    /**
+     * The transaction id the SDK generates for a purchase of a custom store
+     * product; `null` for other products and outside a purchase. Set on the
+     * product handed to your `PurchaseController`, and reported as the
+     * original transaction id of the purchase's `TRANSACTION_COMPLETE` event.
+     */
+    val customTransactionId: String? = null,
+    /** The product's introductory offer, if it has one. iOS only; `null` on Android. */
+    val introductoryDiscount: StoreProductDiscount? = null,
+    /** The product's introductory and promotional offers. iOS only; empty on Android. */
+    val discounts: List<StoreProductDiscount> = emptyList(),
+    /**
+     * The App Store billing plan that will be applied at purchase on this
+     * device, or `null` when none is configured or the configured one isn't
+     * available here. iOS only; `null` on Android.
+     */
+    val billingPlanType: BillingPlanType? = null,
+    /**
+     * Whether a billing plan is configured for the product and available on
+     * this device. iOS only; `false` on Android.
+     */
+    val isBillingPlanAvailable: Boolean = false,
+    /**
+     * The token overriding Apple's introductory offer eligibility check, set
+     * when purchasing from a Superwall paywall on iOS 18.2+. iOS only; `null`
+     * on Android.
+     */
+    val introOfferToken: IntroOfferToken? = null,
 )
 
 /** The length of a subscription period: [value] [unit]s, e.g. 3 months. */

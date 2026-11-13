@@ -77,6 +77,8 @@ class StoreTransactionMapperTest {
         assertEquals("sig", transaction.signature)
         assertEquals(com.superwall.sdk.kmp.models.store.StorePayment("annual", 1, null), transaction.payment)
         assertEquals(null, transaction.appAccountToken)
+        // Only the native StoreTransaction wrapper has an id of its own.
+        assertEquals(null, transaction.id)
     }
 
     @Test

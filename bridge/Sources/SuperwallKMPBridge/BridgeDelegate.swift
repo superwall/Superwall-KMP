@@ -199,6 +199,10 @@ public final class SWBEventEnvelope: NSObject {
   @objc public let attributionMatch: SWBAttributionMatchInfo?
   /// paywallPageView only.
   @objc public let pageViewData: SWBPageViewData?
+  /// nonRecurringProductPurchase only: the whole TransactionProduct.
+  @objc public private(set) var transactionProduct: SWBTransactionProduct?
+  /// customerCenterOpen/Action/SurveyResponse/RefundRequest only.
+  @objc public private(set) var customerCenter: SWBCustomerCenterEventInfo?
 
   @objc public init(
     eventType: SWBEventType,
@@ -460,6 +464,7 @@ public final class SWBEventEnvelope: NSObject {
         paywallInfo: SWBPaywallInfo(paywallInfo),
         transactionProductId: product.id
       )
+      transactionProduct = SWBTransactionProduct(product)
     case .paywallResponseLoadStart(let triggeredPlacementName):
       self.init(.paywallResponseLoadStart, params: params, triggeredPlacementName: triggeredPlacementName)
     case .paywallResponseLoadNotFound(let triggeredPlacementName):
@@ -649,18 +654,42 @@ public final class SWBEventEnvelope: NSObject {
       self.init(.teleportOpen, params: params, paywallInfo: SWBPaywallInfo(paywallInfo))
     case .teleportReturn(let paywallInfo):
       self.init(.teleportReturn, params: params, paywallInfo: paywallInfo.map { SWBPaywallInfo($0) })
-    // The Customer Center payloads have no envelope fields yet; the event's
-    // analytics params are kept.
-    case .customerCenterOpen:
+    case let .customerCenterOpen(screen, presentation):
       self.init(.customerCenterOpen, params: params)
+      let payload = SWBCustomerCenterEventInfo()
+      switch screen {
+      case .management: payload.screenRawValue = NSNumber(value: 0)
+      case .noPurchases: payload.screenRawValue = NSNumber(value: 1)
+      }
+      switch presentation {
+      case .sheet: payload.presentationStyleRawValue = NSNumber(value: 0)
+      case .embedded: payload.presentationStyleRawValue = NSNumber(value: 1)
+      }
+      customerCenter = payload
     case .customerCenterClose:
       self.init(.customerCenterClose, params: params)
-    case .customerCenterAction:
+    case let .customerCenterAction(action, pathId, productId):
       self.init(.customerCenterAction, params: params)
-    case .customerCenterSurveyResponse:
+      let payload = SWBCustomerCenterEventInfo()
+      payload.action = SWBCustomerCenterAction(action)
+      payload.pathId = pathId
+      payload.productId = productId
+      customerCenter = payload
+    case let .customerCenterSurveyResponse(surveyId, optionId, action, pathId, productId):
       self.init(.customerCenterSurveyResponse, params: params)
-    case .customerCenterRefundRequest:
+      let payload = SWBCustomerCenterEventInfo()
+      payload.surveyId = surveyId
+      payload.optionId = optionId
+      payload.action = SWBCustomerCenterAction(action)
+      payload.pathId = pathId
+      payload.productId = productId
+      customerCenter = payload
+    case let .customerCenterRefundRequest(productId, status):
       self.init(.customerCenterRefundRequest, params: params)
+      let payload = SWBCustomerCenterEventInfo()
+      payload.productId = productId
+      payload.refundStatusRawValue = NSNumber(value: status.swbRawValue)
+      customerCenter = payload
     @unknown default:
       self.init(.unknown, params: params, name: String(describing: info.event))
     }

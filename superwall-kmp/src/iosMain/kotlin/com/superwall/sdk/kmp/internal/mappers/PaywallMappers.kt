@@ -104,6 +104,9 @@ internal fun SWBProduct.toModel(): PaywallProduct =
         name = name(),
         entitlements = entitlements().mapNotNull { (it as? SWBEntitlement)?.toModel() }.toSet(),
         store = productStoreFromNSNumber(store()),
+        billingPlanType = billingPlanTypeFromNSNumber(billingPlanTypeRawValue()),
+        trialDays = trialDays()?.longLongValue?.toInt(),
+        // basePlanIdentifier, offer and fullIdentifier are Android only.
     )
 
 internal fun SWBLocalNotification.toModel(): LocalNotification =

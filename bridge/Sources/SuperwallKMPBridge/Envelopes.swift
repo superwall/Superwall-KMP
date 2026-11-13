@@ -807,6 +807,11 @@ public final class SWBProduct: NSObject {
   @objc public let entitlements: [SWBEntitlement]
   /// NSNumber wrapping SWBProductStore.rawValue: the store the product is sold through.
   @objc public private(set) var store: NSNumber?
+  /// App Store products only: NSNumber wrapping AppStoreProduct.BillingPlanType.rawValue
+  /// (0 = upFront, 1 = monthly); nil when no billing plan is configured.
+  @objc public private(set) var billingPlanTypeRawValue: NSNumber?
+  /// Stripe products only: Int NSNumber, the configured trial length in days.
+  @objc public private(set) var trialDays: NSNumber?
 
   @objc public init(id: String, name: String?, entitlements: [SWBEntitlement]) {
     self.id = id
@@ -823,8 +828,12 @@ public final class SWBProduct: NSObject {
     )
     let nativeStore: ProductStore
     switch native.type {
-    case .appStore: nativeStore = .appStore
-    case .stripe: nativeStore = .stripe
+    case .appStore(let product):
+      nativeStore = .appStore
+      billingPlanTypeRawValue = product.billingPlanType.map { NSNumber(value: $0.rawValue) }
+    case .stripe(let product):
+      nativeStore = .stripe
+      trialDays = product.trialDays.map { NSNumber(value: $0) }
     case .paddle: nativeStore = .paddle
     case .custom: nativeStore = .custom
     }
@@ -1368,6 +1377,19 @@ public final class SWBStoreProduct: NSObject {
   /// Int NSNumber wrapping SubscriptionPeriod.Unit.rawValue (0 = day, 1 = week,
   /// 2 = month, 3 = year); nil for a product that isn't a subscription.
   @objc public private(set) var subscriptionPeriodUnitRawValue: NSNumber?
+  /// The transaction id SuperwallKit generated for a purchase of a custom
+  /// store product; nil for other products and outside a purchase.
+  @objc public private(set) var customTransactionId: String?
+  @objc public private(set) var introductoryDiscount: SWBStoreProductDiscount?
+  @objc public private(set) var discounts: [SWBStoreProductDiscount] = []
+  /// NSNumber wrapping AppStoreProduct.BillingPlanType.rawValue (0 = upFront,
+  /// 1 = monthly): the plan that will be applied at purchase, if any.
+  @objc public private(set) var billingPlanTypeRawValue: NSNumber?
+  @objc public private(set) var isBillingPlanAvailable: Bool = false
+  /// IntroOfferToken.token, set when purchasing from a paywall on iOS 18.2+.
+  @objc public private(set) var introOfferToken: String?
+  /// IntroOfferToken.expiry as an ISO-8601 string.
+  @objc public private(set) var introOfferTokenExpiry: String?
 
   @objc public init(
     entitlements: [SWBEntitlement],
@@ -1504,6 +1526,113 @@ public final class SWBStoreProduct: NSObject {
       subscriptionPeriodValue = NSNumber(value: period.value)
       subscriptionPeriodUnitRawValue = NSNumber(value: period.unit.rawValue)
     }
+    customTransactionId = native.customTransactionId
+    introductoryDiscount = native.introductoryDiscount.map { SWBStoreProductDiscount($0) }
+    discounts = native.discounts.map { SWBStoreProductDiscount($0) }
+    billingPlanTypeRawValue = native.billingPlanType.map { NSNumber(value: $0.rawValue) }
+    isBillingPlanAvailable = native.isBillingPlanAvailable
+    if let token = native.introOfferToken {
+      introOfferToken = token.token
+      introOfferTokenExpiry = token.expiry.swbIsoString
+    }
+  }
+}
+
+/// Flat copy of SuperwallKit.StoreProductDiscount. Built only by the bridge.
+@objc(SWBStoreProductDiscount)
+public final class SWBStoreProductDiscount: NSObject {
+  @objc public let offerIdentifier: String?
+  @objc public let currencyCode: String?
+  @objc public let price: Double
+  @objc public let localizedPriceString: String
+  /// StoreProductDiscount.PaymentMode.rawValue: 0 = payAsYouGo, 1 = payUpFront, 2 = freeTrial.
+  @objc public let paymentModeRawValue: Int
+  @objc public let subscriptionPeriodValue: Int
+  /// SubscriptionPeriod.Unit.rawValue: 0 = day, 1 = week, 2 = month, 3 = year.
+  @objc public let subscriptionPeriodUnitRawValue: Int
+  @objc public let numberOfPeriods: Int
+  /// StoreProductDiscount.DiscountType.rawValue: 0 = introductory, 1 = promotional.
+  @objc public let typeRawValue: Int
+
+  init(_ native: StoreProductDiscount) {
+    offerIdentifier = native.offerIdentifier
+    currencyCode = native.currencyCode
+    price = Double(truncating: native.price as NSNumber)
+    localizedPriceString = native.localizedPriceString
+    paymentModeRawValue = native.paymentMode.rawValue
+    subscriptionPeriodValue = native.subscriptionPeriod.value
+    subscriptionPeriodUnitRawValue = native.subscriptionPeriod.unit.rawValue
+    numberOfPeriods = native.numberOfPeriods
+    typeRawValue = native.type.rawValue
+    super.init()
+  }
+}
+
+/// Flat copy of SuperwallKit.TransactionProduct, the product of a
+/// nonRecurringProductPurchase event. Built only by the bridge.
+@objc(SWBTransactionProduct)
+public final class SWBTransactionProduct: NSObject {
+  @objc public let id: String
+  @objc public let priceRaw: Double
+  @objc public let priceLocalized: String
+  @objc public let priceDaily: String
+  @objc public let priceWeekly: String
+  @objc public let priceMonthly: String
+  @objc public let priceYearly: String
+  /// False when the product has no trial; the trial fields are then zero/empty.
+  @objc public let hasTrialPeriod: Bool
+  @objc public let trialDays: Int
+  @objc public let trialWeeks: Int
+  @objc public let trialMonths: Int
+  @objc public let trialYears: Int
+  @objc public let trialText: String
+  /// ISO-8601 string.
+  @objc public let trialEndAt: String?
+  /// False when the product isn't a subscription; the period fields are then zero/empty.
+  @objc public let hasPeriod: Bool
+  @objc public let periodAlt: String
+  @objc public let periodLy: String
+  /// SubscriptionPeriod.Unit.rawValue: 0 = day, 1 = week, 2 = month, 3 = year.
+  @objc public let periodUnitRawValue: Int
+  @objc public let periodDays: Int
+  @objc public let periodWeeks: Int
+  @objc public let periodMonths: Int
+  @objc public let periodYears: Int
+  @objc public let locale: String
+  @objc public let languageCode: String?
+  @objc public let currencyCode: String?
+  @objc public let currencySymbol: String?
+
+  init(_ native: TransactionProduct) {
+    id = native.id
+    priceRaw = Double(truncating: native.price.raw as NSNumber)
+    priceLocalized = native.price.localized
+    priceDaily = native.price.daily
+    priceWeekly = native.price.weekly
+    priceMonthly = native.price.monthly
+    priceYearly = native.price.yearly
+    let trial = native.trialPeriod
+    hasTrialPeriod = trial != nil
+    trialDays = trial?.days ?? 0
+    trialWeeks = trial?.weeks ?? 0
+    trialMonths = trial?.months ?? 0
+    trialYears = trial?.years ?? 0
+    trialText = trial?.text ?? ""
+    trialEndAt = trial?.endAt?.swbIsoString
+    let period = native.period
+    hasPeriod = period != nil
+    periodAlt = period?.alt ?? ""
+    periodLy = period?.ly ?? ""
+    periodUnitRawValue = period?.unit.rawValue ?? 0
+    periodDays = period?.days ?? 0
+    periodWeeks = period?.weeks ?? 0
+    periodMonths = period?.months ?? 0
+    periodYears = period?.years ?? 0
+    locale = native.locale
+    languageCode = native.languageCode
+    currencyCode = native.currency.code
+    currencySymbol = native.currency.symbol
+    super.init()
   }
 }
 
@@ -1877,6 +2006,9 @@ public final class SWBRedemptionPaywallInfo: NSObject {
   @objc public let variantId: String
   @objc public let experimentId: String
   @objc public let productIdentifier: String?
+  /// RedemptionInfo.PaywallInfo.PaywallProduct as a dictionary keyed by its
+  /// property names (String, Int and Double values); nil when unknown.
+  @objc public internal(set) var product: [String: Any]?
 
   @objc public init(
     identifier: String,
@@ -1893,6 +2025,46 @@ public final class SWBRedemptionPaywallInfo: NSObject {
     self.variantId = variantId
     self.experimentId = experimentId
     super.init()
+  }
+
+  /// The product's 31 attributes under their property names, which are also
+  /// the names of the common RedemptionPaywallProduct fields.
+  static func dictionary(
+    from product: RedemptionResult.RedemptionInfo.PaywallInfo.PaywallProduct
+  ) -> [String: Any] {
+    return [
+      "identifier": product.identifier,
+      "languageCode": product.languageCode,
+      "locale": product.locale,
+      "currencyCode": product.currencyCode,
+      "currencySymbol": product.currencySymbol,
+      "period": product.period,
+      "periodly": product.periodly,
+      "localizedPeriod": product.localizedPeriod,
+      "periodAlt": product.periodAlt,
+      "periodDays": product.periodDays,
+      "periodWeeks": product.periodWeeks,
+      "periodMonths": product.periodMonths,
+      "periodYears": product.periodYears,
+      "rawPrice": product.rawPrice,
+      "price": product.price,
+      "dailyPrice": product.dailyPrice,
+      "weeklyPrice": product.weeklyPrice,
+      "monthlyPrice": product.monthlyPrice,
+      "yearlyPrice": product.yearlyPrice,
+      "rawTrialPeriodPrice": product.rawTrialPeriodPrice,
+      "trialPeriodPrice": product.trialPeriodPrice,
+      "trialPeriodDailyPrice": product.trialPeriodDailyPrice,
+      "trialPeriodWeeklyPrice": product.trialPeriodWeeklyPrice,
+      "trialPeriodMonthlyPrice": product.trialPeriodMonthlyPrice,
+      "trialPeriodYearlyPrice": product.trialPeriodYearlyPrice,
+      "trialPeriodDays": product.trialPeriodDays,
+      "trialPeriodWeeks": product.trialPeriodWeeks,
+      "trialPeriodMonths": product.trialPeriodMonths,
+      "trialPeriodYears": product.trialPeriodYears,
+      "trialPeriodText": product.trialPeriodText,
+      "trialPeriodEndDate": product.trialPeriodEndDate
+    ]
   }
 }
 
@@ -1964,15 +2136,19 @@ public final class SWBRedemptionInfo: NSObject {
       storeIdentifiers: storeIdentifiers
     )
 
-    let paywallInfo = native.paywallInfo.map {
-      SWBRedemptionPaywallInfo(
-        identifier: $0.identifier,
-        placementName: $0.placementName,
-        placementParams: SWBValueSanitizer.sanitize($0.placementParams) ?? [:],
-        variantId: $0.variantId,
-        experimentId: $0.experimentId,
-        productIdentifier: $0.productIdentifier
+    let paywallInfo = native.paywallInfo.map { info -> SWBRedemptionPaywallInfo in
+      let swbInfo = SWBRedemptionPaywallInfo(
+        identifier: info.identifier,
+        placementName: info.placementName,
+        placementParams: SWBValueSanitizer.sanitize(info.placementParams) ?? [:],
+        variantId: info.variantId,
+        experimentId: info.experimentId,
+        productIdentifier: info.productIdentifier
       )
+      if let product = info.product {
+        swbInfo.product = SWBRedemptionPaywallInfo.dictionary(from: product)
+      }
+      return swbInfo
     }
 
     self.init(

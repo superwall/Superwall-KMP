@@ -2,6 +2,7 @@ package com.superwall.sdk.kmp.internal.adapters
 
 import android.app.Activity
 import com.superwall.sdk.kmp.PurchaseController
+import com.superwall.sdk.kmp.internal.mappers.toKmp
 import com.superwall.sdk.kmp.internal.mappers.toNative
 import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
@@ -80,21 +81,17 @@ internal class PurchaseControllerAdapter(
             if (replacement != null) "purchaseFromGooglePlayWithReplacement" else "purchaseFromGooglePlay"
         val result =
             try {
+                // The StoreProduct overload: its default picks one of the
+                // product-id methods named above, and a controller that
+                // overrides it sees isCustomProduct and customTransactionId.
+                val mappedProduct = product.toKmp()
                 withContext(Dispatchers.Main.immediate) {
-                    if (replacement != null) {
-                        controller.purchaseFromGooglePlayWithReplacement(
-                            productId = product.productIdentifier,
-                            basePlanId = basePlanId,
-                            offerId = offerId,
-                            replacement = replacement,
-                        )
-                    } else {
-                        controller.purchaseFromGooglePlay(
-                            productId = product.productIdentifier,
-                            basePlanId = basePlanId,
-                            offerId = offerId,
-                        )
-                    }
+                    controller.purchaseFromGooglePlay(
+                        product = mappedProduct,
+                        basePlanId = basePlanId,
+                        offerId = offerId,
+                        replacement = replacement,
+                    )
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation

@@ -142,10 +142,7 @@ internal fun NativePaywallSkippedReason.toKmp(): PaywallSkippedReason =
             PaywallSkippedReason.Holdout(experiment.toKmp())
         is NativePaywallSkippedReason.NoAudienceMatch -> PaywallSkippedReason.NoAudienceMatch
         is NativePaywallSkippedReason.PlacementNotFound -> PaywallSkippedReason.PlacementNotFound
-        // Native still carries a legacy UserIsSubscribed case with no common
-        // counterpart (the Pigeon contract has three cases); degrade to
-        // NoAudienceMatch — Flutter host parity (PaywallPresentationHandlerHost.kt).
-        else -> PaywallSkippedReason.NoAudienceMatch
+        is NativePaywallSkippedReason.UserIsSubscribed -> PaywallSkippedReason.UserIsSubscribed
     }
 
 // ---- RestoreType -----------------------------------------------------------------------------

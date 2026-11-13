@@ -48,6 +48,11 @@ public data class StoreTransaction(
     val purchaseToken: String? = null,
     /** The Google Play purchase signature. Android only; always `null` on iOS. */
     val signature: String? = null,
+    /**
+     * An identifier superwall-android generates for this transaction object;
+     * it isn't a store identifier. Android only; `null` on iOS.
+     */
+    val id: String? = null,
 )
 
 /** The state of a store transaction. */

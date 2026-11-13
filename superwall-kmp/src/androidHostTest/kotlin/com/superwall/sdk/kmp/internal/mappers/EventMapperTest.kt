@@ -6,6 +6,13 @@ import com.superwall.sdk.kmp.models.results.PaywallPresentationRequestStatusType
 import com.superwall.sdk.kmp.models.results.TriggerResult
 import com.superwall.sdk.kmp.models.triggers.VariantType
 import java.net.URI
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterAction
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterRefundStatus
+import com.superwall.sdk.kmp.models.events.AttributionMatchInfo
+import com.superwall.sdk.kmp.models.events.CustomerCenterEventInfo
+import com.superwall.sdk.kmp.models.events.CustomerCenterScreenType
+import com.superwall.sdk.kmp.models.events.PageViewData
+import com.superwall.sdk.kmp.models.events.WebviewError
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -21,6 +28,7 @@ import com.superwall.sdk.models.triggers.Experiment as NativeExperiment
 import com.superwall.sdk.models.triggers.TriggerResult as NativeTriggerResult
 import com.superwall.sdk.paywall.presentation.internal.PaywallPresentationRequestStatus as NativePaywallPresentationRequestStatus
 import com.superwall.sdk.paywall.presentation.internal.PaywallPresentationRequestStatusReason as NativePaywallPresentationRequestStatusReason
+import com.superwall.sdk.paywall.view.webview.WebviewError as NativeWebviewError
 import com.superwall.sdk.paywall.view.webview.messaging.PageViewData as NativePageViewData
 
 /**
@@ -430,5 +438,140 @@ class EventMapperTest {
             assertNull(info.name)
             assertEquals(mapOf("k" to "v"), info.params)
         }
+    }
+
+    // ---- Typed payload fields ---------------------------------------------------------
+
+    @Test
+    fun customerInfoDidChange_carriesFromAndTo() {
+        fun customerInfo(userId: String) =
+            NativeCustomerInfo(subscriptions = emptyList(), nonSubscriptions = emptyList(), userId = userId, entitlements = emptyList())
+
+        val info = infoOf(NativeSuperwallEvent.CustomerInfoDidChange(customerInfo("before"), customerInfo("after"))).toKmp()
+
+        assertEquals("before", info.previousCustomerInfo?.userId)
+        assertEquals("after", info.customerInfo?.userId)
+    }
+
+    @Test
+    fun permissionAndPreloadEvents_carryTypedFields() {
+        val requested = infoOf(NativeSuperwallEvent.PermissionRequested("camera", "pw-1")).toKmp()
+        assertEquals("camera", requested.permissionName)
+        assertEquals("pw-1", requested.paywallIdentifier)
+
+        assertEquals(2, infoOf(NativeSuperwallEvent.PaywallPreloadStart(2)).toKmp().paywallCount)
+        assertEquals(3, infoOf(NativeSuperwallEvent.PaywallPreloadComplete(3)).toKmp().paywallCount)
+    }
+
+    @Test
+    fun resourceLoadFailAndShimmerComplete_carryTypedFields() {
+        assertEquals(
+            "https://a.b/c.js",
+            infoOf(NativeSuperwallEvent.PaywallResourceLoadFail("https://a.b/c.js", "404")).toKmp().resourceUrl,
+        )
+        assertEquals(1.5, infoOf(NativeSuperwallEvent.ShimmerViewComplete(1.5)).toKmp().shimmerDuration)
+    }
+
+    @Test
+    fun attributionMatch_carriesTypedInfo() {
+        val info =
+            infoOf(
+                NativeSuperwallEvent.AttributionMatch(
+                    NativeAttributionMatchInfo(
+                        provider = NativeAttributionMatchInfo.Provider.MMP,
+                        matched = true,
+                        source = "meta",
+                        confidence = NativeAttributionMatchInfo.Confidence.HIGH,
+                        matchScore = 0.9,
+                    ),
+                ),
+            ).toKmp()
+
+        assertEquals(
+            AttributionMatchInfo(provider = "mmp", matched = true, source = "meta", confidence = "high", matchScore = 0.9),
+            info.attributionMatch,
+        )
+    }
+
+    @Test
+    fun pageViewData_mapsToTheTypedModel() {
+        val data =
+            NativePageViewData(
+                pageNodeId = "node-2",
+                flowPosition = 1,
+                pageName = "Plans",
+                navigationNodeId = "nav-1",
+                previousPageNodeId = "node-1",
+                previousFlowPosition = 0,
+                navigationType = "forward",
+                timeOnPreviousPageMs = 1200,
+            )
+
+        assertEquals(
+            PageViewData(
+                pageNodeId = "node-2",
+                flowPosition = 1,
+                pageName = "Plans",
+                navigationNodeId = "nav-1",
+                previousPageNodeId = "node-1",
+                previousFlowPosition = 0,
+                navigationType = "forward",
+                timeOnPreviousPageMs = 1200L,
+            ),
+            data.toKmp(),
+        )
+    }
+
+    @Test
+    fun webviewErrors_mapEveryNativeCase() {
+        assertEquals(
+            WebviewError.NetworkError(code = -2, description = "no host", url = "https://a.b"),
+            NativeWebviewError.NetworkError(-2, "no host", "https://a.b").toKmp(),
+        )
+        assertEquals(WebviewError.Timeout("slow"), NativeWebviewError.Timeout("slow").toKmp())
+        assertEquals(WebviewError.MaxAttemptsReached(listOf("a")), NativeWebviewError.MaxAttemptsReached(listOf("a")).toKmp())
+        assertEquals(WebviewError.NoUrls, NativeWebviewError.NoUrls.toKmp())
+        assertEquals(WebviewError.AllUrlsFailed(listOf("a", "b")), NativeWebviewError.AllUrlsFailed(listOf("a", "b")).toKmp())
+    }
+
+    @Test
+    fun customerCenterEvents_carryTheirPayloads() {
+        assertEquals(
+            CustomerCenterEventInfo(screen = CustomerCenterScreenType.NO_PURCHASES),
+            infoOf(NativeSuperwallEvent.CustomerCenterOpen(NativeCustomerCenterScreenType.NO_PURCHASES)).toKmp().customerCenter,
+        )
+        assertNull(infoOf(NativeSuperwallEvent.CustomerCenterClose()).toKmp().customerCenter)
+        assertEquals(
+            CustomerCenterEventInfo(action = CustomerCenterAction.Refund, pathId = "path-1", productId = "pro"),
+            infoOf(
+                NativeSuperwallEvent.CustomerCenterAction(action = NativeCustomerCenterAction.Refund, pathId = "path-1", productId = "pro"),
+            ).toKmp().customerCenter,
+        )
+        assertEquals(
+            CustomerCenterEventInfo(
+                surveyId = "survey-1",
+                optionId = "option-1",
+                action = CustomerCenterAction.Refund,
+                pathId = "path-1",
+            ),
+            infoOf(
+                NativeSuperwallEvent.CustomerCenterSurveyResponse(
+                    surveyId = "survey-1",
+                    optionId = "option-1",
+                    action = NativeCustomerCenterAction.Refund,
+                    pathId = "path-1",
+                    productId = null,
+                ),
+            ).toKmp().customerCenter,
+        )
+        assertEquals(
+            CustomerCenterEventInfo(productId = "pro", refundStatus = CustomerCenterRefundStatus.USER_CANCELLED),
+            infoOf(
+                NativeSuperwallEvent.CustomerCenterRefundRequest(
+                    productId = "pro",
+                    status = NativeCustomerCenterRefundStatus.USER_CANCELLED,
+                ),
+            ).toKmp().customerCenter,
+        )
     }
 }

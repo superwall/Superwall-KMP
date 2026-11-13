@@ -2,6 +2,8 @@
 
 package com.superwall.sdk.kmp.internal.adapters
 
+import com.superwall.sdk.kmp.internal.mappers.toModel
+import com.superwall.sdk.kmp.internal.ios.interop.SWBStoreProduct
 import com.superwall.sdk.kmp.PurchaseController
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPurchaseControllerProtocol
 import com.superwall.sdk.kmp.internal.ios.interop.SWBPurchaseResult
@@ -39,13 +41,16 @@ internal class PurchaseControllerAdapter(
     private val scope: CoroutineScope,
     private val log: (message: String, error: Throwable?) -> Unit,
 ) : NSObject(), SWBPurchaseControllerProtocol {
-    override fun purchaseWithProductId(
-        productId: String,
+    override fun purchaseWithProduct(
+        product: SWBStoreProduct,
         completion: (SWBPurchaseResult?) -> Unit,
     ) {
+        // The StoreProduct overload: its default calls the product-id method,
+        // and a controller that overrides it sees customTransactionId.
+        val mappedProduct = product.toModel()
         scope.launch {
             val result = try {
-                controller.purchaseFromAppStore(productId)
+                controller.purchaseFromAppStore(mappedProduct)
             } catch (throwable: Throwable) {
                 log("PurchaseController.purchaseFromAppStore threw an exception", throwable)
                 PurchaseResult.Failed(throwable.message ?: "PurchaseController threw: $throwable")

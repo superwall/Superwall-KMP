@@ -11,6 +11,7 @@ import com.superwall.sdk.kmp.models.paywall.PaywallInfo
 import com.superwall.sdk.kmp.models.paywall.PaywallPresentationInfo
 import com.superwall.sdk.kmp.models.paywall.PaywallPresentationStyle
 import com.superwall.sdk.kmp.models.paywall.PaywallProduct
+import com.superwall.sdk.kmp.models.paywall.PaywallProductOffer
 import com.superwall.sdk.kmp.models.paywall.Survey
 import com.superwall.sdk.kmp.models.paywall.SurveyOption
 import com.superwall.sdk.kmp.models.paywall.SurveyShowCondition
@@ -26,6 +27,7 @@ import com.superwall.sdk.models.paywall.LocalNotification as NativeLocalNotifica
 import com.superwall.sdk.models.paywall.LocalNotificationType as NativeLocalNotificationType
 import com.superwall.sdk.models.paywall.PaywallPresentationInfo as NativePaywallPresentationInfo
 import com.superwall.sdk.models.paywall.PaywallPresentationStyle as NativePaywallPresentationStyle
+import com.superwall.sdk.models.product.Offer as NativeOffer
 import com.superwall.sdk.models.product.ProductItem as NativeProductItem
 import com.superwall.sdk.paywall.presentation.PaywallCloseReason as NativePaywallCloseReason
 import com.superwall.sdk.paywall.presentation.PaywallInfo as NativePaywallInfo
@@ -82,6 +84,8 @@ internal fun NativePaywallInfo.toKmp(): PaywallInfo =
         presentation = presentation.toKmp(),
         isScrollEnabled = isScrollEnabled,
         presentationId = presentationId,
+        databaseId = databaseId,
+        customerInfo = customerInfo.toKmp(),
         // isLocal and introOfferEligibility are iOS only.
     )
 
@@ -115,6 +119,17 @@ internal fun NativeProductItem.toKmp(): PaywallProduct =
                 is NativeProductItem.StoreProductType.Custom -> ProductStore.CUSTOM
                 is NativeProductItem.StoreProductType.Other -> ProductStore.OTHER
             },
+        // billingPlanType is iOS only.
+        trialDays = (type as? NativeProductItem.StoreProductType.Stripe)?.product?.trialDays,
+        basePlanIdentifier = (type as? NativeProductItem.StoreProductType.PlayStore)?.product?.basePlanIdentifier,
+        offer =
+            when (val offer = (type as? NativeProductItem.StoreProductType.PlayStore)?.product?.offer) {
+                is NativeOffer.Automatic -> PaywallProductOffer.Automatic
+                is NativeOffer.NoOffer -> PaywallProductOffer.NoOffer
+                is NativeOffer.Specified -> PaywallProductOffer.Specified(offer.offerIdentifier)
+                null -> null
+            },
+        fullIdentifier = fullProductId,
     )
 
 // ---- Enums ----------------------------------------------------------------------
