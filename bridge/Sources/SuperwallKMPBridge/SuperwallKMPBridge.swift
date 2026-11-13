@@ -34,6 +34,7 @@ public enum SWBNetworkEnvironment: Int {
   case release = 0
   case releaseCandidate = 1
   case developer = 2
+  case local = 3
 }
 
 /// Mirror of SuperwallOptions.TestModeBehavior.
@@ -256,6 +257,15 @@ public final class SWBSuperwallOptions: NSObject {
   @objc public var adConsent: SWBAdConsent?
   /// nil = SuperwallKit's default Customer Center configuration.
   @objc public var customerCenter: SWBCustomerCenterConfiguration?
+  /// Local resource id → the URL string of a file on disk. Entries whose
+  /// string isn't a URL are left out.
+  @objc public var localResources: [String: String]?
+  /// nil = no dev server. An empty string = SuperwallOptions.DevServer.default
+  /// (found on localhost); otherwise the dev server's address.
+  @objc public var devServerUrl: String?
+  /// When set, wins over `networkEnvironment`: the argument of
+  /// SuperwallOptions.NetworkEnvironment.custom, e.g. "https://api.example.com:8443".
+  @objc public var customNetworkEnvironmentDomain: String?
 
   @objc public override init() {
     super.init()
@@ -321,6 +331,30 @@ public final class SWBSuperwallOptions: NSObject {
         options.networkEnvironment = .releaseCandidate
       case .developer:
         options.networkEnvironment = .developer
+      case .local:
+        options.networkEnvironment = .local
+      }
+    }
+    if let domain = customNetworkEnvironmentDomain {
+      options.networkEnvironment = .custom(domain)
+    }
+    if let localResources = localResources {
+      var resources: [String: AssetResource] = [:]
+      for (resourceId, urlString) in localResources {
+        // A plain path has no scheme: read it as a file path.
+        if let url = URL(string: urlString), url.scheme != nil {
+          resources[resourceId] = url
+        } else if urlString.hasPrefix("/") {
+          resources[resourceId] = URL(fileURLWithPath: urlString)
+        }
+      }
+      options.localResources = resources
+    }
+    if let devServerUrl = devServerUrl {
+      if devServerUrl.isEmpty {
+        options.devServer = SuperwallOptions.DevServer.default
+      } else if let url = URL(string: devServerUrl) {
+        options.devServer = SuperwallOptions.DevServer.url(url)
       }
     }
     if let value = isExternalDataCollectionEnabled {
@@ -615,6 +649,27 @@ public final class SWBSuperwallBridge: NSObject {
     case .pending: return .pending
     @unknown default: return .pending
     }
+  }
+
+  /// Subscribes to configuration-status changes via Combine. Emits the current
+  /// value immediately, then every change, with an SWBConfigurationStatus raw
+  /// value. Call after configure: before it, `Superwall.shared` is a
+  /// throwaway instance. Cancel via the returned token.
+  @objc public func observeConfigurationStatus(
+    _ onChange: @escaping (Int) -> Void
+  ) -> SWBObservation {
+    let cancellable = Superwall.shared.$configurationStatus
+      .sink { status in
+        let swbStatus: SWBConfigurationStatus
+        switch status {
+        case .configured: swbStatus = .configured
+        case .failed: swbStatus = .failed
+        case .pending: swbStatus = .pending
+        @unknown default: swbStatus = .pending
+        }
+        onChange(swbStatus.rawValue)
+      }
+    return SWBObservation { cancellable.cancel() }
   }
 
   /// True once configuration completed successfully. Safe pre-configure (false).

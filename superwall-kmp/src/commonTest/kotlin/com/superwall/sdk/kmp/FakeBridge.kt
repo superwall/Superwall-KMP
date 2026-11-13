@@ -96,6 +96,23 @@ internal class FakeBridge : SuperwallBridge {
         statusAtAttach?.let { holder.subscriptionStatus.value = it }
     }
 
+    val configurationStatusHolders: MutableList<StreamHolder> = mutableListOf()
+
+    /** Mirrors the natives: the holder's flow starts from the current status. */
+    override fun attachConfigurationStatus(holder: StreamHolder) {
+        calls += "attachConfigurationStatus"
+        configurationStatusHolders += holder
+        holder.configurationStatus.value = cannedConfigurationStatus
+    }
+
+    /** `true` plays Android (the SDK is torn down), `false` plays iOS. */
+    var cannedTeardownResult: Boolean = true
+
+    override fun teardown(): Boolean {
+        calls += "teardown"
+        return cannedTeardownResult
+    }
+
     // ---- Canned state ------------------------------------------------------------
 
     var cannedIsConfigured: Boolean = false
@@ -336,6 +353,44 @@ internal class FakeBridge : SuperwallBridge {
 
     override suspend fun dismiss() {
         calls += "dismiss"
+    }
+
+    override suspend fun dismissForNextPaywall() {
+        calls += "dismissForNextPaywall"
+    }
+
+    data class Alert(
+        val title: String?,
+        val message: String?,
+        val actionTitle: String?,
+        val closeActionTitle: String,
+        val action: (() -> Unit)?,
+        val onClose: (() -> Unit)?,
+    )
+
+    val alerts: MutableList<Alert> = mutableListOf()
+
+    override fun showAlert(
+        title: String?,
+        message: String?,
+        actionTitle: String?,
+        closeActionTitle: String,
+        action: (() -> Unit)?,
+        onClose: (() -> Unit)?,
+    ) {
+        calls += "showAlert"
+        alerts += Alert(title, message, actionTitle, closeActionTitle, action, onClose)
+    }
+
+    override fun openRestoreOnWeb() {
+        calls += "openRestoreOnWeb"
+    }
+
+    var cannedExternalAccountId: String? = null
+
+    override fun getExternalAccountId(): String? {
+        calls += "getExternalAccountId"
+        return cannedExternalAccountId
     }
 
     override fun isPaywallPresented(): Boolean {

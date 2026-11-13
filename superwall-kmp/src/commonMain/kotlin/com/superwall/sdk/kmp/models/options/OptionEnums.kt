@@ -38,6 +38,14 @@ public enum class NetworkEnvironment {
      * a production environment.
      */
     DEVELOPER,
+
+    /**
+     * **WARNING**: Uses Superwall services running on `localhost`. This is
+     * not meant for a production environment. iOS has it as an environment of
+     * its own; Android, which doesn't, reaches the same `http://localhost:3000`
+     * address through a custom environment.
+     */
+    LOCAL,
 }
 
 /**

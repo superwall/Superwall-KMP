@@ -70,6 +70,14 @@ internal interface BridgeListener {
      */
     val forwardsToUserDelegate: Boolean
 
+    /**
+     * Whether anything collects `Superwall.eventsFlow`. Platform adapters map
+     * and deliver [handleSuperwallEvent] when this or
+     * [forwardsToUserDelegate] is `true`, so the flow works without a
+     * delegate while the other hooks stay free.
+     */
+    val observesEvents: Boolean
+
     /** Native subscription status changed from [from] to [to]. */
     fun subscriptionStatusDidChange(
         from: SubscriptionStatus,
@@ -212,6 +220,22 @@ internal interface SuperwallBridge {
      * [StreamHolder.attach]; implementations may assume single invocation.
      */
     fun attachStreams(holder: StreamHolder)
+
+    /**
+     * Feeds [StreamHolder.configurationStatus] from the native SDK's
+     * configuration status, starting with the current value. Called right
+     * after [configure] returns, when the native singleton exists but
+     * configuration is still pending, so the flow sees pending, failed and
+     * configured. A repeat call replaces the previous feed.
+     */
+    fun attachConfigurationStatus(holder: StreamHolder)
+
+    /**
+     * Tears the native SDK down so that [configure] can run again. Android
+     * only (development use, e.g. hot reload): returns `true` when the SDK was
+     * torn down, `false` on iOS, where SuperwallKit has no teardown.
+     */
+    fun teardown(): Boolean
 
     // ---- Logging -----------------------------------------------------------
 
@@ -367,6 +391,36 @@ internal interface SuperwallBridge {
 
     /** Info about the most recently presented paywall, if any. */
     fun getLatestPaywallInfo(): PaywallInfo?
+
+    /**
+     * Dismisses the presented paywall as "closed for the next paywall", the
+     * close reason that keeps the feature block from running. Android only; a
+     * no-op on iOS, where SuperwallKit keeps this internal.
+     */
+    suspend fun dismissForNextPaywall()
+
+    /**
+     * Shows an alert over the presented paywall; does nothing when none is
+     * presented. [action] and [onClose] run on the main thread. Android only;
+     * a no-op on iOS, where SuperwallKit has no public counterpart.
+     */
+    fun showAlert(
+        title: String?,
+        message: String?,
+        actionTitle: String?,
+        closeActionTitle: String,
+        action: (() -> Unit)?,
+        onClose: (() -> Unit)?,
+    )
+
+    /** Opens the web restore page. Android only; a no-op on iOS. */
+    fun openRestoreOnWeb()
+
+    /**
+     * The id superwall-android passes to Google Play as the obfuscated
+     * account id. Android only; `null` on iOS.
+     */
+    fun getExternalAccountId(): String?
 
     /** Preloads all paywalls the user may see, per campaign audience filters. */
     fun preloadAllPaywalls()

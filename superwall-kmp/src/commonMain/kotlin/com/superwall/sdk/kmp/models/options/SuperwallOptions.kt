@@ -94,6 +94,73 @@ public data class SuperwallOptions(
      * Android.
      */
     val storeKitVersion: StoreKitVersion? = null,
+    /**
+     * Local files a paywall can load instead of fetching them over the
+     * network, keyed by the local resource id the paywall references
+     * (`swlocal://<id>`).
+     */
+    val localResources: Map<String, PaywallResource> = emptyMap(),
+    /**
+     * Connects the SDK to a running `superwall dev` server, for development
+     * builds only: paywalls with a local counterpart render from your local
+     * paywall code. It also turns on test mode and turns off preloading. iOS
+     * only; superwall-android has no dev server support and ignores it.
+     */
+    val devServer: DevServer? = null,
+    /**
+     * A custom network environment, used instead of [networkEnvironment] when
+     * set. Only set this if told so explicitly by the Superwall team.
+     */
+    val customNetworkEnvironment: CustomNetworkEnvironment? = null,
+)
+
+/** A local file served to paywalls through [SuperwallOptions.localResources]. */
+public sealed interface PaywallResource {
+    /**
+     * A file addressed by a URI string: a `file://` URL on iOS, and a
+     * `file://`, `content://` or other URI Android can open.
+     */
+    public data class FromUri(val uri: String) : PaywallResource
+
+    /**
+     * An Android resource, e.g. `R.raw.hero_video` or `R.drawable.bg`. Android
+     * only: iOS has no resource ids and leaves the entry out.
+     */
+    public data class FromAndroidResource(val resourceId: Int) : PaywallResource
+}
+
+/** A running `superwall dev` server for [SuperwallOptions.devServer] to connect to. */
+public sealed interface DevServer {
+    /**
+     * Finds the dev server on `localhost` ports 6100 to 6104, which reaches a
+     * server running on the same machine from a simulator.
+     */
+    public data object Default : DevServer
+
+    /**
+     * The dev server at an exact address: the `Device` URL's origin that
+     * `superwall dev` prints, e.g. `http://192.168.1.10:6100`. Use this on a
+     * physical device.
+     */
+    public data class Url(val url: String) : DevServer
+}
+
+/**
+ * A network environment other than the ones [NetworkEnvironment] names.
+ *
+ * iOS builds the address from [scheme], [baseHost] and [port] and uses
+ * Superwall's developer collector whatever [collectorHost] says; Android uses
+ * all four.
+ */
+public data class CustomNetworkEnvironment(
+    /** The host of the Superwall API, without a scheme or port. */
+    val baseHost: String,
+    /** The host events are sent to. Android only. */
+    val collectorHost: String = "collector.superwall.dev",
+    /** `https` or `http`. */
+    val scheme: String = "https",
+    /** The port, or `null` for the scheme's default. */
+    val port: Int? = null,
 )
 
 /** The StoreKit version the iOS SDK uses for purchases. */

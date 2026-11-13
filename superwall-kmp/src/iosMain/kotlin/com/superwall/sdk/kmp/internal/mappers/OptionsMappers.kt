@@ -2,6 +2,9 @@
 
 package com.superwall.sdk.kmp.internal.mappers
 
+import com.superwall.sdk.kmp.models.options.PaywallResource
+import com.superwall.sdk.kmp.models.options.DevServer
+import com.superwall.sdk.kmp.internal.interop.SWB_NETWORK_ENVIRONMENT_LOCAL
 import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_ALL
 import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_NONE
 import com.superwall.sdk.kmp.internal.interop.SWB_EVENT_TRACKING_BEHAVIOR_SUPERWALL_ONLY
@@ -88,6 +91,25 @@ internal fun SuperwallOptions.toSWB(): SWBSuperwallOptions {
     val options = SWBSuperwallOptions()
     options.setPaywalls(paywalls.toSWB())
     options.setNetworkEnvironment(NSNumber(long = networkEnvironment.toSWBRaw()))
+    // SuperwallKit's custom environment is one "scheme://host[:port]" string;
+    // it has no setting for the collector host.
+    customNetworkEnvironment?.let { custom ->
+        val port = custom.port?.let { ":$it" } ?: ""
+        options.setCustomNetworkEnvironmentDomain("${custom.scheme}://${custom.baseHost}$port")
+    }
+    if (localResources.isNotEmpty()) {
+        // Android resource ids mean nothing here and are left out.
+        val urls: Map<String, String> =
+            localResources.mapNotNull { (id, resource) -> (resource as? PaywallResource.FromUri)?.let { id to it.uri } }.toMap()
+        @Suppress("UNCHECKED_CAST")
+        options.setLocalResources(urls as Map<Any?, *>)
+    }
+    when (val server = devServer) {
+        null -> Unit
+        // The empty string is the bridge's spelling of DevServer.default.
+        DevServer.Default -> options.setDevServerUrl("")
+        is DevServer.Url -> options.setDevServerUrl(server.url)
+    }
     options.setIsExternalDataCollectionEnabled(NSNumber(bool = isExternalDataCollectionEnabled))
     // ALL is the common default and indistinguishable from "unset"; leaving
     // the SWB field nil lets the deprecated boolean keep its effect (the
@@ -114,7 +136,8 @@ internal fun SuperwallOptions.toSWB(): SWBSuperwallOptions {
     }
     options.setLogging(
         SWBLoggingOptions().also { swbLogging ->
-            swbLogging.setLevel(NSNumber(long = logLevelToSWB(logging.level)))
+            // Unset keeps SuperwallKit's own default (info).
+            logging.level?.let { swbLogging.setLevel(NSNumber(long = logLevelToSWB(it))) }
             // Android-only scopes have no SuperwallKit counterpart and are left
             // out; when that leaves none, the native default scopes stay.
             val swbScopes = logging.scopes.mapNotNull { scope -> logScopeToSWB(scope)?.let { NSNumber(long = it) } }
@@ -187,6 +210,7 @@ private fun NetworkEnvironment.toSWBRaw(): Long =
         NetworkEnvironment.RELEASE -> SWB_NETWORK_ENVIRONMENT_RELEASE
         NetworkEnvironment.RELEASE_CANDIDATE -> SWB_NETWORK_ENVIRONMENT_RELEASE_CANDIDATE
         NetworkEnvironment.DEVELOPER -> SWB_NETWORK_ENVIRONMENT_DEVELOPER
+        NetworkEnvironment.LOCAL -> SWB_NETWORK_ENVIRONMENT_LOCAL
     }
 
 internal fun EventTrackingBehavior.toSWBRaw(): Long =

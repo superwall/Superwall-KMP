@@ -669,4 +669,155 @@ class SuperwallFacadeTest {
             assertSame(onDismiss, presentation.onDismiss)
             assertTrue(fake.calls.containsAll(listOf("presentCustomerCenter", "dismissCustomerCenter")))
         }
+
+    // ---- Configuration status flow ---------------------------------------------------
+
+    @Test
+    fun configurationStatusFlowIsPendingBeforeConfigureAndFollowsTheBridge() {
+        assertEquals(ConfigurationStatus.PENDING, Superwall.configurationStatusFlow.value)
+
+        fake.cannedConfigurationStatus = ConfigurationStatus.CONFIGURED
+        Superwall.configure("pk_test")
+
+        assertEquals(ConfigurationStatus.CONFIGURED, Superwall.configurationStatusFlow.value)
+        // Later native changes arrive through the holder the bridge was given.
+        fake.configurationStatusHolders.single().configurationStatus.value = ConfigurationStatus.FAILED
+        assertEquals(ConfigurationStatus.FAILED, Superwall.configurationStatusFlow.value)
+    }
+
+    @Test
+    fun configurationStatusIsAttachedEvenWhenConfigureFails() {
+        fake.configureOutcome = Result.failure(SuperwallError.ConfigurationFailed("offline"))
+        fake.cannedConfigurationStatus = ConfigurationStatus.FAILED
+
+        Superwall.configure("pk_test")
+
+        assertEquals(ConfigurationStatus.FAILED, Superwall.configurationStatusFlow.value)
+        assertFalse("attachStreams" in fake.calls)
+    }
+
+    // ---- Events flow -----------------------------------------------------------------
+
+    @Test
+    fun eventsFlowEmitsWithoutADelegateAndTellsTheBridgeItIsObserved() =
+        runTest {
+            Superwall.configure("pk_test")
+            val listener = assertNotNull(fake.installedListener)
+            assertFalse(listener.observesEvents)
+            assertFalse(listener.forwardsToUserDelegate)
+
+            val received = mutableListOf<SuperwallEventInfo>()
+            val collector =
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                    Superwall.eventsFlow.collect { received += it }
+                }
+            assertTrue(listener.observesEvents)
+
+            val event = SuperwallEventInfo(eventType = EventType.APP_OPEN)
+            listener.handleSuperwallEvent(event)
+            testScheduler.advanceUntilIdle()
+            assertEquals(listOf(event), received)
+
+            collector.cancel()
+            testScheduler.advanceUntilIdle()
+            assertFalse(listener.observesEvents)
+        }
+
+    // ---- Teardown --------------------------------------------------------------------
+
+    @Test
+    fun teardownLetsConfigureRunAgainWithNewOptionsAndKeepsTheFlows() {
+        val statusFlow = Superwall.subscriptionStatusFlow
+        fake.statusAtAttach = SubscriptionStatus.Inactive
+        fake.cannedConfigurationStatus = ConfigurationStatus.CONFIGURED
+        Superwall.configure("pk_first")
+        assertEquals(SubscriptionStatus.Inactive, statusFlow.value)
+
+        assertTrue(Superwall.teardown())
+
+        assertEquals(SubscriptionStatus.Unknown, statusFlow.value)
+        assertEquals(ConfigurationStatus.PENDING, Superwall.configurationStatusFlow.value)
+        assertFailsWith<SuperwallError.NotConfigured> { Superwall.userId }
+
+        val options = SuperwallOptions(localeIdentifier = "fr_FR")
+        var outcome: Result<Unit>? = null
+        Superwall.configure("pk_second", options = options) { outcome = it }
+
+        assertEquals(2, fake.configureCount)
+        assertEquals("pk_second", fake.lastApiKey)
+        assertSame(options, fake.lastOptions)
+        assertEquals(Result.success(Unit), outcome)
+        assertEquals(2, fake.calls.count { it == "attachStreams" })
+        // The flow obtained before the teardown is fed by the new instance.
+        assertEquals(SubscriptionStatus.Inactive, statusFlow.value)
+    }
+
+    @Test
+    fun aConfigureCompletedAfterTeardownIsDropped() {
+        fake.configureOutcome = null
+        var firstOutcome: Result<Unit>? = null
+        Superwall.configure("pk_first") { firstOutcome = it }
+        val heldFirst = fake.heldConfigureCompletions.toList()
+        fake.heldConfigureCompletions.clear()
+
+        assertTrue(Superwall.teardown())
+        fake.configureOutcome = Result.success(Unit)
+        Superwall.configure("pk_second")
+        val attachesAfterSecond = fake.calls.count { it == "attachStreams" }
+
+        // The torn-down instance's completion arrives late: it reports nothing.
+        heldFirst.forEach { it(Result.failure(SuperwallError.ConfigurationFailed("gone"))) }
+
+        assertNull(firstOutcome)
+        assertEquals(attachesAfterSecond, fake.calls.count { it == "attachStreams" })
+    }
+
+    @Test
+    fun teardownWhereTheNativeSdkHasNoneChangesNothing() {
+        Superwall.configure("pk_test")
+        fake.cannedTeardownResult = false
+
+        assertFalse(Superwall.teardown())
+
+        Superwall.configure("pk_again")
+        assertEquals(1, fake.configureCount)
+        assertEquals("fake-user", Superwall.userId)
+    }
+
+    // ---- Android helpers -------------------------------------------------------------
+
+    @Test
+    fun androidHelpersForwardToBridge() =
+        runTest {
+            Superwall.configure("pk_test")
+
+            val action = {}
+            val onClose = {}
+            Superwall.showAlert(title = "Title", message = "Message", actionTitle = "Retry", action = action, onClose = onClose)
+            val alert = fake.alerts.single()
+            assertEquals("Title", alert.title)
+            assertEquals("Message", alert.message)
+            assertEquals("Retry", alert.actionTitle)
+            assertEquals("Done", alert.closeActionTitle)
+            assertSame(action, alert.action)
+            assertSame(onClose, alert.onClose)
+
+            Superwall.openRestoreOnWeb()
+            Superwall.dismissForNextPaywall()
+            assertNull(Superwall.externalAccountId)
+            fake.cannedExternalAccountId = "hashed-user"
+            assertEquals("hashed-user", Superwall.externalAccountId)
+
+            assertTrue(fake.calls.containsAll(listOf("showAlert", "openRestoreOnWeb", "dismissForNextPaywall", "getExternalAccountId")))
+        }
+
+    @Test
+    fun newGuardedMembersThrowBeforeConfigure() =
+        runTest {
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.showAlert() }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.openRestoreOnWeb() }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.dismissForNextPaywall() }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.externalAccountId }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.teardown() }
+        }
 }

@@ -1,5 +1,8 @@
 package com.superwall.sdk.kmp.internal.mappers
 
+import android.net.Uri
+import com.superwall.sdk.kmp.models.options.PaywallResource
+import com.superwall.sdk.paywall.view.webview.PaywallResource as NativePaywallResource
 import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.AdConsentStatus
 import com.superwall.sdk.kmp.models.options.DeviceTier
@@ -46,11 +49,27 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
     val native = NativeSuperwallOptions()
     native.paywalls = paywalls.toNative()
     native.networkEnvironment =
-        when (networkEnvironment) {
+        customNetworkEnvironment?.let { custom ->
+            NativeSuperwallOptions.NetworkEnvironment.Custom(
+                baseHost = custom.baseHost,
+                collectorHost = custom.collectorHost,
+                scheme = custom.scheme,
+                port = custom.port,
+            )
+        } ?: when (networkEnvironment) {
             NetworkEnvironment.RELEASE -> NativeSuperwallOptions.NetworkEnvironment.Release()
             NetworkEnvironment.RELEASE_CANDIDATE ->
                 NativeSuperwallOptions.NetworkEnvironment.ReleaseCandidate()
             NetworkEnvironment.DEVELOPER -> NativeSuperwallOptions.NetworkEnvironment.Developer()
+            // superwall-android has no local environment of its own; this is
+            // the address SuperwallKit's `.local` uses for the API and events.
+            NetworkEnvironment.LOCAL ->
+                NativeSuperwallOptions.NetworkEnvironment.Custom(
+                    baseHost = "localhost",
+                    collectorHost = "localhost",
+                    scheme = "http",
+                    port = 3000,
+                )
         }
     // The native SDK derives isExternalDataCollectionEnabled FROM
     // eventTrackingBehavior (the boolean setter rewrites the behavior), so
@@ -72,8 +91,10 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
     adConsent?.let { native.adConsent = it.toNative() }
     customerCenter?.let { native.customerCenter = it.toNative() }
     native.logging = logging.toNative()
-    // shouldBypassAppTransactionCheck / maxConfigRetryCount / storeKitVersion:
-    // iOS-only, no superwall-android counterpart — documented no-op.
+    // shouldBypassAppTransactionCheck / maxConfigRetryCount / storeKitVersion /
+    // devServer: iOS-only, no superwall-android counterpart — documented no-op.
+    // localResources is not an option natively: the bridge sets it on the
+    // Superwall instance right after configure.
     return native
 }
 
@@ -128,7 +149,8 @@ internal fun PaywallOptions.toNative(): NativePaywallOptions {
 /** Maps the common [Logging] configuration to the native nested Logging object. */
 internal fun Logging.toNative(): NativeSuperwallOptions.Logging {
     val native = NativeSuperwallOptions.Logging()
-    native.level = level.toNative()
+    // Unset keeps superwall-android's own default (warn).
+    level?.let { native.level = it.toNative() }
     val nativeScopes = EnumSet.noneOf(NativeLogScope::class.java)
     // iOS-only scopes have no native counterpart and are left out.
     scopes.forEach { scope -> scope.toNative()?.let(nativeScopes::add) }
@@ -350,3 +372,13 @@ internal fun logScopeFromNativeString(raw: String): LogScope? {
             ?: NativeLogScope.entries.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
     return native?.toKmp()
 }
+
+// ---- Local resources ----------------------------------------------------------
+
+internal fun Map<String, PaywallResource>.toNative(): Map<String, NativePaywallResource> =
+    mapValues { (_, resource) ->
+        when (resource) {
+            is PaywallResource.FromUri -> NativePaywallResource.FromUri(Uri.parse(resource.uri))
+            is PaywallResource.FromAndroidResource -> NativePaywallResource.FromResources(resource.resourceId)
+        }
+    }

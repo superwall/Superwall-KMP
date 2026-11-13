@@ -2,6 +2,8 @@
 
 package com.superwall.sdk.kmp.internal
 
+import com.superwall.sdk.kmp.internal.interop.SWB_CONFIGURATION_STATUS_FAILED
+import com.superwall.sdk.kmp.internal.interop.SWB_CONFIGURATION_STATUS_CONFIGURED
 import com.superwall.sdk.kmp.CustomerCenterDelegate
 import com.superwall.sdk.kmp.PaywallPresentationHandler
 import com.superwall.sdk.kmp.PurchaseController
@@ -107,6 +109,9 @@ internal class IosSuperwallBridge : SuperwallBridge {
     /** Retained observation token for the subscription-status subscription. */
     private var subscriptionStatusObservation: SWBObservation? = null
 
+    /** Retained observation token for the configuration-status subscription. */
+    private var configurationStatusObservation: SWBObservation? = null
+
     // ---- Configuration -----------------------------------------------------
 
     override fun configure(
@@ -203,6 +208,27 @@ internal class IosSuperwallBridge : SuperwallBridge {
             holder.subscriptionStatus.value = status?.toModel() ?: SubscriptionStatus.Unknown
         }
     }
+
+    /**
+     * The observer emits the current status immediately and then every
+     * change. Called after configure, when `Superwall.shared` is the real
+     * instance. The delivery thread doesn't matter to the thread-safe flow.
+     */
+    override fun attachConfigurationStatus(holder: StreamHolder) {
+        configurationStatusObservation?.cancel()
+        configurationStatusObservation =
+            swb.observeConfigurationStatus { raw ->
+                holder.configurationStatus.value =
+                    when (raw) {
+                        SWB_CONFIGURATION_STATUS_CONFIGURED -> ConfigurationStatus.CONFIGURED
+                        SWB_CONFIGURATION_STATUS_FAILED -> ConfigurationStatus.FAILED
+                        else -> ConfigurationStatus.PENDING
+                    }
+            }
+    }
+
+    /** SuperwallKit has no teardown: nothing is torn down. */
+    override fun teardown(): Boolean = false
 
     // ---- Logging -----------------------------------------------------------
 
@@ -412,6 +438,25 @@ internal class IosSuperwallBridge : SuperwallBridge {
     override suspend fun dismiss() {
         awaitVoidCompletion { swb.dismiss(it) }
     }
+
+    // dismissForNextPaywall, showAlert, openRestoreOnWeb and the external
+    // account id exist publicly in superwall-android only (SuperwallKit keeps
+    // its dismissForNextPaywall internal), so these are documented no-ops.
+
+    override suspend fun dismissForNextPaywall() {}
+
+    override fun showAlert(
+        title: String?,
+        message: String?,
+        actionTitle: String?,
+        closeActionTitle: String,
+        action: (() -> Unit)?,
+        onClose: (() -> Unit)?,
+    ) {}
+
+    override fun openRestoreOnWeb() {}
+
+    override fun getExternalAccountId(): String? = null
 
     override fun isPaywallPresented(): Boolean = swb.isPaywallPresented()
 

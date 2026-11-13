@@ -129,7 +129,8 @@ internal class DelegateAdapter(
     }
 
     override fun handleSuperwallEvent(eventInfo: NativeSuperwallEventInfo) {
-        if (!listener.forwardsToUserDelegate) return
+        // Also mapped for `Superwall.eventsFlow` collectors without a delegate.
+        if (!listener.forwardsToUserDelegate && !listener.observesEvents) return
         val info = mapped { eventInfo.toKmp() } ?: return
         deliver { listener.handleSuperwallEvent(info) }
     }

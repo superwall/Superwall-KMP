@@ -10,6 +10,7 @@ import com.superwall.sdk.kmp.models.entitlements.Entitlement
 import com.superwall.sdk.kmp.models.entitlements.Entitlements
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
+import com.superwall.sdk.kmp.models.events.SuperwallEventInfo
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
 import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
@@ -44,7 +45,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * deliberate exemptions: [configure]/[configureAndAwait], [handleDeepLink]
  * (deep-link cold start is its primary use), the introspection members
  * [isConfigured], [isInitialized], and [configurationStatus], the stream
- * accessors [subscriptionStatusFlow] and [customerInfoFlow] (common-owned,
+ * accessors [subscriptionStatusFlow], [customerInfoFlow], [eventsFlow] and
+ * [configurationStatusFlow] (common-owned,
  * pre-seeded flows), and the [delegate] property (stored immediately;
  * installed natively at configure). Use [configureAndAwait] or gate on
  * [isConfigured] to order calls.
@@ -79,6 +81,8 @@ public object Superwall {
 
     /** The first configure call's outcome, once delivered. */
     private var configureResult: Result<Unit>? = null
+
+    private var configureGeneration: Int = 0
 
     /** Completions from repeat configure calls made while the first is in flight. */
     private val pendingConfigureCompletions: MutableList<(Result<Unit>) -> Unit> = mutableListOf()
@@ -134,7 +138,11 @@ public object Superwall {
         // missed; the bridge's install is idempotent and may defer the native
         // installation until its SDK singleton exists.
         bridge.installDelegate(multiplexer)
+        // Counts configure calls so a completion that arrives after a
+        // teardown() and a second configure can't overwrite the newer outcome.
+        val generation = ++configureGeneration
         bridge.configure(apiKey, purchaseController, options) { result ->
+            if (generation != configureGeneration) return@configure
             configureResult = result
             if (result.isSuccess) {
                 if (options?.enableExperimentalDeviceVariables == true) {
@@ -149,6 +157,8 @@ public object Superwall {
             pendingConfigureCompletions.clear()
             queued.forEach { it(result) }
         }
+        // After configure returns the native singleton exists, still pending.
+        bridge.attachConfigurationStatus(streams)
     }
 
     /**
@@ -197,6 +207,15 @@ public object Superwall {
         get() = bridge.getConfigurationStatus()
 
     /**
+     * The configuration status as a flow: the current status first, then
+     * every change, e.g. `FAILED` and later `CONFIGURED` when a retry
+     * succeeds. `PENDING` until [configure] is called. Guard-exempt:
+     * collectable before [configure].
+     */
+    public val configurationStatusFlow: StateFlow<ConfigurationStatus>
+        get() = streams.configurationStatus.asStateFlow()
+
+    /**
      * Whether [configure] has completed successfully.
      * Guard-exempt — callable before [configure].
      */
@@ -216,6 +235,31 @@ public object Superwall {
      */
     public fun reset() {
         requireConfigured().reset()
+    }
+
+    /**
+     * Tears the SDK down so that [configure] can be called again, for
+     * development setups that reload the app's code in a running process.
+     * Don't use it in production as a way to reset; use [reset].
+     *
+     * Android only. It resets user data, assignments and caches, destroys the
+     * cached paywalls, and lifts the "configure runs once" rule: the next
+     * [configure] installs its options and purchase controller again.
+     * [delegate] and the flows are kept. On iOS, where SuperwallKit can't be
+     * torn down, it does nothing and returns `false`.
+     *
+     * @return Whether the SDK was torn down.
+     */
+    public fun teardown(): Boolean {
+        val bridge = requireConfigured()
+        if (!bridge.teardown()) return false
+        configureCalled = false
+        configureResult = null
+        // A configure still in flight belongs to the instance that is gone.
+        configureGeneration++
+        pendingConfigureCompletions.clear()
+        streams.detach()
+        return true
     }
 
     // ---- Identity / attributes ------------------------------------------------
@@ -425,6 +469,23 @@ public object Superwall {
         get() = streams.subscriptionStatus.asStateFlow()
 
     /**
+     * The id superwall-android passes to Google Play as the obfuscated
+     * account id of the user's purchases. Android only; `null` on iOS.
+     */
+    public val externalAccountId: String?
+        get() = requireConfigured().getExternalAccountId()
+
+    /**
+     * Every Superwall event as a [Flow], an alternative to
+     * [SuperwallDelegate.handleSuperwallEvent] that works without a delegate.
+     *
+     * Guard-exempt: collectable before [configure]. No replay: only events
+     * tracked while you are collecting are emitted.
+     */
+    public val eventsFlow: Flow<SuperwallEventInfo>
+        get() = streams.events.asSharedFlow()
+
+    /**
      * A [Flow] of customer info changes: one emission each time the native
      * SDK reports a change, on both platforms.
      *
@@ -551,6 +612,52 @@ public object Superwall {
     /** Dismisses the presented paywall, if one exists, resuming when done. */
     public suspend fun dismiss() {
         requireConfigured().dismiss()
+    }
+
+    /**
+     * Dismisses the presented paywall, if one exists, in order to present a
+     * different one: the paywall closes with the "for next paywall" close
+     * reason, so the feature block of its `register` call doesn't run.
+     *
+     * Android only. A no-op on iOS, where SuperwallKit keeps this internal.
+     */
+    public suspend fun dismissForNextPaywall() {
+        requireConfigured().dismissForNextPaywall()
+    }
+
+    /**
+     * Shows an alert over the presented paywall. Does nothing when no paywall
+     * is presented.
+     *
+     * Android only. A no-op on iOS, where SuperwallKit has no public
+     * counterpart.
+     *
+     * @param title The alert's title.
+     * @param message The alert's message.
+     * @param actionTitle The title of the action button; `null` shows only the close button.
+     * @param closeActionTitle The title of the close button.
+     * @param action Called on the main thread when the user taps the action button.
+     * @param onClose Called on the main thread when the user taps the close button.
+     */
+    public fun showAlert(
+        title: String? = null,
+        message: String? = null,
+        actionTitle: String? = null,
+        closeActionTitle: String = "Done",
+        action: (() -> Unit)? = null,
+        onClose: (() -> Unit)? = null,
+    ) {
+        requireConfigured().showAlert(title, message, actionTitle, closeActionTitle, action, onClose)
+    }
+
+    /**
+     * Opens the page where a user restores purchases made on the web, in the
+     * current activity. Does nothing when the configuration has no such page.
+     *
+     * Android only. A no-op on iOS.
+     */
+    public fun openRestoreOnWeb() {
+        requireConfigured().openRestoreOnWeb()
     }
 
     /** Whether a paywall is currently being presented. */

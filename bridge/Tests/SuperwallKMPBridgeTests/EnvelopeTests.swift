@@ -663,3 +663,55 @@ final class PaywallPresentationRawValueTests: XCTestCase {
     XCTAssertEqual(IntroOfferEligibility.automatic.rawValue, 2)
   }
 }
+
+final class ParityOptionsTests: XCTestCase {
+  func testLocalResourcesDevServerAndLocalEnvironmentReachNativeOptions() {
+    let options = SWBSuperwallOptions()
+    options.localResources = [
+      "hero": "file:///tmp/hero.png",
+      "logo": "/tmp/logo.png",
+      "bad": "neither a url nor a path"
+    ]
+    options.devServerUrl = ""
+    options.networkEnvironment = NSNumber(value: SWBNetworkEnvironment.local.rawValue)
+
+    let native = options.native
+    XCTAssertEqual(native.localResources["hero"] as? URL, URL(string: "file:///tmp/hero.png"))
+    XCTAssertEqual(native.localResources["logo"] as? URL, URL(fileURLWithPath: "/tmp/logo.png"))
+    XCTAssertNil(native.localResources["bad"])
+    XCTAssertEqual(native.devServer, SuperwallOptions.DevServer.default)
+    XCTAssertEqual(native.networkEnvironment.description, "local")
+  }
+
+  func testDevServerUrlAndCustomEnvironmentWinOverTheNamedOne() {
+    let options = SWBSuperwallOptions()
+    options.devServerUrl = "http://192.168.1.10:6100"
+    options.networkEnvironment = NSNumber(value: SWBNetworkEnvironment.developer.rawValue)
+    options.customNetworkEnvironmentDomain = "https://api.example.com:8443"
+
+    let native = options.native
+    XCTAssertEqual(native.devServer, SuperwallOptions.DevServer.url(URL(string: "http://192.168.1.10:6100")!))
+    XCTAssertEqual(native.networkEnvironment.description, "custom")
+  }
+
+  func testUnsetParityOptionsKeepSuperwallKitDefaults() {
+    let native = SWBSuperwallOptions().native
+    XCTAssertTrue(native.localResources.isEmpty)
+    XCTAssertNil(native.devServer)
+    XCTAssertEqual(native.networkEnvironment.description, "release")
+  }
+}
+
+final class StoreProductParityRawValueTests: XCTestCase {
+  func testRawValuesMatchKotlin() {
+    // The Kotlin side codes against these numbers (SWBRawValues.kt).
+    XCTAssertEqual(SWBNetworkEnvironment.local.rawValue, 3)
+    XCTAssertEqual(StoreProductDiscount.PaymentMode.payAsYouGo.rawValue, 0)
+    XCTAssertEqual(StoreProductDiscount.PaymentMode.payUpFront.rawValue, 1)
+    XCTAssertEqual(StoreProductDiscount.PaymentMode.freeTrial.rawValue, 2)
+    XCTAssertEqual(StoreProductDiscount.DiscountType.introductory.rawValue, 0)
+    XCTAssertEqual(StoreProductDiscount.DiscountType.promotional.rawValue, 1)
+    XCTAssertEqual(AppStoreProduct.BillingPlanType.upFront.rawValue, 0)
+    XCTAssertEqual(AppStoreProduct.BillingPlanType.monthly.rawValue, 1)
+  }
+}

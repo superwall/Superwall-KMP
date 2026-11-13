@@ -36,6 +36,7 @@ import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.launch
@@ -49,8 +50,10 @@ import com.superwall.sdk.identity.identify as nativeIdentify
 import com.superwall.sdk.identity.setUserAttributes as nativeSetUserAttributes
 import com.superwall.sdk.network.device.InterfaceStyle as NativeInterfaceStyle
 import com.superwall.sdk.paywall.presentation.dismiss as nativeDismiss
+import com.superwall.sdk.paywall.presentation.dismissForNextPaywall as nativeDismissForNextPaywall
 import com.superwall.sdk.paywall.presentation.get_presentation_result.getPresentationResult as nativeGetPresentationResult
 import com.superwall.sdk.paywall.presentation.register as nativeRegister
+import com.superwall.sdk.web.openRestoreOnWeb as nativeOpenRestoreOnWeb
 
 /**
  * The Android [SuperwallBridge]: a port of the Flutter plugin's
@@ -100,6 +103,10 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
     /** The installed [BridgeListener] (the common `DelegateMultiplexer`). */
     @Volatile
     private var listener: BridgeListener? = null
+
+    /** The collectors feeding the common flows; replaced on a configure after [teardown]. */
+    private var subscriptionStatusJob: Job? = null
+    private var configurationStatusJob: Job? = null
 
     /** The native delegate adapter wrapping [listener]; created once. */
     @Volatile
@@ -205,6 +212,11 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         // wrapper before the first config request goes out, and install the
         // delegate now so no early event is missed.
         NativeSuperwall.instance.setPlatformWrapper(PLATFORM_WRAPPER, SDK_VERSION)
+        // Not a native option: local resources live on the instance. Set
+        // before any paywall can load, as the options are.
+        options?.localResources?.takeIf { it.isNotEmpty() }?.let {
+            NativeSuperwall.instance.localResources = it.toNative()
+        }
         installNativeDelegateIfPossible()
     }
 
@@ -240,12 +252,15 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     override fun getConfigurationStatus(): ConfigurationStatus {
         if (!NativeSuperwall.initialized) return ConfigurationStatus.PENDING
-        return when (NativeSuperwall.instance.configurationState) {
+        return NativeSuperwall.instance.configurationState.toKmp()
+    }
+
+    private fun NativeConfigurationStatus.toKmp(): ConfigurationStatus =
+        when (this) {
             is NativeConfigurationStatus.Configured -> ConfigurationStatus.CONFIGURED
             is NativeConfigurationStatus.Failed -> ConfigurationStatus.FAILED
             is NativeConfigurationStatus.Pending -> ConfigurationStatus.PENDING
         }
-    }
 
     /**
      * Attaches the native subscription-status source to the common-owned flow:
@@ -269,11 +284,45 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         streamHolder = holder
         val native = NativeSuperwall.instance
         holder.subscriptionStatus.value = native.subscriptionStatus.value.toKmp()
-        holder.scope.launch(Dispatchers.Default) {
-            native.subscriptionStatus.collect { status ->
-                holder.subscriptionStatus.value = status.toKmp()
+        subscriptionStatusJob?.cancel()
+        subscriptionStatusJob =
+            holder.scope.launch(Dispatchers.Default) {
+                native.subscriptionStatus.collect { status ->
+                    holder.subscriptionStatus.value = status.toKmp()
+                }
             }
-        }
+    }
+
+    /**
+     * Collects `Superwall.configurationStateListener` on [Dispatchers.Default]
+     * for the same reason as the subscription status feed above. The current
+     * status is written first, so the flow is right before the collector's
+     * first emission.
+     */
+    override fun attachConfigurationStatus(holder: StreamHolder) {
+        val native = NativeSuperwall.instance
+        holder.configurationStatus.value = getConfigurationStatus()
+        configurationStatusJob?.cancel()
+        configurationStatusJob =
+            holder.scope.launch(Dispatchers.Default) {
+                native.configurationStateListener.collect { status ->
+                    holder.configurationStatus.value = status.toKmp()
+                }
+            }
+    }
+
+    /**
+     * The static `Superwall.teardown()` (superwall-android 2.10.2
+     * `Superwall.kt:576`). The feeds of the instance that is going away are
+     * cancelled first; the next configure attaches them to the new instance.
+     */
+    override fun teardown(): Boolean {
+        subscriptionStatusJob?.cancel()
+        subscriptionStatusJob = null
+        configurationStatusJob?.cancel()
+        configurationStatusJob = null
+        NativeSuperwall.teardown()
+        return true
     }
 
     // ---- Logging -----------------------------------------------------------
@@ -498,6 +547,58 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
             NativeSuperwall.instance.nativeDismiss()
         }
     }
+
+    /** The native suspend extension hops to the main dispatcher itself. */
+    override suspend fun dismissForNextPaywall() {
+        NativeSuperwall.instance.nativeDismissForNextPaywall()
+    }
+
+    /**
+     * `Superwall.showAlert` (superwall-android 2.10.2 `Superwall.kt:663`).
+     * The native SDK runs [action] and [onClose] from the alert's click
+     * listeners, i.e. on the main thread; they are wrapped only so an
+     * exception from app code is logged instead of crashing the dialog.
+     */
+    override fun showAlert(
+        title: String?,
+        message: String?,
+        actionTitle: String?,
+        closeActionTitle: String,
+        action: (() -> Unit)?,
+        onClose: (() -> Unit)?,
+    ) {
+        fun guarded(
+            name: String,
+            block: (() -> Unit)?,
+        ): (() -> Unit)? =
+            block?.let {
+                {
+                    try {
+                        it()
+                    } catch (throwable: Throwable) {
+                        logError("The showAlert $name block threw an exception", throwable)
+                    }
+                }
+            }
+        // The alert is built on the paywall's view, so it has to be shown
+        // from the main thread; Main.immediate runs inline when already there.
+        callbackScope().launch {
+            NativeSuperwall.instance.showAlert(
+                title = title,
+                message = message,
+                actionTitle = actionTitle,
+                closeActionTitle = closeActionTitle,
+                action = guarded("action", action),
+                onClose = guarded("onClose", onClose),
+            )
+        }
+    }
+
+    override fun openRestoreOnWeb() {
+        NativeSuperwall.instance.nativeOpenRestoreOnWeb()
+    }
+
+    override fun getExternalAccountId(): String? = NativeSuperwall.instance.externalAccountId
 
     override fun isPaywallPresented(): Boolean = NativeSuperwall.instance.isPaywallPresented
 

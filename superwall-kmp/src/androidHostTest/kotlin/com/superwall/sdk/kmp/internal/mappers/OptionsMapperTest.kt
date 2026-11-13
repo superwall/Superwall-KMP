@@ -14,6 +14,9 @@ import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
 import com.superwall.sdk.kmp.models.options.TestModeBehavior
 import com.superwall.sdk.kmp.models.options.TransactionBackgroundView
+import com.superwall.sdk.kmp.models.options.CustomNetworkEnvironment
+import com.superwall.sdk.kmp.models.options.PaywallResource
+import com.superwall.sdk.paywall.view.webview.PaywallResource as NativePaywallResource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -239,6 +242,48 @@ class OptionsMapperTest {
 
         assertEquals(NativeLogLevel.warn, native.level)
         assertEquals(setOf(NativeLogScope.network, NativeLogScope.cache), native.scopes.toSet())
+    }
+
+    @Test
+    fun logging_unsetLevel_keepsTheNativeDefault() {
+        // superwall-android defaults to warn; the wrapper used to force info.
+        assertEquals(NativeSuperwallOptions.Logging().level, Logging().toNative().level)
+        assertEquals(NativeLogLevel.warn, SuperwallOptions().toNative().logging.level)
+    }
+
+    @Test
+    fun networkEnvironment_local_mapsToACustomLocalhostEnvironment() {
+        val environment = SuperwallOptions(networkEnvironment = NetworkEnvironment.LOCAL).toNative().networkEnvironment
+
+        assertTrue(environment is NativeSuperwallOptions.NetworkEnvironment.Custom)
+        assertEquals("localhost", environment.baseHost)
+        assertEquals("localhost", environment.collectorHost)
+        assertEquals("http", environment.scheme)
+        assertEquals(3000, environment.port)
+    }
+
+    @Test
+    fun customNetworkEnvironment_winsOverTheNamedEnvironment() {
+        val environment =
+            SuperwallOptions(
+                networkEnvironment = NetworkEnvironment.DEVELOPER,
+                customNetworkEnvironment =
+                    CustomNetworkEnvironment(baseHost = "api.example.com", collectorHost = "events.example.com", port = 8443),
+            ).toNative().networkEnvironment
+
+        assertTrue(environment is NativeSuperwallOptions.NetworkEnvironment.Custom)
+        assertEquals("api.example.com", environment.baseHost)
+        assertEquals("events.example.com", environment.collectorHost)
+        assertEquals("https", environment.scheme)
+        assertEquals(8443, environment.port)
+    }
+
+    @Test
+    fun localResources_androidResourceMapsToNativeFromResources() {
+        // FromUri needs android.net.Uri, which host tests don't have.
+        val native = mapOf("hero" to PaywallResource.FromAndroidResource(42)).toNative()
+
+        assertEquals(mapOf<String, NativePaywallResource>("hero" to NativePaywallResource.FromResources(42)), native)
     }
 
     @Test
