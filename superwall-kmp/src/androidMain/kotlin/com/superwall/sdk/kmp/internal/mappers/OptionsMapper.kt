@@ -134,6 +134,7 @@ internal fun PaywallOptions.toNative(): NativePaywallOptions {
     native.overrideProductsByName = overrideProductsByName ?: emptyMap()
     native.optimisticLoading = optimisticLoading
     native.timeoutAfter = timeoutAfter
+    native.loadingColor = loadingColor
     native.presentationHost =
         when (presentationHost) {
             PresentationHost.ACTIVITY -> NativePaywallOptions.PresentationHost.ACTIVITY

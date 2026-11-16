@@ -101,6 +101,14 @@ public data class PaywallOptions(
      * [PresentationHost.ACTIVITY]. Android only; has no effect on iOS.
      */
     val presentationHost: PresentationHost = PresentationHost.ACTIVITY,
+    /**
+     * An Android color resource id (e.g. `R.color.brand`) used to tint the
+     * spinner shown while a purchase or restoration is in progress. It is a
+     * resource id, not a color value: superwall-android takes nothing else.
+     * `null` (the default) keeps the system's spinner color. Android only;
+     * has no effect on iOS.
+     */
+    val loadingColor: Int? = null,
 )
 
 /**

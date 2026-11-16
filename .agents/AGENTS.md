@@ -107,9 +107,22 @@ the prebuilt binary and the transitively resolved SuperwallKit cannot drift.
 
 - `explicitApi()` is on. Every public declaration needs explicit visibility and
   an explicit return type.
-- **The public API lives entirely in `commonMain`.** No platform types in public
+- **The public API lives in `commonMain`.** No platform types in its
   signatures, and `configure` has an identical signature on both platforms.
 - Anything platform-specific goes behind the internal `SuperwallBridge`.
+- **The one exception: platform accessors.** Where the native API itself takes
+  or returns a platform object, a public extension may be declared in
+  `androidMain` (`SuperwallAndroid.kt`) or `iosMain` (`SuperwallIos.kt`), so
+  common code still never sees a platform type. Keep it as small as it can be:
+  model the feature in `commonMain` first and add only the accessor that hands
+  the platform object over. An embedded paywall is a common `EmbeddedPaywall`
+  from the common `Superwall.getPaywall`; the only platform API is
+  `EmbeddedPaywall.view` (Android `View`) and `EmbeddedPaywall.viewController`
+  (iOS `UIViewController`). The rest of the list is short and should stay so:
+  `androidSetup(Application)`, the Play Billing overloads of `observePurchase*`,
+  `dispatchKeyEvent` / `dispatchMotionEvent`, and on iOS `gamepadValueChanged`,
+  `presentedViewController` and `customerCenterViewController`. Don't use the
+  exception for anything a common type can express.
 - Event/enum mappers are exhaustive by design — an unmapped native case falling
   through to a params-fallback is a bug, and there are tests that assert this.
 

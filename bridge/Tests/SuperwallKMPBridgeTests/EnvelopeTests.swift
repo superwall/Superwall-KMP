@@ -715,3 +715,9 @@ final class StoreProductParityRawValueTests: XCTestCase {
     XCTAssertEqual(AppStoreProduct.BillingPlanType.monthly.rawValue, 1)
   }
 }
+
+final class EmbeddedPaywallBridgeTests: XCTestCase {
+  func testNoPaywallIsPresentedBeforeConfigure() {
+    XCTAssertNil(SWBSuperwallBridge.shared.presentedPaywallViewController())
+  }
+}

@@ -20,6 +20,7 @@
 
 import Combine
 import Foundation
+import GameController
 import SuperwallKit
 import UIKit
 import UserNotifications
@@ -1097,6 +1098,108 @@ public final class SWBSuperwallBridge: NSObject {
         onDismissOnce()
       }
     }
+  }
+
+  /// Makes a Customer Center view controller for the app to present or push
+  /// itself (`embedded`: pushed onto the app's own navigation controller).
+  /// SuperwallKit doesn't retain the delegate it is given, so the forwarder
+  /// is tied to the view controller's lifetime. Main thread only.
+  @MainActor
+  @objc public func makeCustomerCenterViewController(
+    configuration: SWBCustomerCenterConfiguration?,
+    embedded: Bool,
+    delegate: SWBCustomerCenterDelegate?
+  ) -> UIViewController {
+    let forwarder = delegate.map { BridgeCustomerCenterDelegateForwarder(bridgeDelegate: $0) }
+    let viewController = CustomerCenterViewController(
+      configuration: configuration?.native,
+      presentationStyle: embedded ? .embedded : .sheet,
+      delegate: forwarder
+    )
+    if let forwarder = forwarder {
+      objc_setAssociatedObject(
+        viewController,
+        SWBSuperwallBridge.customerCenterDelegateKey,
+        forwarder,
+        .OBJC_ASSOCIATION_RETAIN_NONATOMIC
+      )
+    }
+    return viewController
+  }
+
+  /// The address of this allocation is the associated-object key.
+  private static let customerCenterDelegateKey = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1)
+
+  // MARK: Embedded paywalls, presented paywall, game controller
+
+  /// Retrieves the paywall for a placement for the app to show itself
+  /// (SuperwallKit's getPaywall). `completion` fires on the main thread with
+  /// exactly one of: the paywall, the reason it was skipped, or an error
+  /// description.
+  ///
+  /// - Parameter productIdsByName: Product identifiers by the product's name
+  ///   in the paywall editor; fetched and passed on as PaywallOverrides. An
+  ///   identifier the store doesn't know is left out.
+  @objc public func getPaywall(
+    placement: String,
+    params: [String: Any]?,
+    productIdsByName: [String: String]?,
+    delegate: SWBPaywallViewDelegate,
+    completion: @escaping (SWBEmbeddedPaywall?, SWBPaywallSkippedReason?, String?) -> Void
+  ) {
+    Task { @MainActor in
+      var overrides: PaywallOverrides?
+      if let productIdsByName = productIdsByName, !productIdsByName.isEmpty {
+        let products = await Superwall.shared.products(for: Set(productIdsByName.values))
+        var productsByName: [String: StoreProduct] = [:]
+        for (name, productId) in productIdsByName {
+          if let product = products.first(where: { $0.productIdentifier == productId }) {
+            productsByName[name] = product
+          }
+        }
+        overrides = PaywallOverrides(productsByName: productsByName)
+      }
+      let forwarder = BridgePaywallViewDelegateForwarder(bridgeDelegate: delegate)
+      do {
+        let paywallViewController = try await Superwall.shared.getPaywall(
+          forPlacement: placement,
+          params: params,
+          paywallOverrides: overrides,
+          delegate: forwarder,
+          onCustomCallback: { (callback: CustomCallback) async -> CustomCallbackResult in
+            return await withCheckedContinuation { continuation in
+              let once = OnceGate()
+              delegate.onCustomCallback(SWBCustomCallback(callback)) { result in
+                guard once.tryPass() else { return }
+                continuation.resume(returning: result.native)
+              }
+            }
+          }
+        )
+        completion(
+          SWBEmbeddedPaywall(paywallViewController: paywallViewController, forwarder: forwarder),
+          nil,
+          nil
+        )
+      } catch let reason as PaywallSkippedReason {
+        completion(nil, SWBPaywallSkippedReason(reason), nil)
+      } catch {
+        completion(nil, nil, error.localizedDescription)
+      }
+    }
+  }
+
+  /// The paywall view controller Superwall is presenting, if any. Safe
+  /// pre-configure (nil).
+  @objc public func presentedPaywallViewController() -> UIViewController? {
+    guard Superwall.isInitialized else { return nil }
+    return Superwall.shared.presentedViewController
+  }
+
+  /// Forwards a game controller event to the presented paywall. Call it from
+  /// the gamepad's `valueChangedHandler`.
+  @objc public func gamepadValueChanged(_ gamepad: GCExtendedGamepad, element: GCControllerElement) {
+    Superwall.shared.gamepadValueChanged(gamepad: gamepad, element: element)
   }
 
   /// Dismisses the Customer Center, if one is shown. `completion` fires once

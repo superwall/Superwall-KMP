@@ -1,6 +1,14 @@
 package com.superwall.sdk.kmp.internal
 
 import android.net.Uri
+import android.view.KeyEvent
+import android.view.MotionEvent
+import com.android.billingclient.api.BillingResult
+import com.android.billingclient.api.ProductDetails
+import com.android.billingclient.api.Purchase
+import com.superwall.sdk.kmp.EmbeddedPaywall
+import com.superwall.sdk.kmp.PaywallViewCallback
+import com.superwall.sdk.kmp.models.paywall.PaywallOverrides
 import android.util.Log
 import com.superwall.sdk.kmp.CustomerCenterDelegate
 import com.superwall.sdk.kmp.PaywallPresentationHandler
@@ -32,6 +40,7 @@ import com.superwall.sdk.kmp.models.paywall.PaywallInfo
 import com.superwall.sdk.kmp.models.results.PresentationResult
 import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.ObservedPurchase
 import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 import kotlinx.coroutines.CoroutineScope
@@ -39,12 +48,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONException
 import kotlin.coroutines.resume
 import com.superwall.sdk.Superwall as NativeSuperwall
 import com.superwall.sdk.config.models.ConfigurationStatus as NativeConfigurationStatus
 import com.superwall.sdk.config.options.SuperwallOptions as NativeSuperwallOptions
+import com.superwall.sdk.game.dispatchKeyEvent as nativeDispatchKeyEvent
+import com.superwall.sdk.game.dispatchMotionEvent as nativeDispatchMotionEvent
 import com.superwall.sdk.identity.IdentityOptions as NativeIdentityOptions
 import com.superwall.sdk.identity.identify as nativeIdentify
 import com.superwall.sdk.identity.setUserAttributes as nativeSetUserAttributes
@@ -602,6 +616,142 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
 
     override fun isPaywallPresented(): Boolean = NativeSuperwall.instance.isPaywallPresented
 
+    // ---- Android-only members behind SuperwallAndroid.kt ------------------------
+    // Not part of SuperwallBridge: they take or return Android objects.
+
+    /**
+     * A product-id purchase observation waits for the one before it, so a
+     * result can't overtake the start whose product is still being looked up.
+     */
+    private val observerMutex = Mutex()
+
+    /** `ProductDetails` by product id, so each is fetched once. */
+    private val observedProductDetails = mutableMapOf<String, ProductDetails>()
+
+    /**
+     * superwall-android's observe calls take Play Billing's `ProductDetails`;
+     * the SDK's own copy is found through `getProducts`. A custom store
+     * product has none, and neither has an id the store doesn't know.
+     */
+    private suspend fun productDetailsFor(productId: String): ProductDetails? =
+        observedProductDetails[productId]
+            ?: withContext(Dispatchers.IO) {
+                NativeSuperwall.instance
+                    .getProducts(productId)
+                    .getOrNull()
+                    ?.values
+                    ?.firstOrNull()
+                    ?.rawStoreProduct
+                    ?.underlyingProductDetails
+            }?.also { observedProductDetails[productId] = it }
+
+    private fun observeInOrder(block: suspend () -> Unit) {
+        callbackScope().launch {
+            observerMutex.withLock {
+                try {
+                    block()
+                } catch (throwable: Throwable) {
+                    logError("Observing a purchase failed", throwable)
+                }
+            }
+        }
+    }
+
+    override fun observePurchaseStart(productId: String) {
+        observeInOrder {
+            val product = productDetailsFor(productId)
+            if (product == null) {
+                logError("observePurchaseStart: no Play product found for $productId; the purchase start isn't tracked", null)
+            } else {
+                NativeSuperwall.instance.observePurchaseStart(product)
+            }
+        }
+    }
+
+    override fun observePurchaseError(
+        productId: String,
+        error: String,
+    ) {
+        observeInOrder {
+            val product = productDetailsFor(productId)
+            if (product == null) {
+                logError("observePurchaseError: no Play product found for $productId; the failure isn't tracked", null)
+            } else {
+                NativeSuperwall.instance.observePurchaseError(product, Exception(error))
+            }
+        }
+    }
+
+    override fun observePurchaseResult(
+        billingResponseCode: Int,
+        debugMessage: String,
+        purchases: List<ObservedPurchase>,
+    ) {
+        val playPurchases = purchases.toPlayPurchases { logError("Ignoring an observed purchase whose JSON is invalid", it) }
+        observeInOrder {
+            val result =
+                BillingResult
+                    .newBuilder()
+                    .setResponseCode(billingResponseCode)
+                    .setDebugMessage(debugMessage)
+                    .build()
+            NativeSuperwall.instance.observePurchaseResult(result, playPurchases)
+        }
+    }
+
+    /**
+     * The paywall is tied to the activity in the foreground: the common API
+     * has no way to name one, and the tracker is what the SDK itself
+     * presents from.
+     */
+    override suspend fun getPaywall(
+        placement: String,
+        params: Map<String, Any?>?,
+        overrides: PaywallOverrides?,
+        callback: PaywallViewCallback,
+    ): EmbeddedPaywall? {
+        val activity = CurrentActivityTracker.getCurrentActivity()
+        if (activity == null) {
+            withContext(Dispatchers.Main.immediate) {
+                try {
+                    callback.onError("No activity is in the foreground to show the paywall in.")
+                } catch (throwable: Throwable) {
+                    logError("PaywallViewCallback.onError threw an exception", throwable)
+                }
+            }
+            return null
+        }
+        return EmbeddedPaywalls.retrieve(activity, placement, params, overrides, callback, ::logError)
+    }
+
+    /** `Superwall.observePurchaseStart` (superwall-android 2.10.2 `Superwall.kt:1093`). */
+    fun observePurchaseStart(product: ProductDetails) {
+        NativeSuperwall.instance.observePurchaseStart(product)
+    }
+
+    fun observePurchaseError(
+        product: ProductDetails,
+        error: Throwable,
+    ) {
+        NativeSuperwall.instance.observePurchaseError(product, error)
+    }
+
+    fun observePurchaseResult(
+        billingResult: BillingResult,
+        purchases: List<Purchase>,
+    ) {
+        NativeSuperwall.instance.observePurchaseResult(billingResult, purchases)
+    }
+
+    /** The native extensions hop to the UI thread themselves. */
+    fun dispatchKeyEvent(keyEvent: KeyEvent) {
+        NativeSuperwall.instance.nativeDispatchKeyEvent(keyEvent)
+    }
+
+    fun dispatchMotionEvent(motionEvent: MotionEvent) {
+        NativeSuperwall.instance.nativeDispatchMotionEvent(motionEvent)
+    }
+
     override fun getLatestPaywallInfo(): PaywallInfo? = NativeSuperwall.instance.latestPaywallInfo?.toKmp()
 
     override fun preloadAllPaywalls() {
@@ -758,3 +908,17 @@ private fun Map<String, Any?>?.toNonNullParams(): Map<String, Any>? {
         .filterValues { it != null }
         .mapValues { (_, value) -> value as Any }
 }
+
+/**
+ * Rebuilds Play Billing purchases from their original JSON and signature. One
+ * whose JSON Play Billing can't read is reported to [onInvalid] and left out.
+ */
+internal fun List<ObservedPurchase>.toPlayPurchases(onInvalid: (Throwable) -> Unit): List<Purchase> =
+    mapNotNull { purchase ->
+        try {
+            Purchase(purchase.originalJson, purchase.signature)
+        } catch (exception: JSONException) {
+            onInvalid(exception)
+            null
+        }
+    }

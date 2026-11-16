@@ -20,9 +20,11 @@ import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
+import com.superwall.sdk.kmp.models.paywall.PaywallOverrides
 import com.superwall.sdk.kmp.models.results.PresentationResult
 import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.ObservedPurchase
 import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 import kotlinx.coroutines.CompletableDeferred
@@ -660,6 +662,32 @@ public object Superwall {
         requireConfigured().openRestoreOnWeb()
     }
 
+    /**
+     * Retrieves the paywall for [placement] for you to show inside your own
+     * UI, instead of having Superwall present it. The remotely configured
+     * presentation style is ignored: where and how it appears is up to you.
+     *
+     * Returns `null` when there is nothing to show; [callback] then gets
+     * [PaywallViewCallback.onSkip] or [PaywallViewCallback.onError].
+     * Otherwise put the paywall on screen through the platform accessor
+     * (`paywall.view` on Android, `paywall.viewController` on iOS), and call
+     * [EmbeddedPaywall.destroy] when you are done with it.
+     *
+     * On Android the paywall is tied to the activity that is in the
+     * foreground when this is called.
+     *
+     * @param placement The name of the placement, as defined on the Superwall dashboard.
+     * @param params Optional parameters to pass with the placement, usable in audience filters.
+     * @param paywallOverrides Optional overrides for this paywall, e.g. its products.
+     * @param callback Receives the paywall's events, on the main thread.
+     */
+    public suspend fun getPaywall(
+        placement: String,
+        params: Map<String, Any?>? = null,
+        paywallOverrides: PaywallOverrides? = null,
+        callback: PaywallViewCallback,
+    ): EmbeddedPaywall? = requireConfigured().getPaywall(placement, params, paywallOverrides, callback)
+
     /** Whether a paywall is currently being presented. */
     public val isPaywallPresented: Boolean
         get() = requireConfigured().isPaywallPresented()
@@ -780,6 +808,56 @@ public object Superwall {
         requireConfigured().refreshConfiguration()
     }
 
+    // ---- Observer mode (Android) -------------------------------------------------
+
+    /**
+     * Reports that a purchase you make with your own Play Billing code is
+     * about to start; Superwall tracks it as a transaction start. Follow it
+     * with [observePurchaseResult] or [observePurchaseError].
+     *
+     * Needs `SuperwallOptions.shouldObservePurchases`. Android only: on iOS
+     * SuperwallKit observes StoreKit by itself and this does nothing. Android
+     * code that already holds Play Billing's own objects can pass those
+     * instead, through the overloads in the Android source set.
+     *
+     * @param productId The identifier of the product being purchased. It is
+     * skipped, with an error logged, if the store doesn't know it.
+     */
+    public fun observePurchaseStart(productId: String) {
+        requireConfigured().observePurchaseStart(productId)
+    }
+
+    /**
+     * Reports that the purchase reported with [observePurchaseStart] failed;
+     * Superwall tracks it as a transaction failure. Android only; does
+     * nothing on iOS.
+     */
+    public fun observePurchaseError(
+        productId: String,
+        error: String,
+    ) {
+        requireConfigured().observePurchaseError(productId, error)
+    }
+
+    /**
+     * Reports the result of a purchase you made with your own Play Billing
+     * code: pass on what your `PurchasesUpdatedListener` received. Superwall
+     * tracks it as a completed transaction. Android only; does nothing on
+     * iOS.
+     *
+     * @param billingResponseCode Play Billing's `BillingResult.responseCode` (0 is OK).
+     * @param debugMessage Play Billing's `BillingResult.debugMessage`.
+     * @param purchases The purchases, each as its original JSON and
+     * signature. One whose JSON Play Billing can't read is left out.
+     */
+    public fun observePurchaseResult(
+        billingResponseCode: Int,
+        debugMessage: String = "",
+        purchases: List<ObservedPurchase>,
+    ) {
+        requireConfigured().observePurchaseResult(billingResponseCode, debugMessage, purchases)
+    }
+
     // ---- Notifications ----------------------------------------------------------
 
     /**
@@ -845,6 +923,13 @@ public object Superwall {
      * The guard-exemption list lives ONLY in the members that bypass this
      * (see the class KDoc).
      */
+    /**
+     * The configured bridge, for the platform source sets' public extensions
+     * (the few members that take a platform object and so can't be declared
+     * here). Same guard as every other member.
+     */
+    internal fun requireConfiguredBridge(): SuperwallBridge = requireConfigured()
+
     private fun requireConfigured(): SuperwallBridge {
         if (!configureCalled) throw SuperwallError.NotConfigured()
         return bridge

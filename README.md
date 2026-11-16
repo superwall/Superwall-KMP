@@ -72,6 +72,37 @@ scope.launch {
 }
 ```
 
+### Showing a paywall inside your own UI
+
+`Superwall.getPaywall` returns an `EmbeddedPaywall` that common code can hold and release. The thing to put on screen is a platform object, read through one accessor per platform: `paywall.view` on Android and `paywall.viewController` on iOS.
+
+```kotlin
+// commonMain
+val callback = object : PaywallViewCallback {
+    override fun onFinished(paywallInfo: PaywallInfo, result: PaywallResult, shouldDismiss: Boolean) {
+        if (shouldDismiss) closePaywallScreen()
+    }
+    override fun onSkip(reason: PaywallSkippedReason) = closePaywallScreen()
+    override fun onError(error: String) = closePaywallScreen()
+}
+val paywall: EmbeddedPaywall? = Superwall.getPaywall("campaign_trigger", callback = callback) // null: skipped or failed
+```
+
+```kotlin
+// androidMain
+AndroidView(factory = { paywall.view }, onRelease = { paywall.destroy() })
+```
+
+```kotlin
+// iosMain
+UIKitViewController(factory = { paywall.viewController }, modifier = Modifier.fillMaxSize())
+DisposableEffect(paywall) { onDispose { paywall.destroy() } }
+```
+
+An `expect`/`actual` composable in your app (`@Composable expect fun PaywallHost(paywall: EmbeddedPaywall)`) can wrap the two, so your screens stay in common code. Always call `destroy()` when you are done with a paywall. On Android that is what ends the presentation; removing the view isn't enough.
+
+A few other members take platform objects and are declared the same way, in the Android or iOS source set: the Play Billing overloads of `observePurchaseStart` / `observePurchaseError` / `observePurchaseResult` and `dispatchKeyEvent` / `dispatchMotionEvent` on Android, and `gamepadValueChanged`, `presentedViewController` and `customerCenterViewController` on iOS.
+
 There is no pre-configure call queue: most members throw `SuperwallError.NotConfigured` before `configure`. Use `configureAndAwait` or gate on `Superwall.isConfigured` to order calls. Guard-exempt: `handleDeepLink`, the flows, `delegate`, and the introspection properties.
 
 ## Targets

@@ -17,6 +17,9 @@ import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
+import com.superwall.sdk.kmp.models.paywall.PaywallOverrides
+import com.superwall.sdk.kmp.models.results.PaywallSkippedReason
+import com.superwall.sdk.kmp.models.store.ObservedPurchase
 import com.superwall.sdk.kmp.models.results.PresentationResult
 import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
@@ -391,6 +394,71 @@ internal class FakeBridge : SuperwallBridge {
     override fun getExternalAccountId(): String? {
         calls += "getExternalAccountId"
         return cannedExternalAccountId
+    }
+
+    /** What a platform bridge would wrap a native paywall in. */
+    class FakeEmbeddedPaywall(
+        override val placement: String,
+        override val info: PaywallInfo,
+    ) : EmbeddedPaywall {
+        var destroyCount: Int = 0
+
+        override fun destroy() {
+            destroyCount++
+        }
+    }
+
+    data class PaywallRetrieval(
+        val placement: String,
+        val params: Map<String, Any?>?,
+        val overrides: PaywallOverrides?,
+        val callback: PaywallViewCallback,
+    )
+
+    val paywallRetrievals: MutableList<PaywallRetrieval> = mutableListOf()
+
+    /** `null` plays a skip: the callback gets [cannedSkipReason] and nothing is returned. */
+    var cannedEmbeddedPaywallInfo: PaywallInfo? = PaywallInfo(identifier = "fake-paywall")
+    var cannedSkipReason: PaywallSkippedReason = PaywallSkippedReason.NoAudienceMatch
+
+    override suspend fun getPaywall(
+        placement: String,
+        params: Map<String, Any?>?,
+        overrides: PaywallOverrides?,
+        callback: PaywallViewCallback,
+    ): EmbeddedPaywall? {
+        calls += "getPaywall"
+        paywallRetrievals += PaywallRetrieval(placement, params, overrides, callback)
+        val info = cannedEmbeddedPaywallInfo
+        if (info == null) {
+            callback.onSkip(cannedSkipReason)
+            return null
+        }
+        return FakeEmbeddedPaywall(placement, info)
+    }
+
+    val observedPurchaseCalls: MutableList<String> = mutableListOf()
+
+    override fun observePurchaseStart(productId: String) {
+        calls += "observePurchaseStart"
+        observedPurchaseCalls += "start:$productId"
+    }
+
+    override fun observePurchaseError(
+        productId: String,
+        error: String,
+    ) {
+        calls += "observePurchaseError"
+        observedPurchaseCalls += "error:$productId:$error"
+    }
+
+    override fun observePurchaseResult(
+        billingResponseCode: Int,
+        debugMessage: String,
+        purchases: List<ObservedPurchase>,
+    ) {
+        calls += "observePurchaseResult"
+        observedPurchaseCalls += "result:$billingResponseCode:$debugMessage:${purchases.size}"
     }
 
     override fun isPaywallPresented(): Boolean {

@@ -5,10 +5,20 @@ package com.superwall.sdk.kmp.internal
 import com.superwall.sdk.kmp.internal.interop.SWB_CONFIGURATION_STATUS_FAILED
 import com.superwall.sdk.kmp.internal.interop.SWB_CONFIGURATION_STATUS_CONFIGURED
 import com.superwall.sdk.kmp.CustomerCenterDelegate
+import com.superwall.sdk.kmp.EmbeddedPaywall
 import com.superwall.sdk.kmp.PaywallPresentationHandler
+import com.superwall.sdk.kmp.PaywallViewCallback
+import com.superwall.sdk.kmp.internal.adapters.CustomerCenterDelegateAdapter
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
+import com.superwall.sdk.kmp.models.paywall.PaywallOverrides
+import com.superwall.sdk.kmp.models.store.ObservedPurchase
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import platform.GameController.GCControllerElement
+import platform.GameController.GCExtendedGamepad
+import platform.UIKit.UIViewController
 import com.superwall.sdk.kmp.PurchaseController
 import com.superwall.sdk.kmp.SuperwallError
-import com.superwall.sdk.kmp.internal.adapters.CustomerCenterDelegateAdapter
 import com.superwall.sdk.kmp.internal.adapters.DelegateAdapter
 import com.superwall.sdk.kmp.internal.adapters.PresentationHandlerAdapter
 import com.superwall.sdk.kmp.internal.adapters.PurchaseControllerAdapter
@@ -34,7 +44,6 @@ import com.superwall.sdk.kmp.internal.mappers.toEntitlementSet
 import com.superwall.sdk.kmp.internal.mappers.toModel
 import com.superwall.sdk.kmp.internal.mappers.toSWBRaw
 import com.superwall.sdk.kmp.internal.mappers.toSWB
-import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
 import com.superwall.sdk.kmp.models.entitlements.Entitlements
@@ -458,6 +467,87 @@ internal class IosSuperwallBridge : SuperwallBridge {
 
     override fun getExternalAccountId(): String? = null
 
+    /**
+     * The bridge reports exactly one of a paywall, a skip reason or an error
+     * description, on the main thread. A skip or an error goes to [callback]
+     * and yields `null`.
+     */
+    override suspend fun getPaywall(
+        placement: String,
+        params: Map<String, Any?>?,
+        overrides: PaywallOverrides?,
+        callback: PaywallViewCallback,
+    ): EmbeddedPaywall? {
+        val adapter = PaywallViewDelegateAdapter(callback, scope, ::logError)
+        @Suppress("UNCHECKED_CAST")
+        val productIdsByName = overrides?.productIdsByName?.takeIf { it.isNotEmpty() } as Map<Any?, *>?
+        return suspendCancellableCoroutine { continuation ->
+            swb.getPaywallWithPlacement(
+                placement,
+                params?.let(NSAnySanitizer::toNSParams),
+                productIdsByName,
+                adapter,
+            ) { paywall, skippedReason, error ->
+                val embedded = paywall?.let { IosEmbeddedPaywall(placement, it) }
+                if (embedded == null) {
+                    val reason = skippedReason?.toModel()
+                    try {
+                        if (reason != null) {
+                            callback.onSkip(reason)
+                        } else {
+                            callback.onError(error ?: "The paywall couldn't be retrieved.")
+                        }
+                    } catch (throwable: Throwable) {
+                        logError("PaywallViewCallback threw an exception", throwable)
+                    }
+                }
+                if (continuation.isActive) continuation.resume(embedded)
+            }
+        }
+    }
+
+    // SuperwallKit observes StoreKit transactions by itself once
+    // shouldObservePurchases is on; there is nothing to report by hand.
+
+    override fun observePurchaseStart(productId: String) {}
+
+    override fun observePurchaseError(
+        productId: String,
+        error: String,
+    ) {}
+
+    override fun observePurchaseResult(
+        billingResponseCode: Int,
+        debugMessage: String,
+        purchases: List<ObservedPurchase>,
+    ) {}
+
+    // ---- iOS-only members behind SuperwallIos.kt ----------------------------------
+    // Not part of SuperwallBridge: they take or return UIKit / GameController objects.
+
+    fun gamepadValueChanged(
+        gamepad: GCExtendedGamepad,
+        element: GCControllerElement,
+    ) {
+        swb.gamepadValueChanged(gamepad, element)
+    }
+
+    /**
+     * The Swift forwarder, which lives as long as the view controller, holds
+     * the adapter strongly; no Kotlin-side reference is kept, and dismissal
+     * needs no bookkeeping here.
+     */
+    fun customerCenterViewController(
+        configuration: CustomerCenterConfiguration?,
+        embedded: Boolean,
+        delegate: CustomerCenterDelegate?,
+    ): UIViewController =
+        swb.makeCustomerCenterViewControllerWithConfiguration(
+            configuration?.toSWB(),
+            embedded,
+            delegate?.let { CustomerCenterDelegateAdapter(it, scope, ::logError) {} },
+        )
+
     override fun isPaywallPresented(): Boolean = swb.isPaywallPresented()
 
     override fun getLatestPaywallInfo(): PaywallInfo? = swb.latestPaywallInfo()?.toModel()
@@ -598,6 +688,12 @@ internal class IosSuperwallBridge : SuperwallBridge {
                 println("[Superwall] handleLog forwarding failed: $throwable")
             }
         }
+    }
+
+    companion object {
+        /** Guard-exempt, like the other introspection members: `null` before configure. */
+        fun presentedPaywallViewController(): UIViewController? =
+            SWBSuperwallBridge.sharedBridge().presentedPaywallViewController()
     }
 
     /** Routes a bridge-level warning through the installed listener when present. */

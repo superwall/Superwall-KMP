@@ -1,6 +1,8 @@
 package com.superwall.sdk.kmp.internal
 
 import com.superwall.sdk.kmp.CustomerCenterDelegate
+import com.superwall.sdk.kmp.EmbeddedPaywall
+import com.superwall.sdk.kmp.PaywallViewCallback
 import com.superwall.sdk.kmp.PaywallPresentationHandler
 import com.superwall.sdk.kmp.PurchaseController
 import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
@@ -19,10 +21,12 @@ import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
+import com.superwall.sdk.kmp.models.paywall.PaywallOverrides
 import com.superwall.sdk.kmp.models.redemption.RedemptionResult
 import com.superwall.sdk.kmp.models.results.PresentationResult
 import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.ObservedPurchase
 import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 
@@ -421,6 +425,37 @@ internal interface SuperwallBridge {
      * account id. Android only; `null` on iOS.
      */
     fun getExternalAccountId(): String?
+
+    /**
+     * Retrieves the paywall for [placement] for the app to show itself.
+     * `null` after [callback] got `onSkip` or `onError`. The returned object
+     * is the platform's own [EmbeddedPaywall] implementation, which the
+     * platform accessor (`view` / `viewController`) unwraps.
+     */
+    suspend fun getPaywall(
+        placement: String,
+        params: Map<String, Any?>?,
+        overrides: PaywallOverrides?,
+        callback: PaywallViewCallback,
+    ): EmbeddedPaywall?
+
+    /**
+     * Observer mode, from product ids and purchase JSON. Android only (the
+     * bridge finds the Play objects superwall-android wants); no-ops on iOS,
+     * where SuperwallKit observes StoreKit by itself.
+     */
+    fun observePurchaseStart(productId: String)
+
+    fun observePurchaseError(
+        productId: String,
+        error: String,
+    )
+
+    fun observePurchaseResult(
+        billingResponseCode: Int,
+        debugMessage: String,
+        purchases: List<ObservedPurchase>,
+    )
 
     /** Preloads all paywalls the user may see, per campaign audience filters. */
     fun preloadAllPaywalls()

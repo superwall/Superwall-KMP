@@ -1,5 +1,9 @@
 package com.superwall.sdk.kmp
 
+import com.superwall.sdk.kmp.models.paywall.PaywallOverrides
+import com.superwall.sdk.kmp.models.results.PaywallResult
+import com.superwall.sdk.kmp.models.results.PaywallSkippedReason
+import com.superwall.sdk.kmp.models.store.ObservedPurchase
 import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
@@ -819,5 +823,75 @@ class SuperwallFacadeTest {
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.dismissForNextPaywall() }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.externalAccountId }
             assertFailsWith<SuperwallError.NotConfigured> { Superwall.teardown() }
+        }
+
+    // ---- Embedded paywalls and observer mode ------------------------------------------
+
+    private class RecordingPaywallCallback : PaywallViewCallback {
+        val skips = mutableListOf<PaywallSkippedReason>()
+
+        override fun onFinished(
+            paywallInfo: PaywallInfo,
+            result: PaywallResult,
+            shouldDismiss: Boolean,
+        ) {}
+
+        override fun onSkip(reason: PaywallSkippedReason) {
+            skips += reason
+        }
+    }
+
+    @Test
+    fun getPaywallForwardsItsArgumentsAndReturnsAPaywallCommonCodeCanRelease() =
+        runTest {
+            Superwall.configure("pk_test")
+            val callback = RecordingPaywallCallback()
+            val overrides = PaywallOverrides(productIdsByName = mapOf("primary" to "annual"))
+
+            val paywall = Superwall.getPaywall("campaign_trigger", mapOf("source" to "home"), overrides, callback)
+
+            val retrieval = fake.paywallRetrievals.single()
+            assertEquals("campaign_trigger", retrieval.placement)
+            assertEquals(mapOf<String, Any?>("source" to "home"), retrieval.params)
+            assertEquals(overrides, retrieval.overrides)
+            assertSame(callback, retrieval.callback)
+
+            val embedded = assertIs<FakeBridge.FakeEmbeddedPaywall>(paywall)
+            assertEquals("campaign_trigger", embedded.placement)
+            assertEquals("fake-paywall", embedded.info.identifier)
+            embedded.destroy()
+            assertEquals(1, embedded.destroyCount)
+        }
+
+    @Test
+    fun getPaywallReturnsNullWhenThePaywallIsSkipped() =
+        runTest {
+            Superwall.configure("pk_test")
+            fake.cannedEmbeddedPaywallInfo = null
+            fake.cannedSkipReason = PaywallSkippedReason.PlacementNotFound
+            val callback = RecordingPaywallCallback()
+
+            assertNull(Superwall.getPaywall("missing", callback = callback))
+            assertEquals(listOf<PaywallSkippedReason>(PaywallSkippedReason.PlacementNotFound), callback.skips)
+        }
+
+    @Test
+    fun observerModeForwardsToBridge() {
+        Superwall.configure("pk_test")
+
+        Superwall.observePurchaseStart("pro")
+        Superwall.observePurchaseError("pro", "declined")
+        Superwall.observePurchaseResult(0, purchases = listOf(ObservedPurchase("{}", "sig")))
+
+        assertEquals(listOf("start:pro", "error:pro:declined", "result:0::1"), fake.observedPurchaseCalls)
+    }
+
+    @Test
+    fun embeddedPaywallAndObserverMembersThrowBeforeConfigure() =
+        runTest {
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.getPaywall("p", callback = RecordingPaywallCallback()) }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.observePurchaseStart("pro") }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.observePurchaseError("pro", "x") }
+            assertFailsWith<SuperwallError.NotConfigured> { Superwall.observePurchaseResult(0, purchases = emptyList()) }
         }
 }

@@ -1,5 +1,8 @@
 package com.superwall.sdk.kmp
 
+import com.superwall.sdk.kmp.models.callbacks.CustomCallback
+import com.superwall.sdk.kmp.models.paywall.PaywallOverrides
+import kotlinx.coroutines.test.runTest
 import com.superwall.sdk.kmp.models.redemption.StoreIdentifiers
 import com.superwall.sdk.kmp.models.redemption.RedemptionResult
 import com.superwall.sdk.kmp.models.redemption.RedemptionInfo
@@ -283,5 +286,36 @@ class ModelDefaultsTest {
         assertNull(event.transactionType)
         assertNull(event.transactionProduct)
         assertNull(event.customerCenter)
+    }
+
+    @Test
+    fun paywallViewCallbackDefaultsAreNoOpsAndACustomCallbackFails() =
+        runTest {
+            val finished = mutableListOf<Triple<PaywallInfo, PaywallResult, Boolean>>()
+            val callback =
+                object : PaywallViewCallback {
+                    override fun onFinished(
+                        paywallInfo: PaywallInfo,
+                        result: PaywallResult,
+                        shouldDismiss: Boolean,
+                    ) {
+                        finished += Triple(paywallInfo, result, shouldDismiss)
+                    }
+                }
+
+            callback.onPresent(PaywallInfo())
+            callback.onSkip(PaywallSkippedReason.NoAudienceMatch)
+            callback.onError("boom")
+            callback.onFinished(PaywallInfo(identifier = "pw"), PaywallResult.Declined, shouldDismiss = true)
+
+            assertEquals(listOf(Triple(PaywallInfo(identifier = "pw"), PaywallResult.Declined as PaywallResult, true)), finished)
+            assertEquals(CustomCallbackResultStatus.FAILURE, callback.onCustomCallback(CustomCallback("name")).status)
+        }
+
+    @Test
+    fun paywallOverridesAndLoadingColorDefaultToNothing() {
+        assertTrue(PaywallOverrides().productIdsByName.isEmpty())
+        assertFalse(PaywallOverrides().ignoreSubscriptionStatus)
+        assertNull(SuperwallOptions().paywalls.loadingColor)
     }
 }
