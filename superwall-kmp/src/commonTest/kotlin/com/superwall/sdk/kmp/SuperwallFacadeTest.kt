@@ -26,6 +26,7 @@ import com.superwall.sdk.kmp.models.triggers.Variant
 import com.superwall.sdk.kmp.models.triggers.VariantType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -759,22 +760,41 @@ class SuperwallFacadeTest {
     @Test
     fun aConfigureCompletedAfterTeardownIsDropped() {
         fake.configureOutcome = null
-        var firstOutcome: Result<Unit>? = null
-        Superwall.configure("pk_first") { firstOutcome = it }
+        val firstOutcomes = mutableListOf<Result<Unit>>()
+        Superwall.configure("pk_first") { firstOutcomes += it }
         val heldFirst = fake.heldConfigureCompletions.toList()
         fake.heldConfigureCompletions.clear()
 
         assertTrue(Superwall.teardown())
+        // The waiting caller is released by the teardown itself.
+        assertEquals(1, firstOutcomes.size)
+        assertTrue(firstOutcomes.single().exceptionOrNull() is SuperwallError.ConfigurationFailed)
+
         fake.configureOutcome = Result.success(Unit)
         Superwall.configure("pk_second")
         val attachesAfterSecond = fake.calls.count { it == "attachStreams" }
 
         // The torn-down instance's completion arrives late: it reports nothing.
-        heldFirst.forEach { it(Result.failure(SuperwallError.ConfigurationFailed("gone"))) }
+        heldFirst.forEach { it(Result.success(Unit)) }
 
-        assertNull(firstOutcome)
+        assertEquals(1, firstOutcomes.size)
         assertEquals(attachesAfterSecond, fake.calls.count { it == "attachStreams" })
     }
+
+    @Test
+    fun teardownReleasesAConfigureAndAwaitAndQueuedCompletionsStillInFlight() =
+        runTest {
+            fake.configureOutcome = null
+            val awaiting = async { runCatching { Superwall.configureAndAwait("pk_first") } }
+            testScheduler.runCurrent()
+            var queuedOutcome: Result<Unit>? = null
+            Superwall.configure("pk_repeat") { queuedOutcome = it }
+
+            assertTrue(Superwall.teardown())
+
+            assertTrue(awaiting.await().exceptionOrNull() is SuperwallError.ConfigurationFailed)
+            assertTrue(queuedOutcome?.exceptionOrNull() is SuperwallError.ConfigurationFailed)
+        }
 
     @Test
     fun teardownWhereTheNativeSdkHasNoneChangesNothing() {

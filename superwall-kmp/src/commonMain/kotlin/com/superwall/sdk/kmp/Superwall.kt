@@ -86,6 +86,9 @@ public object Superwall {
 
     private var configureGeneration: Int = 0
 
+    /** The first configure call's own completion, while its outcome is in flight. */
+    private var inFlightConfigureCompletion: ((Result<Unit>) -> Unit)? = null
+
     /** Completions from repeat configure calls made while the first is in flight. */
     private val pendingConfigureCompletions: MutableList<(Result<Unit>) -> Unit> = mutableListOf()
 
@@ -143,8 +146,10 @@ public object Superwall {
         // Counts configure calls so a completion that arrives after a
         // teardown() and a second configure can't overwrite the newer outcome.
         val generation = ++configureGeneration
+        inFlightConfigureCompletion = completion
         bridge.configure(apiKey, purchaseController, options) { result ->
             if (generation != configureGeneration) return@configure
+            inFlightConfigureCompletion = null
             configureResult = result
             if (result.isSuccess) {
                 if (options?.enableExperimentalDeviceVariables == true) {
@@ -250,6 +255,10 @@ public object Superwall {
      * [delegate] and the flows are kept. On iOS, where SuperwallKit can't be
      * torn down, it does nothing and returns `false`.
      *
+     * A [configure] still in flight completes with
+     * [SuperwallError.ConfigurationFailed] (so [configureAndAwait] throws it),
+     * and its late native outcome is ignored.
+     *
      * @return Whether the SDK was torn down.
      */
     public fun teardown(): Boolean {
@@ -257,10 +266,20 @@ public object Superwall {
         if (!bridge.teardown()) return false
         configureCalled = false
         configureResult = null
-        // A configure still in flight belongs to the instance that is gone.
+        // A configure still in flight belongs to the instance that is gone: its
+        // native outcome is dropped, but whoever waits on it (configureAndAwait
+        // included) is released with a failure rather than left hanging.
         configureGeneration++
+        val abandoned = listOfNotNull(inFlightConfigureCompletion) + pendingConfigureCompletions
+        inFlightConfigureCompletion = null
         pendingConfigureCompletions.clear()
         streams.detach()
+        if (abandoned.isNotEmpty()) {
+            val failure = Result.failure<Unit>(
+                SuperwallError.ConfigurationFailed("Superwall was torn down before configuration finished."),
+            )
+            abandoned.forEach { it(failure) }
+        }
         return true
     }
 
@@ -674,7 +693,10 @@ public object Superwall {
      * [EmbeddedPaywall.destroy] when you are done with it.
      *
      * On Android the paywall is tied to the activity that is in the
-     * foreground when this is called.
+     * foreground when this is called. superwall-android shares one view per
+     * paywall, not per placement: retrieving a paywall that another
+     * [EmbeddedPaywall] is showing moves it here, and the other one's callback
+     * gets [PaywallViewCallback.onError].
      *
      * @param placement The name of the placement, as defined on the Superwall dashboard.
      * @param params Optional parameters to pass with the placement, usable in audience filters.
@@ -945,6 +967,7 @@ public object Superwall {
         bridgeOverride = bridge
         configureCalled = false
         configureResult = null
+        inFlightConfigureCompletion = null
         pendingConfigureCompletions.clear()
         streams = StreamHolder()
         multiplexer = DelegateMultiplexer(streams)
