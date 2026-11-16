@@ -14,8 +14,9 @@ import com.superwall.sdk.models.attribution.AttributionProvider as NativeAttribu
  * cancelling a pending one, so its getter lags behind: merging a second call
  * into it would drop the first call's attributes, and a read right after a
  * write would return the old ones. superwall-android keeps the applied map in
- * memory for the process's lifetime (`reset()` does not clear it), so the
- * last written map stays the current one.
+ * memory for the life of its instance (`reset()` does not clear it), so the
+ * last written map stays the current one until a teardown replaces the
+ * instance.
  */
 internal class IntegrationAttributeStore(
     private val readNative: () -> Map<String, String>,
@@ -45,6 +46,15 @@ internal class IntegrationAttributeStore(
             latest = merged
             writeNative(merged)
         }
+    }
+
+    /**
+     * Forgets [latest] once the native instance it was written to is gone
+     * (`Superwall.teardown()`), so the next instance is read, not overwritten
+     * with the old one's attributes.
+     */
+    fun forget() {
+        synchronized(lock) { latest = null }
     }
 
     fun get(): Map<IntegrationAttribute, String?> =

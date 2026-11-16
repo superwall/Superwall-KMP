@@ -49,6 +49,18 @@ class IntegrationAttributeStoreTest {
     }
 
     @Test
+    fun aTeardownDropsTheOldInstancesAttributes() {
+        store.set(mapOf(IntegrationAttribute.ADJUST_ID to "adj"))
+        // Teardown: the new native instance starts with none.
+        nativeAttributes = emptyMap()
+        store.forget()
+
+        assertEquals(emptyMap(), store.get())
+        store.set(mapOf(IntegrationAttribute.AMPLITUDE_USER_ID to "u"))
+        assertEquals(mapOf(NativeAttributionProvider.AMPLITUDE_USER_ID to "u"), writes.last())
+    }
+
+    @Test
     fun theFirstSetMergesIntoTheNativeAttributes() {
         nativeAttributes = mapOf(NativeAttributionProvider.MIXPANEL_DISTINCT_ID.rawName to "mp")
 

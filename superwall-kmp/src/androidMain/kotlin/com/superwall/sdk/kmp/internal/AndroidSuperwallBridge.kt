@@ -336,6 +336,7 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         configurationStatusJob?.cancel()
         configurationStatusJob = null
         NativeSuperwall.teardown()
+        integrationAttributes.forget()
         return true
     }
 
