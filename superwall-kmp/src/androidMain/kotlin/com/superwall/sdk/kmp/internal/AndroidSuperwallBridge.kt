@@ -621,8 +621,8 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
     // Not part of SuperwallBridge: they take or return Android objects.
 
     /**
-     * A product-id purchase observation waits for the one before it, so a
-     * result can't overtake the start whose product is still being looked up.
+     * Every purchase observation waits for the one before it, so a result
+     * can't overtake the start whose product is still being looked up.
      */
     private val observerMutex = Mutex()
 
@@ -725,23 +725,27 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         return EmbeddedPaywalls.retrieve(activity, placement, params, overrides, callback, ::logError)
     }
 
+    // The Play Billing overloads queue behind the product-id ones too: an app
+    // can mix the two for one purchase, and a result must not reach the SDK
+    // before a start that is still looking its product up.
+
     /** `Superwall.observePurchaseStart` (superwall-android 2.10.2 `Superwall.kt:1093`). */
     fun observePurchaseStart(product: ProductDetails) {
-        NativeSuperwall.instance.observePurchaseStart(product)
+        observeInOrder { NativeSuperwall.instance.observePurchaseStart(product) }
     }
 
     fun observePurchaseError(
         product: ProductDetails,
         error: Throwable,
     ) {
-        NativeSuperwall.instance.observePurchaseError(product, error)
+        observeInOrder { NativeSuperwall.instance.observePurchaseError(product, error) }
     }
 
     fun observePurchaseResult(
         billingResult: BillingResult,
         purchases: List<Purchase>,
     ) {
-        NativeSuperwall.instance.observePurchaseResult(billingResult, purchases)
+        observeInOrder { NativeSuperwall.instance.observePurchaseResult(billingResult, purchases) }
     }
 
     /** The native extensions hop to the UI thread themselves. */
