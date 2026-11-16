@@ -45,6 +45,13 @@ final class BridgePaywallViewDelegateForwarder: PaywallViewControllerDelegate {
       shouldDismiss: shouldDismiss
     )
   }
+
+  // Required here: SuperwallKit's default implementation is internal to it.
+  // The common callback has no loading-state hook, so nothing is forwarded.
+  func paywall(
+    _ paywall: PaywallViewController,
+    loadingStateDidChange loadingState: PaywallLoadingState
+  ) {}
 }
 
 /// A retrieved paywall. SuperwallKit doesn't keep the delegate it is given
