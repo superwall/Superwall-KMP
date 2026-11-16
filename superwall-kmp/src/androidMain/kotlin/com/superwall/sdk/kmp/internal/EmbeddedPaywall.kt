@@ -19,6 +19,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.lang.ref.WeakReference
+import java.util.WeakHashMap
 import com.superwall.sdk.Superwall as NativeSuperwall
 import com.superwall.sdk.paywall.presentation.internal.state.PaywallResult as NativePaywallResult
 import com.superwall.sdk.paywall.presentation.get_paywall.builder.PaywallBuilder as NativePaywallBuilder
@@ -46,6 +48,37 @@ internal fun Throwable.toPaywallRetrievalFailure(): PaywallRetrievalFailure =
         is NativeRequestStatusReason -> PaywallRetrievalFailure.Failed(info)
         else -> PaywallRetrievalFailure.Failed(localizedMessage ?: message ?: toString())
     }
+
+/**
+ * Which host each cached native view was last handed to.
+ *
+ * superwall-android hands a view that is already on screen to a new request:
+ * the cache is keyed by paywall, and `getPaywall` detaches the view from its
+ * parent and points its callback at the new request before returning it. So
+ * the view's parent can't tell whether it is shared; this record can. Both
+ * sides are weak, so a host the app never destroys, or a view the SDK evicts,
+ * isn't kept alive by it. Main thread only.
+ */
+internal class PaywallOwners<V : Any, H : Any> {
+    private val owners = WeakHashMap<V, WeakReference<H>>()
+
+    /** Hands [view] to [host]; returns the live host it was taken from, if any. */
+    fun claim(
+        view: V,
+        host: H,
+    ): H? = owners.put(view, WeakReference(host))?.get()?.takeIf { it !== host }
+
+    fun owns(
+        view: V,
+        host: H,
+    ): Boolean = owners[view]?.get() === host
+
+    /** Ends [host]'s claim on [view]; returns whether it still held it. */
+    fun release(
+        view: V,
+        host: H,
+    ): Boolean = owns(view, host).also { if (it) owners.remove(view) }
+}
 
 /**
  * The Android [EmbeddedPaywall]: a wrapper around the host view, which is
@@ -79,7 +112,10 @@ internal class AndroidEmbeddedPaywall(
  *   over (`EmbeddedPaywall.destroy`), never on a mere detach, which Compose and navigation
  *   cause routinely;
  * - no paywall is retrieved while a teardown is in flight, because the cache
- *   can hand the very same instance straight back.
+ *   can hand the very same instance straight back;
+ * - a retrieval that gets a view another host is showing takes it over, as
+ *   superwall-android already has by then: the old host is told and lets go
+ *   without tearing down the view it no longer has.
  *
  * Everything here runs on the main thread.
  */
@@ -88,6 +124,7 @@ internal object EmbeddedPaywalls {
     // cleanup() midway would leave a shared, cached PaywallView half torn down.
     private val teardownScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val teardownJobs = mutableSetOf<Job>()
+    private val owners = PaywallOwners<NativePaywallView, PaywallHostView>()
 
     suspend fun retrieve(
         activity: Activity,
@@ -114,15 +151,10 @@ internal object EmbeddedPaywalls {
             val failure =
                 result.fold(
                     onSuccess = { paywall ->
-                        if (paywall.parent != null) {
-                            PaywallRetrievalFailure.Failed(
-                                "The retrieved paywall is already shown in another view. " +
-                                    "Destroy that view first, or use a different placement for each paywall on screen.",
-                            )
-                        } else {
-                            host.setPaywall(paywall)
-                            null
-                        }
+                        // By now the SDK has detached the view and redirected its callback.
+                        owners.claim(paywall, host)?.supersede(paywall)
+                        host.setPaywall(paywall)
+                        null
                     },
                     onFailure = { it.toPaywallRetrievalFailure() },
                 )
@@ -213,8 +245,9 @@ internal object EmbeddedPaywalls {
             val paywall = paywall ?: return
             if (isShown) return
             if (paywall.parent != null) {
-                // Another host was given the same cached paywall while this one waited.
+                // A full-screen presentation took the cached paywall while this host waited.
                 this.paywall = null
+                owners.release(paywall, this)
                 deliver("onError") {
                     callback.onError("The retrieved paywall is already shown in another view.")
                 }
@@ -227,12 +260,35 @@ internal object EmbeddedPaywalls {
             deliver("onPresent") { callback.onPresent(info) }
         }
 
+        /**
+         * Another host has been handed [paywall]: let go of it without tearing
+         * it down, since it is now shown there, and tell the app this view is
+         * empty.
+         */
+        fun supersede(paywall: NativePaywallView) {
+            if (paywall !== this.paywall) return
+            lastInfo = paywall.info.toKmp()
+            this.paywall = null
+            isShown = false
+            deliver("onError") {
+                callback.onError(
+                    "The paywall was taken over by another view that retrieved the same paywall. " +
+                        "Destroy a paywall in one view before retrieving it for another, or use a different paywall for each view on screen.",
+                )
+            }
+        }
+
         fun teardown() {
             val paywall = paywall ?: return
             lastInfo = paywall.info.toKmp()
             this.paywall = null
-            if (!isShown) return // Never shown: it still belongs to the SDK's cache.
+            val wasShown = isShown
             isShown = false
+            val owned = owners.release(paywall, this)
+            if (!wasShown) return // Never shown: it still belongs to the SDK's cache.
+            // Something else (a full-screen presentation of the same paywall) has
+            // taken the view over: tearing it down would break it there.
+            if (!owned || paywall.parent !== this) return
             removeView(paywall)
             paywall.beforeOnDestroy(forceCleanup = true)
             paywall.encapsulatingActivity = null
