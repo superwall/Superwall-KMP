@@ -542,11 +542,12 @@ internal class IosSuperwallBridge : SuperwallBridge {
         embedded: Boolean,
         delegate: CustomerCenterDelegate?,
     ): UIViewController =
+        // Arrives as `Any`; see SWBEmbeddedPaywall.viewController in the Swift bridge.
         swb.makeCustomerCenterViewControllerWithConfiguration(
             configuration?.toSWB(),
             embedded,
             delegate?.let { CustomerCenterDelegateAdapter(it, scope, ::logError) {} },
-        )
+        ) as UIViewController
 
     override fun isPaywallPresented(): Boolean = swb.isPaywallPresented()
 
@@ -693,7 +694,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
     companion object {
         /** Guard-exempt, like the other introspection members: `null` before configure. */
         fun presentedPaywallViewController(): UIViewController? =
-            SWBSuperwallBridge.sharedBridge().presentedPaywallViewController()
+            SWBSuperwallBridge.sharedBridge().presentedPaywallViewController() as? UIViewController
     }
 
     /** Routes a bridge-level warning through the installed listener when present. */

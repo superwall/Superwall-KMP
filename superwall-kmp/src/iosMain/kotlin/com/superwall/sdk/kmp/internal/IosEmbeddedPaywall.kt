@@ -36,7 +36,9 @@ internal class IosEmbeddedPaywall(
 
     val viewController: UIViewController
         get() =
-            swbPaywall?.viewController()
+            // The bridge hands UIKit objects over as `Any` (see
+            // SWBEmbeddedPaywall.viewController in the Swift bridge).
+            swbPaywall?.viewController() as? UIViewController
                 ?: error("This EmbeddedPaywall was destroyed; its view controller has been released.")
 
     override val info: PaywallInfo

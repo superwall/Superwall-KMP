@@ -1104,12 +1104,13 @@ public final class SWBSuperwallBridge: NSObject {
   /// itself (`embedded`: pushed onto the app's own navigation controller).
   /// SuperwallKit doesn't retain the delegate it is given, so the forwarder
   /// is tied to the view controller's lifetime. Main thread only.
+  /// Returns the UIViewController as `AnyObject`; see SWBEmbeddedPaywall.viewController.
   @MainActor
   @objc public func makeCustomerCenterViewController(
     configuration: SWBCustomerCenterConfiguration?,
     embedded: Bool,
     delegate: SWBCustomerCenterDelegate?
-  ) -> UIViewController {
+  ) -> AnyObject {
     let forwarder = delegate.map { BridgeCustomerCenterDelegateForwarder(bridgeDelegate: $0) }
     let viewController = CustomerCenterViewController(
       configuration: configuration?.native,
@@ -1190,15 +1191,23 @@ public final class SWBSuperwallBridge: NSObject {
   }
 
   /// The paywall view controller Superwall is presenting, if any. Safe
-  /// pre-configure (nil).
-  @objc public func presentedPaywallViewController() -> UIViewController? {
+  /// pre-configure (nil). A UIViewController, returned as `AnyObject`; see
+  /// SWBEmbeddedPaywall.viewController.
+  @objc public func presentedPaywallViewController() -> AnyObject? {
     guard Superwall.isInitialized else { return nil }
     return Superwall.shared.presentedViewController
   }
 
   /// Forwards a game controller event to the presented paywall. Call it from
-  /// the gamepad's `valueChangedHandler`.
-  @objc public func gamepadValueChanged(_ gamepad: GCExtendedGamepad, element: GCControllerElement) {
+  /// the gamepad's `valueChangedHandler`. Takes the GCExtendedGamepad and the
+  /// GCControllerElement as `AnyObject` (see SWBEmbeddedPaywall.viewController);
+  /// anything else is ignored.
+  @objc public func gamepadValueChanged(_ gamepad: AnyObject, element: AnyObject) {
+    guard let gamepad = gamepad as? GCExtendedGamepad,
+      let element = element as? GCControllerElement
+    else {
+      return
+    }
     Superwall.shared.gamepadValueChanged(gamepad: gamepad, element: element)
   }
 

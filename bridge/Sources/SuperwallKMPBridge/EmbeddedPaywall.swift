@@ -61,7 +61,14 @@ final class BridgePaywallViewDelegateForwarder: PaywallViewControllerDelegate {
 @objc(SWBEmbeddedPaywall)
 public final class SWBEmbeddedPaywall: NSObject {
   /// The PaywallViewController, for the app to put on screen.
-  @objc public let viewController: UIViewController
+  ///
+  /// Typed `AnyObject` on purpose, like every UIKit and GameController object
+  /// that crosses this bridge: the generated header only forward-declares
+  /// those classes, and Kotlin/Native imports a forward-declared class as a
+  /// stand-in type (`objcnames.classes.UIViewController`) that is not
+  /// `platform.UIKit.UIViewController`. As `id` it arrives as `Any`, which
+  /// Kotlin casts to the real type.
+  @objc public let viewController: AnyObject
   private let paywallViewController: PaywallViewController
   private let forwarder: BridgePaywallViewDelegateForwarder
 
