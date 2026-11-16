@@ -1167,10 +1167,16 @@ public final class SWBSuperwallBridge: NSObject {
           params: params,
           paywallOverrides: overrides,
           delegate: forwarder,
-          onCustomCallback: { (callback: CustomCallback) async -> CustomCallbackResult in
+          // SuperwallKit's cached view controller keeps this closure past
+          // destroy(), so it reaches the Kotlin delegate only through the
+          // forwarder, which SWBEmbeddedPaywall owns and releases.
+          onCustomCallback: { [weak forwarder] (callback: CustomCallback) async -> CustomCallbackResult in
+            guard let bridgeDelegate = forwarder?.bridgeDelegate else {
+              return .failure()
+            }
             return await withCheckedContinuation { continuation in
               let once = OnceGate()
-              delegate.onCustomCallback(SWBCustomCallback(callback)) { result in
+              bridgeDelegate.onCustomCallback(SWBCustomCallback(callback)) { result in
                 guard once.tryPass() else { return }
                 continuation.resume(returning: result.native)
               }
