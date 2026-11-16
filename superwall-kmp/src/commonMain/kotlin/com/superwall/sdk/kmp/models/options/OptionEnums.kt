@@ -42,8 +42,10 @@ public enum class NetworkEnvironment {
     /**
      * **WARNING**: Uses Superwall services running on `localhost`. This is
      * not meant for a production environment. iOS has it as an environment of
-     * its own; Android, which doesn't, reaches the same `http://localhost:3000`
-     * address through a custom environment.
+     * its own. Android, which doesn't, uses the same hosts and ports (the API
+     * on `localhost:3000`) but always over HTTPS, since superwall-android
+     * can't send plain HTTP; and on an emulator or device `localhost` is the
+     * device itself, so forward the ports (`adb reverse tcp:3000 tcp:3000`).
      */
     LOCAL,
 }

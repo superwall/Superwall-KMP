@@ -150,8 +150,9 @@ public sealed interface DevServer {
  * A network environment other than the ones [NetworkEnvironment] names.
  *
  * iOS builds the address from [scheme], [baseHost] and [port] and uses
- * Superwall's developer collector whatever [collectorHost] says; Android uses
- * all four.
+ * Superwall's developer collector whatever [collectorHost] says. Android uses
+ * [baseHost] with [port] and [collectorHost], always over HTTPS:
+ * superwall-android ignores [scheme].
  */
 public data class CustomNetworkEnvironment(
     /** The host of the Superwall API, without a scheme or port. */

@@ -26,6 +26,7 @@ import com.superwall.sdk.config.options.AdConsent as NativeAdConsent
 import com.superwall.sdk.config.options.AdConsentStatus as NativeAdConsentStatus
 import com.superwall.sdk.config.options.PaywallOptions as NativePaywallOptions
 import com.superwall.sdk.config.options.SuperwallOptions as NativeSuperwallOptions
+import com.superwall.sdk.network.Api as NativeApi
 import com.superwall.sdk.logger.LogLevel as NativeLogLevel
 import com.superwall.sdk.logger.LogScope as NativeLogScope
 import com.superwall.sdk.config.options.EventTrackingBehavior as NativeEventTrackingBehavior
@@ -251,15 +252,20 @@ class OptionsMapperTest {
         assertEquals(NativeLogLevel.warn, SuperwallOptions().toNative().logging.level)
     }
 
+    // superwall-android sends every request to `https://<host>` (Api.scheme),
+    // so the address it really uses is the native Api's hosts, ports included.
     @Test
-    fun networkEnvironment_local_mapsToACustomLocalhostEnvironment() {
+    fun networkEnvironment_local_reachesTheLocalhostPortsSuperwallKitUses() {
         val environment = SuperwallOptions(networkEnvironment = NetworkEnvironment.LOCAL).toNative().networkEnvironment
+        val api = NativeApi(environment)
 
         assertTrue(environment is NativeSuperwallOptions.NetworkEnvironment.Custom)
-        assertEquals("localhost", environment.baseHost)
-        assertEquals("localhost", environment.collectorHost)
-        assertEquals("http", environment.scheme)
-        assertEquals(3000, environment.port)
+        assertEquals("localhost:3000", api.base.host)
+        assertEquals("localhost:3000", api.collector.host)
+        assertEquals("localhost:3045", api.subscription.host)
+        assertEquals("localhost:5999", api.enrichment.host)
+        assertEquals("localhost:3045", api.mmp.host)
+        assertEquals("https", environment.scheme)
     }
 
     @Test
@@ -270,12 +276,23 @@ class OptionsMapperTest {
                 customNetworkEnvironment =
                     CustomNetworkEnvironment(baseHost = "api.example.com", collectorHost = "events.example.com", port = 8443),
             ).toNative().networkEnvironment
+        val api = NativeApi(environment)
 
         assertTrue(environment is NativeSuperwallOptions.NetworkEnvironment.Custom)
-        assertEquals("api.example.com", environment.baseHost)
-        assertEquals("events.example.com", environment.collectorHost)
+        assertEquals("api.example.com:8443", api.base.host)
+        assertEquals("events.example.com", api.collector.host)
         assertEquals("https", environment.scheme)
         assertEquals(8443, environment.port)
+    }
+
+    @Test
+    fun customNetworkEnvironment_withoutAPortKeepsTheBareHost() {
+        val environment =
+            SuperwallOptions(customNetworkEnvironment = CustomNetworkEnvironment(baseHost = "api.example.com"))
+                .toNative()
+                .networkEnvironment
+
+        assertEquals("api.example.com", NativeApi(environment).base.host)
     }
 
     @Test

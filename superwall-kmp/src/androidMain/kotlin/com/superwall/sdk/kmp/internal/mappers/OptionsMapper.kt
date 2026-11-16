@@ -49,9 +49,12 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
     val native = NativeSuperwallOptions()
     native.paywalls = paywalls.toNative()
     native.networkEnvironment =
+        // superwall-android 2.10.2 builds every request as `https://<host>`:
+        // the environment's scheme and port are only reported, never used. So
+        // a port has to travel inside the host, and HTTPS can't be changed.
         customNetworkEnvironment?.let { custom ->
             NativeSuperwallOptions.NetworkEnvironment.Custom(
-                baseHost = custom.baseHost,
+                baseHost = custom.port?.let { "${custom.baseHost}:$it" } ?: custom.baseHost,
                 collectorHost = custom.collectorHost,
                 scheme = custom.scheme,
                 port = custom.port,
@@ -61,14 +64,17 @@ internal fun SuperwallOptions.toNative(): NativeSuperwallOptions {
             NetworkEnvironment.RELEASE_CANDIDATE ->
                 NativeSuperwallOptions.NetworkEnvironment.ReleaseCandidate()
             NetworkEnvironment.DEVELOPER -> NativeSuperwallOptions.NetworkEnvironment.Developer()
-            // superwall-android has no local environment of its own; this is
-            // the address SuperwallKit's `.local` uses for the API and events.
+            // superwall-android has no local environment of its own; these are
+            // the hosts and ports SuperwallKit's `.local` uses, over HTTPS.
             NetworkEnvironment.LOCAL ->
                 NativeSuperwallOptions.NetworkEnvironment.Custom(
-                    baseHost = "localhost",
-                    collectorHost = "localhost",
-                    scheme = "http",
-                    port = 3000,
+                    baseHost = "localhost:3000",
+                    collectorHost = "localhost:3000",
+                    scheme = "https",
+                    port = null,
+                    subscriptionHost = "localhost:3045",
+                    enrichmentHost = "localhost:5999",
+                    mmpHost = "localhost:3045",
                 )
         }
     // The native SDK derives isExternalDataCollectionEnabled FROM
