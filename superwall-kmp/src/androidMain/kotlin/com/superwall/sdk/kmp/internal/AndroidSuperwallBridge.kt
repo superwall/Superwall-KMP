@@ -337,6 +337,10 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         configurationStatusJob = null
         NativeSuperwall.teardown()
         integrationAttributes.forget()
+        // Ended at once so nothing already queued reports to the next
+        // instance; the cache is only touched under the observer's lock.
+        observationSession.end()
+        callbackScope().launch { observerMutex.withLock { observedProductDetails.clear() } }
         return true
     }
 
@@ -630,11 +634,21 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
     private val observedProductDetails = mutableMapOf<String, ProductDetails>()
 
     /**
+     * Observations are queued and the first for a product waits on a store
+     * lookup, so a teardown can land in between. One made before a teardown
+     * must not report to the instance configured after it.
+     */
+    private val observationSession = ObservationSession()
+
+    /**
      * superwall-android's observe calls take Play Billing's `ProductDetails`;
      * the SDK's own copy is found through `getProducts`. A custom store
      * product has none, and neither has an id the store doesn't know.
      */
-    private suspend fun productDetailsFor(productId: String): ProductDetails? =
+    private suspend fun productDetailsFor(
+        productId: String,
+        isCurrent: () -> Boolean,
+    ): ProductDetails? =
         observedProductDetails[productId]
             ?: withContext(Dispatchers.IO) {
                 NativeSuperwall.instance
@@ -644,13 +658,20 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
                     ?.firstOrNull()
                     ?.rawStoreProduct
                     ?.underlyingProductDetails
-            }?.also { observedProductDetails[productId] = it }
+            // The lookup can outlive the instance it was made for; its result
+            // is then neither kept nor reported.
+            }?.takeIf { isCurrent() }?.also { observedProductDetails[productId] = it }
 
-    private fun observeInOrder(block: suspend () -> Unit) {
+    private fun observeInOrder(block: suspend (isCurrent: () -> Boolean) -> Unit) {
+        // Read now, on the caller's thread: by the time the queued work runs a
+        // teardown may have ended the session.
+        val ticket = observationSession.ticket()
+        val isCurrent = { observationSession.isCurrent(ticket) }
         callbackScope().launch {
             observerMutex.withLock {
+                if (!isCurrent()) return@withLock
                 try {
-                    block()
+                    block(isCurrent)
                 } catch (throwable: Throwable) {
                     logError("Observing a purchase failed", throwable)
                 }
@@ -659,8 +680,9 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
     }
 
     override fun observePurchaseStart(productId: String) {
-        observeInOrder {
-            val product = productDetailsFor(productId)
+        observeInOrder { isCurrent ->
+            val product = productDetailsFor(productId, isCurrent)
+            if (!isCurrent()) return@observeInOrder
             if (product == null) {
                 logError("observePurchaseStart: no Play product found for $productId; the purchase start isn't tracked", null)
             } else {
@@ -673,8 +695,9 @@ internal class AndroidSuperwallBridge : SuperwallBridge {
         productId: String,
         error: String,
     ) {
-        observeInOrder {
-            val product = productDetailsFor(productId)
+        observeInOrder { isCurrent ->
+            val product = productDetailsFor(productId, isCurrent)
+            if (!isCurrent()) return@observeInOrder
             if (product == null) {
                 logError("observePurchaseError: no Play product found for $productId; the failure isn't tracked", null)
             } else {
@@ -927,3 +950,20 @@ internal fun List<ObservedPurchase>.toPlayPurchases(onInvalid: (Throwable) -> Un
             null
         }
     }
+
+/**
+ * Which SDK instance a queued purchase observation was made for. [ticket] is
+ * read when the call is made and [end] is called at teardown, from any thread;
+ * an observation whose ticket is no longer current is dropped.
+ */
+internal class ObservationSession {
+    private val current = java.util.concurrent.atomic.AtomicInteger()
+
+    fun ticket(): Int = current.get()
+
+    fun end() {
+        current.incrementAndGet()
+    }
+
+    fun isCurrent(ticket: Int): Boolean = ticket == current.get()
+}
