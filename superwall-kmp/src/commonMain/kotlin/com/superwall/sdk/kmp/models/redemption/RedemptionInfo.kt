@@ -15,4 +15,9 @@ public data class RedemptionInfo(
     val purchaserInfo: PurchaserInfo,
     val paywallInfo: RedemptionPaywallInfo? = null,
     val entitlements: Set<Entitlement>,
+    /**
+     * User attributes the web checkout set, which the SDK merges into the
+     * user's attributes. iOS only; always `null` on Android.
+     */
+    val userAttributes: Map<String, Any?>? = null,
 )

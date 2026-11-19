@@ -4,19 +4,28 @@ import com.superwall.sdk.kmp.internal.DelegateMultiplexer
 import com.superwall.sdk.kmp.internal.StreamHolder
 import com.superwall.sdk.kmp.internal.SuperwallBridge
 import com.superwall.sdk.kmp.internal.createSuperwallBridge
+import com.superwall.sdk.kmp.models.customercenter.CustomerCenterConfiguration
 import com.superwall.sdk.kmp.models.entitlements.CustomerInfo
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
 import com.superwall.sdk.kmp.models.entitlements.Entitlements
 import com.superwall.sdk.kmp.models.entitlements.SubscriptionStatus
 import com.superwall.sdk.kmp.models.events.IntegrationAttribute
+import com.superwall.sdk.kmp.models.events.SuperwallEventInfo
 import com.superwall.sdk.kmp.models.identity.IdentityOptions
+import com.superwall.sdk.kmp.models.options.AdConsent
 import com.superwall.sdk.kmp.models.options.ConfigurationStatus
+import com.superwall.sdk.kmp.models.options.EventTrackingBehavior
+import com.superwall.sdk.kmp.models.options.InterfaceStyle
 import com.superwall.sdk.kmp.models.options.LogLevel
 import com.superwall.sdk.kmp.models.options.LogScope
 import com.superwall.sdk.kmp.models.options.SuperwallOptions
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
+import com.superwall.sdk.kmp.models.paywall.PaywallOverrides
 import com.superwall.sdk.kmp.models.results.PresentationResult
+import com.superwall.sdk.kmp.models.results.PurchaseResult
 import com.superwall.sdk.kmp.models.results.RestorationResult
+import com.superwall.sdk.kmp.models.store.ObservedPurchase
+import com.superwall.sdk.kmp.models.store.StoreProduct
 import com.superwall.sdk.kmp.models.triggers.ConfirmedAssignment
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
@@ -38,7 +47,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * deliberate exemptions: [configure]/[configureAndAwait], [handleDeepLink]
  * (deep-link cold start is its primary use), the introspection members
  * [isConfigured], [isInitialized], and [configurationStatus], the stream
- * accessors [subscriptionStatusFlow] and [customerInfoFlow] (common-owned,
+ * accessors [subscriptionStatusFlow], [customerInfoFlow], [eventsFlow] and
+ * [configurationStatusFlow] (common-owned,
  * pre-seeded flows), and the [delegate] property (stored immediately;
  * installed natively at configure). Use [configureAndAwait] or gate on
  * [isConfigured] to order calls.
@@ -73,6 +83,11 @@ public object Superwall {
 
     /** The first configure call's outcome, once delivered. */
     private var configureResult: Result<Unit>? = null
+
+    private var configureGeneration: Int = 0
+
+    /** The first configure call's own completion, while its outcome is in flight. */
+    private var inFlightConfigureCompletion: ((Result<Unit>) -> Unit)? = null
 
     /** Completions from repeat configure calls made while the first is in flight. */
     private val pendingConfigureCompletions: MutableList<(Result<Unit>) -> Unit> = mutableListOf()
@@ -128,7 +143,13 @@ public object Superwall {
         // missed; the bridge's install is idempotent and may defer the native
         // installation until its SDK singleton exists.
         bridge.installDelegate(multiplexer)
+        // Counts configure calls so a completion that arrives after a
+        // teardown() and a second configure can't overwrite the newer outcome.
+        val generation = ++configureGeneration
+        inFlightConfigureCompletion = completion
         bridge.configure(apiKey, purchaseController, options) { result ->
+            if (generation != configureGeneration) return@configure
+            inFlightConfigureCompletion = null
             configureResult = result
             if (result.isSuccess) {
                 if (options?.enableExperimentalDeviceVariables == true) {
@@ -143,6 +164,8 @@ public object Superwall {
             pendingConfigureCompletions.clear()
             queued.forEach { it(result) }
         }
+        // After configure returns the native singleton exists, still pending.
+        bridge.attachConfigurationStatus(streams)
     }
 
     /**
@@ -191,6 +214,15 @@ public object Superwall {
         get() = bridge.getConfigurationStatus()
 
     /**
+     * The configuration status as a flow: the current status first, then
+     * every change, e.g. `FAILED` and later `CONFIGURED` when a retry
+     * succeeds. `PENDING` until [configure] is called. Guard-exempt:
+     * collectable before [configure].
+     */
+    public val configurationStatusFlow: StateFlow<ConfigurationStatus>
+        get() = streams.configurationStatus.asStateFlow()
+
+    /**
      * Whether [configure] has completed successfully.
      * Guard-exempt — callable before [configure].
      */
@@ -210,6 +242,45 @@ public object Superwall {
      */
     public fun reset() {
         requireConfigured().reset()
+    }
+
+    /**
+     * Tears the SDK down so that [configure] can be called again, for
+     * development setups that reload the app's code in a running process.
+     * Don't use it in production as a way to reset; use [reset].
+     *
+     * Android only. It resets user data, assignments and caches, destroys the
+     * cached paywalls, and lifts the "configure runs once" rule: the next
+     * [configure] installs its options and purchase controller again.
+     * [delegate] and the flows are kept. On iOS, where SuperwallKit can't be
+     * torn down, it does nothing and returns `false`.
+     *
+     * A [configure] still in flight completes with
+     * [SuperwallError.ConfigurationFailed] (so [configureAndAwait] throws it),
+     * and its late native outcome is ignored.
+     *
+     * @return Whether the SDK was torn down.
+     */
+    public fun teardown(): Boolean {
+        val bridge = requireConfigured()
+        if (!bridge.teardown()) return false
+        configureCalled = false
+        configureResult = null
+        // A configure still in flight belongs to the instance that is gone: its
+        // native outcome is dropped, but whoever waits on it (configureAndAwait
+        // included) is released with a failure rather than left hanging.
+        configureGeneration++
+        val abandoned = listOfNotNull(inFlightConfigureCompletion) + pendingConfigureCompletions
+        inFlightConfigureCompletion = null
+        pendingConfigureCompletions.clear()
+        streams.detach()
+        if (abandoned.isNotEmpty()) {
+            val failure = Result.failure<Unit>(
+                SuperwallError.ConfigurationFailed("Superwall was torn down before configuration finished."),
+            )
+            abandoned.forEach { it(failure) }
+        }
+        return true
     }
 
     // ---- Identity / attributes ------------------------------------------------
@@ -325,6 +396,38 @@ public object Superwall {
             requireConfigured().setLogLevel(value)
         }
 
+    /**
+     * Which events the SDK sends to Superwall, changeable at any time after
+     * [configure] — for example set [EventTrackingBehavior.NONE] when the user
+     * declines data collection in a consent flow. The initial value comes from
+     * `SuperwallOptions.eventTrackingBehavior`.
+     */
+    public var eventTrackingBehavior: EventTrackingBehavior
+        get() = requireConfigured().getEventTrackingBehavior()
+        set(value) {
+            requireConfigured().setEventTrackingBehavior(value)
+        }
+
+    /**
+     * The user's [AdConsent] as the app set it, with
+     * `SuperwallOptions.adConsent` or [setAdConsent], or `null` while it
+     * hasn't set one (the SDK then uses a TCF consent banner's stored answer,
+     * or treats both as granted). See [AdConsent] for how it's reported.
+     */
+    public val adConsent: AdConsent?
+        get() = requireConfigured().getAdConsent()
+
+    /**
+     * Sets the user's consent for how their data is used for advertising,
+     * e.g. from your consent flow. It takes precedence over a TCF consent
+     * banner's stored answer from then on.
+     *
+     * @param consent The user's [AdConsent].
+     */
+    public fun setAdConsent(consent: AdConsent) {
+        requireConfigured().setAdConsent(consent)
+    }
+
     // ---- Entitlements / subscription --------------------------------------------
 
     /**
@@ -337,16 +440,31 @@ public object Superwall {
 
     /**
      * The entitlements associated with the given product ids, resolved by the
-     * native SDK.
-     *
-     * On Android this currently local-filters with a logged warning until
-     * upstream support exists.
+     * native SDK on both platforms.
      *
      * @param productIds The store product ids to look up.
      * @return The entitlements granted by those products.
      */
     public suspend fun getEntitlementsByProductIds(productIds: Set<String>): Set<Entitlement> =
         requireConfigured().getEntitlementsByProductIds(productIds)
+
+    /**
+     * Entitlements granted outside of the store, such as by your own server.
+     * They are merged into the user's entitlements and subscription status.
+     *
+     * Each assignment replaces the previous set; assign an empty set to revoke.
+     * The set persists across app launches, [reset] and [identify], so set it
+     * again after either if the new user shouldn't inherit it. Only each
+     * entitlement's `id` is used.
+     *
+     * @platform iOS — on Android this is always empty and setting it does
+     * nothing.
+     */
+    public var grantedEntitlements: Set<Entitlement>
+        get() = requireConfigured().getGrantedEntitlements()
+        set(value) {
+            requireConfigured().setGrantedEntitlements(value)
+        }
 
     /**
      * The current subscription status of the user, synchronously.
@@ -372,27 +490,49 @@ public object Superwall {
         get() = streams.subscriptionStatus.asStateFlow()
 
     /**
-     * A [Flow] of customer info changes.
+     * The id superwall-android passes to Google Play as the obfuscated
+     * account id of the user's purchases. Android only; `null` on iOS.
+     */
+    public val externalAccountId: String?
+        get() = requireConfigured().getExternalAccountId()
+
+    /**
+     * Every Superwall event as a [Flow], an alternative to
+     * [SuperwallDelegate.handleSuperwallEvent] that works without a delegate.
+     *
+     * Guard-exempt: collectable before [configure]. No replay: only events
+     * tracked while you are collecting are emitted.
+     */
+    public val eventsFlow: Flow<SuperwallEventInfo>
+        get() = streams.events.asSharedFlow()
+
+    /**
+     * A [Flow] of customer info changes: one emission each time the native
+     * SDK reports a change, on both platforms.
      *
      * Guard-exempt: collectable before [configure]; it has nothing to emit
      * until the native source is attached at configure-complete. No replay —
      * use [getCustomerInfo] for the current value.
-     *
-     * @platform iOS (Android: pending upstream delegate support — the flow may
-     * not emit there).
      */
     public val customerInfoFlow: Flow<CustomerInfo>
         get() = streams.customerInfo.asSharedFlow()
 
     /**
-     * The latest subscription and entitlement info about the customer.
-     *
-     * On Android this currently returns a synthesized minimal value with a
-     * logged warning, pending upstream superwall-android support.
+     * The latest subscription and entitlement info about the customer, read
+     * from the native SDK.
      *
      * @return The customer's latest [CustomerInfo].
      */
     public suspend fun getCustomerInfo(): CustomerInfo = requireConfigured().getCustomerInfo()
+
+    /**
+     * Fetches fresh customer info from the store and Superwall, then returns
+     * it. On Android, which has no refresh, this returns the same as
+     * [getCustomerInfo].
+     *
+     * @return The customer's latest [CustomerInfo].
+     */
+    public suspend fun refreshCustomerInfo(): CustomerInfo = requireConfigured().refreshCustomerInfo()
 
     /**
      * Confirms all unconfirmed experiment assignments and returns them.
@@ -402,6 +542,14 @@ public object Superwall {
     public suspend fun confirmAllAssignments(): Set<ConfirmedAssignment> = requireConfigured().confirmAllAssignments()
 
     /**
+     * The experiment assignments made so far, without confirming the rest
+     * (unlike [confirmAllAssignments]).
+     *
+     * @return The set of stored assignments.
+     */
+    public fun getAssignments(): Set<ConfirmedAssignment> = requireConfigured().getAssignments()
+
+    /**
      * Restores purchases via the native SDK (or your [PurchaseController], if
      * one was supplied at [configure]).
      *
@@ -409,6 +557,35 @@ public object Superwall {
      * domain type and does not throw.
      */
     public suspend fun restorePurchases(): RestorationResult = requireConfigured().restorePurchases()
+
+    /**
+     * Purchases a product through Superwall without showing a paywall. The
+     * purchase shows up on the Superwall dashboard like a paywall purchase.
+     *
+     * With a [PurchaseController], the controller makes the purchase, as for a
+     * paywall. On iOS this can't be used together with
+     * `SuperwallOptions.shouldObservePurchases`: SuperwallKit returns
+     * [PurchaseResult.Cancelled] then.
+     *
+     * @param productId The store product identifier. On Android, pass
+     * `productId:basePlanId:offerId` to pick a base plan or offer, as in the
+     * Superwall dashboard.
+     * @return The [PurchaseResult]. A product the store doesn't know, or any
+     * other failure, is [PurchaseResult.Failed] rather than a thrown error.
+     */
+    public suspend fun purchase(productId: String): PurchaseResult = requireConfigured().purchase(productId)
+
+    /**
+     * Fetches products from the store without showing a paywall, e.g. to show
+     * their prices in your own UI.
+     *
+     * @param productIds The store product identifiers (on Android,
+     * optionally `productId:basePlanId:offerId`).
+     * @return The products keyed by the identifier they were requested with.
+     * Identifiers the store doesn't know are left out.
+     */
+    public suspend fun getProducts(productIds: Set<String>): Map<String, StoreProduct> =
+        requireConfigured().getProducts(productIds)
 
     // ---- Presentation -----------------------------------------------------------
 
@@ -458,6 +635,81 @@ public object Superwall {
         requireConfigured().dismiss()
     }
 
+    /**
+     * Dismisses the presented paywall, if one exists, in order to present a
+     * different one: the paywall closes with the "for next paywall" close
+     * reason, so the feature block of its `register` call doesn't run.
+     *
+     * Android only. A no-op on iOS, where SuperwallKit keeps this internal.
+     */
+    public suspend fun dismissForNextPaywall() {
+        requireConfigured().dismissForNextPaywall()
+    }
+
+    /**
+     * Shows an alert over the presented paywall. Does nothing when no paywall
+     * is presented.
+     *
+     * Android only. A no-op on iOS, where SuperwallKit has no public
+     * counterpart.
+     *
+     * @param title The alert's title.
+     * @param message The alert's message.
+     * @param actionTitle The title of the action button; `null` shows only the close button.
+     * @param closeActionTitle The title of the close button.
+     * @param action Called on the main thread when the user taps the action button.
+     * @param onClose Called on the main thread when the user taps the close button.
+     */
+    public fun showAlert(
+        title: String? = null,
+        message: String? = null,
+        actionTitle: String? = null,
+        closeActionTitle: String = "Done",
+        action: (() -> Unit)? = null,
+        onClose: (() -> Unit)? = null,
+    ) {
+        requireConfigured().showAlert(title, message, actionTitle, closeActionTitle, action, onClose)
+    }
+
+    /**
+     * Opens the page where a user restores purchases made on the web, in the
+     * current activity. Does nothing when the configuration has no such page.
+     *
+     * Android only. A no-op on iOS.
+     */
+    public fun openRestoreOnWeb() {
+        requireConfigured().openRestoreOnWeb()
+    }
+
+    /**
+     * Retrieves the paywall for [placement] for you to show inside your own
+     * UI, instead of having Superwall present it. The remotely configured
+     * presentation style is ignored: where and how it appears is up to you.
+     *
+     * Returns `null` when there is nothing to show; [callback] then gets
+     * [PaywallViewCallback.onSkip] or [PaywallViewCallback.onError].
+     * Otherwise put the paywall on screen through the platform accessor
+     * (`paywall.view` on Android, `paywall.viewController` on iOS), and call
+     * [EmbeddedPaywall.destroy] when you are done with it.
+     *
+     * On Android the paywall is tied to the activity that is in the
+     * foreground when this is called. superwall-android shares one view per
+     * paywall, not per placement: retrieving a paywall that another
+     * [EmbeddedPaywall] is showing moves it here, and the other one's callback
+     * gets [PaywallViewCallback.onError].
+     *
+     * @param placement The name of the placement, as defined on the Superwall dashboard.
+     * @param params Optional parameters to pass with the placement, usable in audience filters.
+     * @param paywallOverrides Optional overrides for this paywall, e.g. its products.
+     * @param callback Receives the paywall's events, on the main thread.
+     */
+    public suspend fun getPaywall(
+        placement: String,
+        params: Map<String, Any?>? = null,
+        paywallOverrides: PaywallOverrides? = null,
+        callback: PaywallViewCallback,
+    ): EmbeddedPaywall? = requireConfigured().getPaywall(placement, params, paywallOverrides, callback)
+
     /** Whether a paywall is currently being presented. */
     public val isPaywallPresented: Boolean
         get() = requireConfigured().isPaywallPresented()
@@ -504,6 +756,39 @@ public object Superwall {
      */
     public fun handleDeepLink(url: String): Boolean = bridge.handleDeepLink(url)
 
+    // ---- Customer Center --------------------------------------------------------
+
+    /**
+     * Presents the Customer Center, a self-service screen where users can view
+     * and restore their purchases, manage, cancel or change a subscription,
+     * request a refund and contact support.
+     *
+     * Only one Customer Center is shown at a time: calling this while one is
+     * presented does nothing. Callable from any thread; it presents on the
+     * main thread.
+     *
+     * @param configuration The screens and actions to show; `null` uses
+     * `SuperwallOptions.customerCenter`, or the default configuration.
+     * @param delegate Receives Customer Center events until it is dismissed.
+     * @param onDismiss Called on the main thread after it is dismissed, or
+     * straight away when it could not be shown.
+     */
+    public fun presentCustomerCenter(
+        configuration: CustomerCenterConfiguration? = null,
+        delegate: CustomerCenterDelegate? = null,
+        onDismiss: (() -> Unit)? = null,
+    ) {
+        requireConfigured().presentCustomerCenter(configuration, delegate, onDismiss)
+    }
+
+    /**
+     * Dismisses the Customer Center presented with [presentCustomerCenter],
+     * resuming once it has gone. Does nothing if none is presented.
+     */
+    public suspend fun dismissCustomerCenter() {
+        requireConfigured().dismissCustomerCenter()
+    }
+
     // ---- Products / misc ------------------------------------------------------
 
     /**
@@ -526,6 +811,132 @@ public object Superwall {
      */
     public suspend fun consume(purchaseToken: String): String = requireConfigured().consume(purchaseToken)
 
+    /**
+     * Shows paywalls in light or dark mode regardless of the system setting.
+     *
+     * @param style The style to use; `null` or [InterfaceStyle.AUTOMATIC]
+     * follows the system again.
+     */
+    public fun setInterfaceStyle(style: InterfaceStyle?) {
+        requireConfigured().setInterfaceStyle(style)
+    }
+
+    /**
+     * Fetches the Superwall configuration again without restarting the app,
+     * e.g. after changing a campaign while testing. Returns immediately; the
+     * fetch runs in the background.
+     */
+    public fun refreshConfiguration() {
+        requireConfigured().refreshConfiguration()
+    }
+
+    // ---- Observer mode (Android) -------------------------------------------------
+
+    /**
+     * Reports that a purchase you make with your own Play Billing code is
+     * about to start; Superwall tracks it as a transaction start. Follow it
+     * with [observePurchaseResult] or [observePurchaseError].
+     *
+     * Needs `SuperwallOptions.shouldObservePurchases`. Android only: on iOS
+     * SuperwallKit observes StoreKit by itself and this does nothing. Android
+     * code that already holds Play Billing's own objects can pass those
+     * instead, through the overloads in the Android source set.
+     *
+     * @param productId The identifier of the product being purchased. It is
+     * skipped, with an error logged, if the store doesn't know it.
+     */
+    public fun observePurchaseStart(productId: String) {
+        requireConfigured().observePurchaseStart(productId)
+    }
+
+    /**
+     * Reports that the purchase reported with [observePurchaseStart] failed;
+     * Superwall tracks it as a transaction failure. Android only; does
+     * nothing on iOS.
+     */
+    public fun observePurchaseError(
+        productId: String,
+        error: String,
+    ) {
+        requireConfigured().observePurchaseError(productId, error)
+    }
+
+    /**
+     * Reports the result of a purchase you made with your own Play Billing
+     * code: pass on what your `PurchasesUpdatedListener` received. Superwall
+     * tracks it as a completed transaction. Android only; does nothing on
+     * iOS.
+     *
+     * @param billingResponseCode Play Billing's `BillingResult.responseCode` (0 is OK).
+     * @param debugMessage Play Billing's `BillingResult.debugMessage`.
+     * @param purchases The purchases, each as its original JSON and
+     * signature. One whose JSON Play Billing can't read is left out.
+     */
+    public fun observePurchaseResult(
+        billingResponseCode: Int,
+        debugMessage: String = "",
+        purchases: List<ObservedPurchase>,
+    ) {
+        requireConfigured().observePurchaseResult(billingResponseCode, debugMessage, purchases)
+    }
+
+    // ---- Notifications ----------------------------------------------------------
+
+    /**
+     * Cancels the local notifications Superwall scheduled, such as free trial
+     * reminders.
+     */
+    public fun cancelAllScheduledNotifications() {
+        requireConfigured().cancelAllScheduledNotifications()
+    }
+
+    /**
+     * Reports the device's Firebase Cloud Messaging registration token, so
+     * Superwall can send push notifications to it. Call it whenever the token
+     * changes. The SDK has no Firebase dependency and doesn't ask for
+     * notification permission itself.
+     *
+     * @platform Android — a no-op on iOS.
+     * @param token The FCM registration token.
+     */
+    public fun setPushToken(token: String) {
+        requireConfigured().setPushToken(token)
+    }
+
+    /**
+     * Stops Superwall sending push notifications to this device. Remembered
+     * across launches, [reset] and [identify] until [optInToNotifications]. It
+     * doesn't change the system notification permission.
+     *
+     * @platform Android — a no-op on iOS.
+     */
+    public fun optOutOfNotifications() {
+        requireConfigured().setNotificationsEnabled(false)
+    }
+
+    /**
+     * Lets Superwall send push notifications to this device again after
+     * [optOutOfNotifications]. Devices are opted in by default.
+     *
+     * @platform Android — a no-op on iOS.
+     */
+    public fun optInToNotifications() {
+        requireConfigured().setNotificationsEnabled(true)
+    }
+
+    /**
+     * Tells Superwall the user tapped a notification, so it can measure the
+     * notifications it sends. Call it only for a tap, never when a message is
+     * delivered. Notifications Superwall didn't send are ignored, so every
+     * tapped notification's data can be passed in.
+     *
+     * @platform Android — a no-op on iOS.
+     * @param data The notification's FCM data.
+     */
+    public fun handleNotificationOpen(data: Map<String, String>) {
+        requireConfigured().handleNotificationOpen(data)
+    }
+
     // ---- Internals --------------------------------------------------------------
 
     /**
@@ -534,6 +945,13 @@ public object Superwall {
      * The guard-exemption list lives ONLY in the members that bypass this
      * (see the class KDoc).
      */
+    /**
+     * The configured bridge, for the platform source sets' public extensions
+     * (the few members that take a platform object and so can't be declared
+     * here). Same guard as every other member.
+     */
+    internal fun requireConfiguredBridge(): SuperwallBridge = requireConfigured()
+
     private fun requireConfigured(): SuperwallBridge {
         if (!configureCalled) throw SuperwallError.NotConfigured()
         return bridge
@@ -549,6 +967,7 @@ public object Superwall {
         bridgeOverride = bridge
         configureCalled = false
         configureResult = null
+        inFlightConfigureCompletion = null
         pendingConfigureCompletions.clear()
         streams = StreamHolder()
         multiplexer = DelegateMultiplexer(streams)

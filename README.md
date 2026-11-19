@@ -17,7 +17,7 @@ implementation("com.superwall.sdk:superwall-kmp:<version>")
 
 ### iOS
 
-Two steps:
+Two steps (iOS 15+, built with Xcode 26 or later):
 
 1. Add the same Gradle dependency (above) to your shared module, and export the framework as **static**:
 
@@ -37,7 +37,7 @@ Two steps:
    https://github.com/superwall/Superwall-KMP
    ```
 
-   In Xcode: File → Add Package Dependencies… → paste the URL → add the `SuperwallKMPBridge` product to your app target. The package pins SuperwallKit iOS (exact `4.16.1`) transitively — do not add SuperwallKit separately.
+   In Xcode: File → Add Package Dependencies… → paste the URL → add the `SuperwallKMPBridge` product to your app target. The package pins SuperwallKit iOS (exact `4.19.1`) transitively — do not add SuperwallKit separately.
 
    The Kotlin side compiles against the bridge's ObjC headers only (compile-only cinterop); your app supplies the binary by linking the SPM package. If it is missing you'll get a link error at app build time, not at runtime.
 
@@ -72,12 +72,43 @@ scope.launch {
 }
 ```
 
+### Showing a paywall inside your own UI
+
+`Superwall.getPaywall` returns an `EmbeddedPaywall` that common code can hold and release. The thing to put on screen is a platform object, read through one accessor per platform: `paywall.view` on Android and `paywall.viewController` on iOS.
+
+```kotlin
+// commonMain
+val callback = object : PaywallViewCallback {
+    override fun onFinished(paywallInfo: PaywallInfo, result: PaywallResult, shouldDismiss: Boolean) {
+        if (shouldDismiss) closePaywallScreen()
+    }
+    override fun onSkip(reason: PaywallSkippedReason) = closePaywallScreen()
+    override fun onError(error: String) = closePaywallScreen()
+}
+val paywall: EmbeddedPaywall? = Superwall.getPaywall("campaign_trigger", callback = callback) // null: skipped or failed
+```
+
+```kotlin
+// androidMain
+AndroidView(factory = { paywall.view }, onRelease = { paywall.destroy() })
+```
+
+```kotlin
+// iosMain
+UIKitViewController(factory = { paywall.viewController }, modifier = Modifier.fillMaxSize())
+DisposableEffect(paywall) { onDispose { paywall.destroy() } }
+```
+
+An `expect`/`actual` composable in your app (`@Composable expect fun PaywallHost(paywall: EmbeddedPaywall)`) can wrap the two, so your screens stay in common code. Always call `destroy()` when you are done with a paywall. On Android that is what ends the presentation; removing the view isn't enough.
+
+A few other members take platform objects and are declared the same way, in the Android or iOS source set: the Play Billing overloads of `observePurchaseStart` / `observePurchaseError` / `observePurchaseResult` and `dispatchKeyEvent` / `dispatchMotionEvent` on Android, and `gamepadValueChanged`, `presentedViewController` and `customerCenterViewController` on iOS.
+
 There is no pre-configure call queue: most members throw `SuperwallError.NotConfigured` before `configure`. Use `configureAndAwait` or gate on `Superwall.isConfigured` to order calls. Guard-exempt: `handleDeepLink`, the flows, `delegate`, and the introspection properties.
 
 ## Targets
 
 - Android (`minSdk 26`, matching the native superwall-android SDK)
-- iOS 14+ (`iosArm64`, `iosSimulatorArm64`, `iosX64`)
+- iOS 15+ (`iosArm64`, `iosSimulatorArm64`, `iosX64`), built with Xcode 26 or later
 
 ## Development
 

@@ -54,7 +54,12 @@ internal class DelegateMultiplexer(
         forward { it.subscriptionStatusDidChange(from, to) }
     }
 
+    override val observesEvents: Boolean
+        get() = streams.events.subscriptionCount.value > 0
+
     override fun handleSuperwallEvent(eventInfo: SuperwallEventInfo) {
+        // Non-suspending: the holder's buffer + DROP_OLDEST make tryEmit safe.
+        streams.events.tryEmit(eventInfo)
         forward { it.handleSuperwallEvent(eventInfo) }
     }
 

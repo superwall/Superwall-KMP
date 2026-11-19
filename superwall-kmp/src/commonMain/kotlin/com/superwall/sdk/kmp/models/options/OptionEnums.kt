@@ -38,6 +38,16 @@ public enum class NetworkEnvironment {
      * a production environment.
      */
     DEVELOPER,
+
+    /**
+     * **WARNING**: Uses Superwall services running on `localhost`. This is
+     * not meant for a production environment. iOS has it as an environment of
+     * its own. Android, which doesn't, uses the same hosts and ports (the API
+     * on `localhost:3000`) but always over HTTPS, since superwall-android
+     * can't send plain HTTP; and on an emulator or device `localhost` is the
+     * device itself, so forward the ports (`adb reverse tcp:3000 tcp:3000`).
+     */
+    LOCAL,
 }
 
 /**
@@ -133,6 +143,36 @@ public enum class LogScope {
 
     /** Logs from all scopes. */
     ALL,
+
+    /** Logs about analytics. iOS only: ignored in Android options. */
+    ANALYTICS,
+
+    /** Logs about web checkout entitlements. */
+    WEB_ENTITLEMENTS,
+
+    /** Logs about entitlements granted outside the store. iOS only: ignored in Android options. */
+    GRANTED_ENTITLEMENTS,
+
+    /** Logs from the Customer Center. */
+    CUSTOMER_CENTER,
+
+    /** Logs about customer info. Android only: ignored in iOS options. */
+    CUSTOMER_INFO,
+
+    /** Logs from the audience filter evaluator. Android only: ignored in iOS options. */
+    JS_EVALUATOR,
+
+    /** Logs about purchases made from paywalls. Android only: ignored in iOS options. */
+    PAYWALL_TRANSACTIONS,
+
+    /** Logs from the SDK's own purchase controller. Android only: ignored in iOS options. */
+    NATIVE_PURCHASE_CONTROLLER,
+
+    /** Logs about deep links. Android only: ignored in iOS options. */
+    DEEP_LINKS,
+
+    /** Logs from Google Play Billing. Android only: ignored in iOS options. */
+    BILLING,
 }
 
 /**
@@ -190,4 +230,19 @@ public enum class EventTrackingBehavior {
 
     /** No events are sent to the Superwall servers. */
     NONE,
+}
+
+/**
+ * The interface style paywalls are shown in, set with
+ * `Superwall.setInterfaceStyle`.
+ */
+public enum class InterfaceStyle {
+    /** Always show paywalls in light mode. */
+    LIGHT,
+
+    /** Always show paywalls in dark mode. */
+    DARK,
+
+    /** Follow the system appearance. The same as passing `null`. */
+    AUTOMATIC,
 }

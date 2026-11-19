@@ -8,6 +8,7 @@ import com.superwall.sdk.kmp.internal.ios.interop.SWBEntitlementTypeServiceLevel
 import com.superwall.sdk.kmp.internal.ios.interop.SWBEntitlements
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttribute
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeAdjustId
+import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeAirbridgeId
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeAirshipChannelId
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeAmplitudeDeviceId
 import com.superwall.sdk.kmp.internal.ios.interop.SWBIntegrationAttributeAmplitudeUserId
@@ -268,12 +269,13 @@ internal fun SWBNonSubscriptionTransaction.toModel(): NonSubscriptionTransaction
 // ---------------------------------------------------------------------------
 
 /**
- * Maps a common [IntegrationAttribute] to the SWB raw value. Every common
- * value has a SuperwallKit counterpart on iOS (including
- * `FIREBASE_INSTALLATION_ID` and `SINGULAR_DEVICE_ID`, which are Android-gaps
- * in the other direction).
+ * Maps a common [IntegrationAttribute] to the SWB raw value, or `null` for the
+ * Android-only providers (META, AMPLITUDE, MIXPANEL, GOOGLE_ADS,
+ * GOOGLE_APP_SET_ID, CUSTOM), which SuperwallKit has no counterpart for; the
+ * bridge skips those with a logged warning, as Android does for
+ * `FIREBASE_INSTALLATION_ID`.
  */
-internal fun integrationAttributeToSWB(attribute: IntegrationAttribute): SWBIntegrationAttribute =
+internal fun integrationAttributeToSWB(attribute: IntegrationAttribute): SWBIntegrationAttribute? =
     when (attribute) {
         IntegrationAttribute.FIREBASE_INSTALLATION_ID -> SWBIntegrationAttributeFirebaseInstallationId
         IntegrationAttribute.SINGULAR_DEVICE_ID -> SWBIntegrationAttributeSingularDeviceId
@@ -298,6 +300,14 @@ internal fun integrationAttributeToSWB(attribute: IntegrationAttribute): SWBInte
         IntegrationAttribute.POSTHOG_USER_ID -> SWBIntegrationAttributePosthogUserId
         IntegrationAttribute.CUSTOMERIO_ID -> SWBIntegrationAttributeCustomerioId
         IntegrationAttribute.APPSTACK_ID -> SWBIntegrationAttributeAppstackId
+        IntegrationAttribute.AIRBRIDGE_ID -> SWBIntegrationAttributeAirbridgeId
+        IntegrationAttribute.META,
+        IntegrationAttribute.AMPLITUDE,
+        IntegrationAttribute.MIXPANEL,
+        IntegrationAttribute.GOOGLE_ADS,
+        IntegrationAttribute.GOOGLE_APP_SET_ID,
+        IntegrationAttribute.CUSTOM,
+        -> null
     }
 
 /**

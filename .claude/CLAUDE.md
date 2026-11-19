@@ -25,9 +25,15 @@ cd bridge && xcodebuild test -scheme SuperwallKMPBridge \
 
 ## Where code goes
 
-- Public API: **`commonMain` only.** No platform types in public signatures;
+- Public API: **`commonMain`**, with no platform types in public signatures;
   `configure` is identical on both platforms. `explicitApi()` is on, so every
   public declaration needs explicit visibility and return type.
+- The one exception is a platform accessor: a public extension in `androidMain`
+  or `iosMain`, used only where the native API itself takes or returns a
+  platform object (`EmbeddedPaywall.view` / `.viewController`, the Play Billing
+  observer overloads, game controller events). Keep the contract in common code
+  and wrap the native object behind it; never use the exception for something a
+  common type can express. `.agents/AGENTS.md` has the full rule.
 - Platform work goes behind the internal `SuperwallBridge` (`expect`/`actual`):
   `androidMain` wraps `superwall-android`; `iosMain` calls the `@objc` Swift
   bridge in `bridge/` through cinterop.

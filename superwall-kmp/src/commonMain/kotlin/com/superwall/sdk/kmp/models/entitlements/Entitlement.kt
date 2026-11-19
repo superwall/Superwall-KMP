@@ -36,4 +36,25 @@ public data class Entitlement(
     val willRenew: Boolean? = null,
     val state: LatestSubscriptionState? = null,
     val offerType: LatestSubscriptionOfferType? = null,
-)
+) {
+    /**
+     * Whether the last subscription transaction that unlocks this entitlement
+     * was revoked, or `null` without one (e.g. a manually granted
+     * entitlement). Derived from [state] on both platforms, as SuperwallKit
+     * does; superwall-android's own `isRevoked` is always `null`, but its
+     * state does report revoked subscriptions.
+     */
+    val isRevoked: Boolean?
+        get() = state?.let { it == LatestSubscriptionState.REVOKED }
+
+    /** When the subscription renews: [expiresAt] while active and set to renew, otherwise `null`. */
+    val renewsAt: Instant?
+        get() = if (isActive && willRenew == true) expiresAt else null
+
+    /**
+     * Whether the last subscription transaction that unlocks this entitlement
+     * is in a billing grace period, or `null` without one. Derived from [state].
+     */
+    val isInGracePeriod: Boolean?
+        get() = state?.let { it == LatestSubscriptionState.IN_GRACE_PERIOD }
+}
