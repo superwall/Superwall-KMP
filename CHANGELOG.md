@@ -13,7 +13,7 @@ The changelog for `Superwall-KMP`. Also see the [releases](https://github.com/su
 - `StoreProduct.isCustomProduct` can now be `true` on iOS: it is while `customTransactionId` is set, which is on the product passed to your `PurchaseController`.
 
 ## Enhancements
-- Updates Android SDK to 2.10.2 [View Android SDK release notes](https://github.com/superwall/Superwall-Android/releases/tag/2.10.2).
+- Updates Android SDK to 2.11.0 [View Android SDK release notes](https://github.com/superwall/Superwall-Android/releases/tag/2.11.0).
 - Updates iOS SDK to 4.19.1 [View iOS SDK release notes](https://github.com/superwall/Superwall-iOS/releases/tag/4.19.1).
 - Adds `SuperwallOptions.storeKitVersion` (iOS only) to choose between `StoreKitVersion.STOREKIT1` and `StoreKitVersion.STOREKIT2`. `null`, the default, lets the iOS SDK choose.
 - Adds `PaywallOptions.notificationPermissionsDenied` (iOS only), the `NotificationPermissionsDenied` alert shown when a paywall asks for notification permissions the user has denied. It's `null` by default, which shows no alert.

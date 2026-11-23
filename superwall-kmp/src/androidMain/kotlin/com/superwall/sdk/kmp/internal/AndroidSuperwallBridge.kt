@@ -72,7 +72,7 @@ import com.superwall.sdk.web.openRestoreOnWeb as nativeOpenRestoreOnWeb
 /**
  * The Android [SuperwallBridge]: a port of the Flutter plugin's
  * `SuperwallHost.kt` minus all Pigeon transport, calling superwall-android
- * directly (written against 2.7.11, now compiled against 2.10.2).
+ * directly (written against 2.7.11, now compiled against 2.11.0).
  *
  * Deliberate fixes over the Flutter host
  * - `configure`'s completion forwards the REAL native `Result<Unit>` instead
