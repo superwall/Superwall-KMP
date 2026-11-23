@@ -11,6 +11,7 @@ import com.superwall.sdk.kmp.internal.mappers.sanitizeParams
 import com.superwall.sdk.kmp.internal.mappers.toKmp
 import com.superwall.sdk.kmp.models.paywall.PaywallInfo
 import com.superwall.sdk.kmp.models.paywall.PaywallOverrides
+import com.superwall.sdk.kmp.models.results.PaywallResult
 import com.superwall.sdk.kmp.models.results.PaywallSkippedReason
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -194,19 +195,45 @@ internal object EmbeddedPaywalls {
     class PaywallHostView(
         context: Context,
         val placement: String,
-        private val callback: PaywallViewCallback,
-        private val log: (message: String, error: Throwable?) -> Unit,
+        callback: PaywallViewCallback,
+        log: (message: String, error: Throwable?) -> Unit,
     ) : FrameLayout(context) {
-        // The paywall on screen, or waiting for this host to be in a window.
-        private var paywall: NativePaywallView? = null
-        private var isShown = false
+        private val presentation =
+            EmbeddedPresentation(
+                callback,
+                log,
+                object : PaywallSurface<NativePaywallView> {
+                    override val isInWindow: Boolean get() = isAttachedToWindow
 
-        // Kept past teardown, so `info` still answers once the paywall is gone.
-        var lastInfo: PaywallInfo = PaywallInfo()
-            private set
+                    override fun info(paywall: NativePaywallView): PaywallInfo = paywall.info.toKmp()
 
-        val info: PaywallInfo
-            get() = paywall?.info?.toKmp()?.also { lastInfo = it } ?: lastInfo
+                    override fun hasParent(paywall: NativePaywallView): Boolean = paywall.parent != null
+
+                    override fun isInHost(paywall: NativePaywallView): Boolean = paywall.parent === this@PaywallHostView
+
+                    override fun present(paywall: NativePaywallView) {
+                        addView(paywall, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                        paywall.onViewCreated()
+                    }
+
+                    override fun release(paywall: NativePaywallView): Boolean = owners.release(paywall, this@PaywallHostView)
+
+                    override fun dismantle(paywall: NativePaywallView) {
+                        removeView(paywall)
+                        paywall.beforeOnDestroy(forceCleanup = true)
+                        paywall.encapsulatingActivity = null
+                        val job =
+                            teardownScope.launch {
+                                paywall.destroyed(forceCleanup = true)
+                                paywall.cleanup()
+                            }
+                        teardownJobs.removeAll { it.isCompleted }
+                        if (!job.isCompleted) teardownJobs.add(job)
+                    }
+                },
+            )
+
+        val info: PaywallInfo get() = presentation.info
         private var lastUiMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
 
         val nativeCallback =
@@ -216,94 +243,24 @@ internal object EmbeddedPaywalls {
                     result: NativePaywallResult,
                     shouldDismiss: Boolean,
                 ) {
-                    // A cached paywall this host has let go of can still report.
-                    if (paywall !== this@PaywallHostView.paywall) return
-                    val info = paywall.info.toKmp()
-                    val mappedResult = result.toKmp()
-                    deliver("onFinished") { callback.onFinished(info, mappedResult, shouldDismiss) }
+                    presentation.finished(paywall, shouldDismiss) { result.toKmp() }
                 }
             }
 
-        /** App code runs here; an exception from it must not break the paywall. */
         fun deliver(
             name: String,
             block: () -> Unit,
-        ) {
-            try {
-                block()
-            } catch (throwable: Throwable) {
-                log("PaywallViewCallback.$name threw an exception", throwable)
-            }
-        }
+        ): Unit = presentation.deliver(name, block)
 
-        fun setPaywall(paywall: NativePaywallView) {
-            this.paywall = paywall
-            if (isAttachedToWindow) show()
-        }
+        fun setPaywall(paywall: NativePaywallView): Unit = presentation.setPaywall(paywall)
 
-        private fun show() {
-            val paywall = paywall ?: return
-            if (isShown) return
-            if (paywall.parent != null) {
-                // A full-screen presentation took the cached paywall while this host waited.
-                this.paywall = null
-                owners.release(paywall, this)
-                deliver("onError") {
-                    callback.onError("The retrieved paywall is already shown in another view.")
-                }
-                return
-            }
-            isShown = true
-            addView(paywall, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-            paywall.onViewCreated()
-            val info = paywall.info.toKmp()
-            deliver("onPresent") { callback.onPresent(info) }
-        }
+        fun supersede(paywall: NativePaywallView): Unit = presentation.supersede(paywall)
 
-        /**
-         * Another host has been handed [paywall]: let go of it without tearing
-         * it down, since it is now shown there, and tell the app this view is
-         * empty.
-         */
-        fun supersede(paywall: NativePaywallView) {
-            if (paywall !== this.paywall) return
-            lastInfo = paywall.info.toKmp()
-            this.paywall = null
-            isShown = false
-            deliver("onError") {
-                callback.onError(
-                    "The paywall was taken over by another view that retrieved the same paywall. " +
-                        "Destroy a paywall in one view before retrieving it for another, or use a different paywall for each view on screen.",
-                )
-            }
-        }
-
-        fun teardown() {
-            val paywall = paywall ?: return
-            lastInfo = paywall.info.toKmp()
-            this.paywall = null
-            val wasShown = isShown
-            isShown = false
-            val owned = owners.release(paywall, this)
-            if (!wasShown) return // Never shown: it still belongs to the SDK's cache.
-            // Something else (a full-screen presentation of the same paywall) has
-            // taken the view over: tearing it down would break it there.
-            if (!owned || paywall.parent !== this) return
-            removeView(paywall)
-            paywall.beforeOnDestroy(forceCleanup = true)
-            paywall.encapsulatingActivity = null
-            val job =
-                teardownScope.launch {
-                    paywall.destroyed(forceCleanup = true)
-                    paywall.cleanup()
-                }
-            teardownJobs.removeAll { it.isCompleted }
-            if (!job.isCompleted) teardownJobs.add(job)
-        }
+        fun teardown(): Unit = presentation.teardown()
 
         override fun onAttachedToWindow() {
             super.onAttachedToWindow()
-            show()
+            presentation.show()
         }
 
         override fun onConfigurationChanged(newConfig: Configuration?) {
@@ -311,8 +268,137 @@ internal object EmbeddedPaywalls {
             val uiMode = (newConfig ?: resources.configuration).uiMode and Configuration.UI_MODE_NIGHT_MASK
             if (uiMode != lastUiMode) {
                 lastUiMode = uiMode
-                if (isShown) paywall?.onThemeChanged()
+                presentation.shown?.onThemeChanged()
             }
         }
+    }
+}
+
+/**
+ * What [EmbeddedPresentation] needs of the native paywall view and the host
+ * it is shown in. Both are Android views, which a host test can't construct,
+ * so the lifecycle reaches them only through this.
+ */
+internal interface PaywallSurface<V : Any> {
+    /** Whether the host is attached to a window. */
+    val isInWindow: Boolean
+
+    fun info(paywall: V): PaywallInfo
+
+    /** Whether [paywall] is in a view hierarchy, the host's or any other. */
+    fun hasParent(paywall: V): Boolean
+
+    fun isInHost(paywall: V): Boolean
+
+    /** Adds [paywall] to the host and begins its presentation. */
+    fun present(paywall: V)
+
+    /** Ends the host's claim on [paywall]; returns whether it still held it. */
+    fun release(paywall: V): Boolean
+
+    /** Takes [paywall] out of the host and ends its presentation in the SDK. */
+    fun dismantle(paywall: V)
+}
+
+/**
+ * The lifecycle of one embedded paywall: when it is put on screen, what the
+ * app's [callback] is told, and when it is torn down. Main thread only.
+ */
+internal class EmbeddedPresentation<V : Any>(
+    private val callback: PaywallViewCallback,
+    private val log: (message: String, error: Throwable?) -> Unit,
+    private val surface: PaywallSurface<V>,
+) {
+    // The paywall on screen, or waiting for the host to be in a window.
+    private var paywall: V? = null
+    private var isShown = false
+
+    // Kept past teardown, so `info` still answers once the paywall is gone.
+    private var lastInfo: PaywallInfo = PaywallInfo()
+
+    val info: PaywallInfo
+        get() = paywall?.let { surface.info(it) }?.also { lastInfo = it } ?: lastInfo
+
+    /** The paywall, while it is on screen in the host. */
+    val shown: V? get() = paywall.takeIf { isShown }
+
+    fun finished(
+        paywall: V,
+        shouldDismiss: Boolean,
+        result: () -> PaywallResult,
+    ) {
+        // A cached paywall this host has let go of can still report.
+        if (paywall !== this.paywall) return
+        val info = surface.info(paywall)
+        val mappedResult = result()
+        deliver("onFinished") { callback.onFinished(info, mappedResult, shouldDismiss) }
+    }
+
+    /** App code runs here; an exception from it must not break the paywall. */
+    fun deliver(
+        name: String,
+        block: () -> Unit,
+    ) {
+        try {
+            block()
+        } catch (throwable: Throwable) {
+            log("PaywallViewCallback.$name threw an exception", throwable)
+        }
+    }
+
+    fun setPaywall(paywall: V) {
+        this.paywall = paywall
+        if (surface.isInWindow) show()
+    }
+
+    /** Called whenever the host is attached to a window; a detach is deliberately not acted on. */
+    fun show() {
+        val paywall = paywall ?: return
+        if (isShown) return
+        if (surface.hasParent(paywall)) {
+            // A full-screen presentation took the cached paywall while this host waited.
+            this.paywall = null
+            surface.release(paywall)
+            deliver("onError") {
+                callback.onError("The retrieved paywall is already shown in another view.")
+            }
+            return
+        }
+        isShown = true
+        surface.present(paywall)
+        val info = surface.info(paywall)
+        deliver("onPresent") { callback.onPresent(info) }
+    }
+
+    /**
+     * Another host has been handed [paywall]: let go of it without tearing
+     * it down, since it is now shown there, and tell the app this view is
+     * empty.
+     */
+    fun supersede(paywall: V) {
+        if (paywall !== this.paywall) return
+        lastInfo = surface.info(paywall)
+        this.paywall = null
+        isShown = false
+        deliver("onError") {
+            callback.onError(
+                "The paywall was taken over by another view that retrieved the same paywall. " +
+                    "Destroy a paywall in one view before retrieving it for another, or use a different paywall for each view on screen.",
+            )
+        }
+    }
+
+    fun teardown() {
+        val paywall = paywall ?: return
+        lastInfo = surface.info(paywall)
+        this.paywall = null
+        val wasShown = isShown
+        isShown = false
+        val owned = surface.release(paywall)
+        if (!wasShown) return // Never shown: it still belongs to the SDK's cache.
+        // Something else (a full-screen presentation of the same paywall) has
+        // taken the view over: tearing it down would break it there.
+        if (!owned || !surface.isInHost(paywall)) return
+        surface.dismantle(paywall)
     }
 }

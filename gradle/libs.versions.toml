@@ -10,6 +10,8 @@ androidx-startup = "1.2.0"
 # Compile-only pins matching superwall-android 2.11.0's own (runtime-scoped) deps:
 android-billing = "9.1.0"
 kotlinx-serialization = "1.7.2"
+# Host tests only: a real org.json in place of the mockable android.jar's stubs.
+json = "20240303"
 # Sample app only (not used by the published :superwall-kmp module):
 # Compose Multiplatform 1.11.1 — latest stable on Maven Central; requires KGP >= 2.2.0
 # (verified in the plugin's own check) and its runtime klibs are built with Kotlin 2.2.20,
@@ -27,6 +29,7 @@ superwall-android = { module = "com.superwall.sdk:superwall-android", version.re
 androidx-startup = { module = "androidx.startup:startup-runtime", version.ref = "androidx-startup" }
 android-billing = { module = "com.android.billingclient:billing", version.ref = "android-billing" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+json = { module = "org.json:json", version.ref = "json" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activityCompose" }
 
 [plugins]

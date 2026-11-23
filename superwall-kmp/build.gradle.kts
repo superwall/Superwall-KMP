@@ -121,6 +121,16 @@ kotlin {
             compileOnly(libs.android.billing)
             compileOnly(libs.kotlinx.serialization.json)
         }
+
+        getByName("androidHostTest").dependencies {
+            // compileOnly in androidMain, so the tests that build a Play
+            // Billing Purchase need it on their own compile classpath.
+            implementation(libs.android.billing)
+            // Host tests run against the mockable android.jar, whose org.json
+            // is stubs that throw. Purchase parses its JSON with org.json, so
+            // put a real implementation ahead of the stubs.
+            implementation(libs.json)
+        }
     }
 }
 
