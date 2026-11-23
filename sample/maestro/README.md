@@ -50,6 +50,7 @@ e.g. `/opt/homebrew/Cellar/maestro/<version>/bin/maestro`.
 | `flow.yaml` — configure + subscription status | passes | passes |
 | `handler/flow.yaml` — presentation handler | passes | passes |
 | `delegate/flow.yaml` — delegate callbacks | passes | passes |
+| `newapi/flow.yaml` — embedded paywall, status/events flows, assignments | passes | passes |
 | `purchasecontroller/test_mode_purchases.yaml` — simulated purchases | passes | **blocked** — see below |
 | `purchasecontroller/test_pc_purchases.yaml` | blocked — needs StoreKit products | not run — needs Play Billing sandbox |
 | `purchasecontroller/no_pc_purchases.yaml` | blocked — needs a purchase sandbox | not run — needs Play Billing sandbox |

@@ -58,4 +58,18 @@ public sealed interface RedemptionResult {
         val code: String,
         val redemptionInfo: RedemptionInfo,
     ) : RedemptionResult
+
+    /**
+     * The Stripe subscription IDs of a successful redemption, or `null` when
+     * the redemption didn't succeed or the purchase wasn't made through Stripe.
+     */
+    public val stripeSubscriptionIds: List<String>?
+        get() = ((this as? Success)?.redemptionInfo?.purchaserInfo?.storeIdentifiers as? StoreIdentifiers.Stripe)?.subscriptionIds
+
+    /**
+     * The Paddle subscription IDs of a successful redemption, or `null` when
+     * the redemption didn't succeed or the purchase wasn't made through Paddle.
+     */
+    public val paddleSubscriptionIds: List<String>?
+        get() = ((this as? Success)?.redemptionInfo?.purchaserInfo?.storeIdentifiers as? StoreIdentifiers.Paddle)?.subscriptionIds
 }

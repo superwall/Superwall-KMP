@@ -28,6 +28,34 @@ internal const val SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_CODE: Long = 1 // SWBLates
 internal const val SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_PROMOTIONAL: Long = 2 // SWBLatestSubscriptionOfferType.promotional
 internal const val SWB_LATEST_SUBSCRIPTION_OFFER_TYPE_WINBACK: Long = 3 // SWBLatestSubscriptionOfferType.winback
 
+// SuperwallKit SubscriptionPeriod.Unit, carried as
+// SWBStoreProduct.subscriptionPeriodUnitRawValue
+internal const val SWB_SUBSCRIPTION_PERIOD_UNIT_DAY: Long = 0 // SubscriptionPeriod.Unit.day
+internal const val SWB_SUBSCRIPTION_PERIOD_UNIT_WEEK: Long = 1 // SubscriptionPeriod.Unit.week
+internal const val SWB_SUBSCRIPTION_PERIOD_UNIT_MONTH: Long = 2 // SubscriptionPeriod.Unit.month
+internal const val SWB_SUBSCRIPTION_PERIOD_UNIT_YEAR: Long = 3 // SubscriptionPeriod.Unit.year
+
+// SWBPaywallPresentationStyle (Envelopes.swift)
+internal const val SWB_PAYWALL_PRESENTATION_STYLE_MODAL: Long = 0 // SWBPaywallPresentationStyle.modal
+internal const val SWB_PAYWALL_PRESENTATION_STYLE_FULLSCREEN: Long = 1 // SWBPaywallPresentationStyle.fullscreen
+internal const val SWB_PAYWALL_PRESENTATION_STYLE_FULLSCREEN_NO_ANIMATION: Long = 2 // .fullscreenNoAnimation
+internal const val SWB_PAYWALL_PRESENTATION_STYLE_PUSH: Long = 3 // SWBPaywallPresentationStyle.push
+internal const val SWB_PAYWALL_PRESENTATION_STYLE_DRAWER: Long = 4 // SWBPaywallPresentationStyle.drawer
+internal const val SWB_PAYWALL_PRESENTATION_STYLE_POPUP: Long = 5 // SWBPaywallPresentationStyle.popup
+internal const val SWB_PAYWALL_PRESENTATION_STYLE_NONE: Long = 6 // SWBPaywallPresentationStyle.none
+
+// SuperwallKit IntroOfferEligibility, carried as SWBPaywallInfo.introOfferEligibilityRawValue
+internal const val SWB_INTRO_OFFER_ELIGIBILITY_ELIGIBLE: Long = 0 // IntroOfferEligibility.eligible
+internal const val SWB_INTRO_OFFER_ELIGIBILITY_INELIGIBLE: Long = 1 // IntroOfferEligibility.ineligible
+internal const val SWB_INTRO_OFFER_ELIGIBILITY_AUTOMATIC: Long = 2 // IntroOfferEligibility.automatic
+
+// SWBStoreTransactionState (Envelopes.swift)
+internal const val SWB_STORE_TRANSACTION_STATE_PURCHASING: Long = 0 // SWBStoreTransactionState.purchasing
+internal const val SWB_STORE_TRANSACTION_STATE_PURCHASED: Long = 1 // SWBStoreTransactionState.purchased
+internal const val SWB_STORE_TRANSACTION_STATE_FAILED: Long = 2 // SWBStoreTransactionState.failed
+internal const val SWB_STORE_TRANSACTION_STATE_RESTORED: Long = 3 // SWBStoreTransactionState.restored
+internal const val SWB_STORE_TRANSACTION_STATE_DEFERRED: Long = 4 // SWBStoreTransactionState.deferred
+
 // SWBTransactionType (Envelopes.swift)
 internal const val SWB_TRANSACTION_TYPE_NON_RECURRING_PRODUCT_PURCHASE: Long = 0 // SWBTransactionType.nonRecurringProductPurchase
 internal const val SWB_TRANSACTION_TYPE_FREE_TRIAL_START: Long = 1 // SWBTransactionType.freeTrialStart
@@ -54,13 +82,16 @@ internal const val SWB_EVENT_TRACKING_BEHAVIOR_ALL: Long = 0 // SWBEventTracking
 internal const val SWB_EVENT_TRACKING_BEHAVIOR_SUPERWALL_ONLY: Long = 1 // SWBEventTrackingBehavior.superwallOnly
 internal const val SWB_EVENT_TRACKING_BEHAVIOR_NONE: Long = 2 // SWBEventTrackingBehavior.none
 
+// SuperwallOptions.StoreKitVersion (SuperwallKit), carried as
+// SWBSuperwallOptions.storeKitVersion
+internal const val SWB_STORE_KIT_VERSION_STOREKIT1: Long = 0 // SuperwallOptions.StoreKitVersion.storeKit1
+internal const val SWB_STORE_KIT_VERSION_STOREKIT2: Long = 1 // SuperwallOptions.StoreKitVersion.storeKit2
+
 // SWBTransactionBackgroundView (SuperwallKMPBridge.swift)
 internal const val SWB_TRANSACTION_BACKGROUND_VIEW_SPINNER: Long = 0 // SWBTransactionBackgroundView.spinner
 internal const val SWB_TRANSACTION_BACKGROUND_VIEW_NONE: Long = 1 // SWBTransactionBackgroundView.none
 
-// SWBLogScope (SuperwallKMPBridge.swift). The bridge's two 4.16.x-only cases
-// (analytics = 22, webEntitlements = 23) have no common counterpart and are
-// never written by the mappers, so they are intentionally not declared.
+// SWBLogScope (SuperwallKMPBridge.swift)
 internal const val SWB_LOG_SCOPE_LOCALIZATION_MANAGER: Long = 0 // SWBLogScope.localizationManager
 internal const val SWB_LOG_SCOPE_BOUNCE_BUTTON: Long = 1 // SWBLogScope.bounceButton
 internal const val SWB_LOG_SCOPE_CORE_DATA: Long = 2 // SWBLogScope.coreData
@@ -83,3 +114,61 @@ internal const val SWB_LOG_SCOPE_TRANSACTIONS: Long = 18 // SWBLogScope.transact
 internal const val SWB_LOG_SCOPE_PAYWALL_VIEW_CONTROLLER: Long = 19 // SWBLogScope.paywallViewController
 internal const val SWB_LOG_SCOPE_CACHE: Long = 20 // SWBLogScope.cache
 internal const val SWB_LOG_SCOPE_ALL: Long = 21 // SWBLogScope.all
+internal const val SWB_LOG_SCOPE_ANALYTICS: Long = 22 // SWBLogScope.analytics
+internal const val SWB_LOG_SCOPE_WEB_ENTITLEMENTS: Long = 23 // SWBLogScope.webEntitlements
+internal const val SWB_LOG_SCOPE_GRANTED_ENTITLEMENTS: Long = 24 // SWBLogScope.grantedEntitlements
+internal const val SWB_LOG_SCOPE_CUSTOMER_CENTER: Long = 25 // SWBLogScope.customerCenter
+
+// SWBCustomerCenterPathType (CustomerCenter.swift)
+internal const val SWB_CUSTOMER_CENTER_PATH_TYPE_RESTORE: Long = 0 // SWBCustomerCenterPathType.restore
+internal const val SWB_CUSTOMER_CENTER_PATH_TYPE_MANAGE_SUBSCRIPTION: Long = 1 // SWBCustomerCenterPathType.manageSubscription
+internal const val SWB_CUSTOMER_CENTER_PATH_TYPE_REFUND: Long = 2 // SWBCustomerCenterPathType.refund
+internal const val SWB_CUSTOMER_CENTER_PATH_TYPE_CHANGE_PLAN: Long = 3 // SWBCustomerCenterPathType.changePlan
+internal const val SWB_CUSTOMER_CENTER_PATH_TYPE_CONTACT_SUPPORT: Long = 4 // SWBCustomerCenterPathType.contactSupport
+internal const val SWB_CUSTOMER_CENTER_PATH_TYPE_URL: Long = 5 // SWBCustomerCenterPathType.url
+internal const val SWB_CUSTOMER_CENTER_PATH_TYPE_CUSTOM: Long = 6 // SWBCustomerCenterPathType.custom
+
+// SWBCustomerCenterActionType (CustomerCenter.swift)
+internal const val SWB_CUSTOMER_CENTER_ACTION_TYPE_RESTORE: Long = 0 // SWBCustomerCenterActionType.restore
+internal const val SWB_CUSTOMER_CENTER_ACTION_TYPE_MANAGE_SUBSCRIPTION: Long = 1 // SWBCustomerCenterActionType.manageSubscription
+internal const val SWB_CUSTOMER_CENTER_ACTION_TYPE_REFUND: Long = 2 // SWBCustomerCenterActionType.refund
+internal const val SWB_CUSTOMER_CENTER_ACTION_TYPE_CHANGE_PLAN: Long = 3 // SWBCustomerCenterActionType.changePlan
+internal const val SWB_CUSTOMER_CENTER_ACTION_TYPE_CONTACT_SUPPORT: Long = 4 // SWBCustomerCenterActionType.contactSupport
+internal const val SWB_CUSTOMER_CENTER_ACTION_TYPE_URL: Long = 5 // SWBCustomerCenterActionType.url
+internal const val SWB_CUSTOMER_CENTER_ACTION_TYPE_CUSTOM: Long = 6 // SWBCustomerCenterActionType.custom
+
+// Refund status raw values (CustomerCenterRefundStatus.swbRawValue, CustomerCenter.swift)
+internal const val SWB_CUSTOMER_CENTER_REFUND_STATUS_SUCCESS: Long = 0 // .success
+internal const val SWB_CUSTOMER_CENTER_REFUND_STATUS_USER_CANCELLED: Long = 1 // .userCancelled
+internal const val SWB_CUSTOMER_CENTER_REFUND_STATUS_ERROR: Long = 2 // .error
+
+// SWBNetworkEnvironment.local (SuperwallKMPBridge.swift)
+internal const val SWB_NETWORK_ENVIRONMENT_LOCAL: Long = 3 // SWBNetworkEnvironment.local
+
+// SuperwallKit StoreProductDiscount.PaymentMode, carried as SWBStoreProductDiscount.paymentModeRawValue
+internal const val SWB_DISCOUNT_PAYMENT_MODE_PAY_AS_YOU_GO: Long = 0 // StoreProductDiscount.PaymentMode.payAsYouGo
+internal const val SWB_DISCOUNT_PAYMENT_MODE_PAY_UP_FRONT: Long = 1 // StoreProductDiscount.PaymentMode.payUpFront
+internal const val SWB_DISCOUNT_PAYMENT_MODE_FREE_TRIAL: Long = 2 // StoreProductDiscount.PaymentMode.freeTrial
+
+// SuperwallKit StoreProductDiscount.DiscountType, carried as SWBStoreProductDiscount.typeRawValue
+internal const val SWB_DISCOUNT_TYPE_INTRODUCTORY: Long = 0 // StoreProductDiscount.DiscountType.introductory
+internal const val SWB_DISCOUNT_TYPE_PROMOTIONAL: Long = 1 // StoreProductDiscount.DiscountType.promotional
+
+// SuperwallKit AppStoreProduct.BillingPlanType, carried as billingPlanTypeRawValue
+// on SWBStoreProduct and SWBProduct
+internal const val SWB_BILLING_PLAN_TYPE_UP_FRONT: Long = 0 // AppStoreProduct.BillingPlanType.upFront
+internal const val SWB_BILLING_PLAN_TYPE_MONTHLY: Long = 1 // AppStoreProduct.BillingPlanType.monthly
+
+// SWBCustomerCenterEventInfo.screenRawValue (CustomerCenter.swift / BridgeDelegate.swift)
+internal const val SWB_CUSTOMER_CENTER_SCREEN_MANAGEMENT: Long = 0 // CustomerCenterScreenType.management
+internal const val SWB_CUSTOMER_CENTER_SCREEN_NO_PURCHASES: Long = 1 // CustomerCenterScreenType.noPurchases
+
+// SWBCustomerCenterEventInfo.presentationStyleRawValue
+internal const val SWB_CUSTOMER_CENTER_PRESENTATION_SHEET: Long = 0 // CustomerCenterPresentationStyle.sheet
+internal const val SWB_CUSTOMER_CENTER_PRESENTATION_EMBEDDED: Long = 1 // CustomerCenterPresentationStyle.embedded
+
+// SWBConfigurationStatus (Envelopes.swift), as passed to the
+// observeConfigurationStatus block
+internal const val SWB_CONFIGURATION_STATUS_PENDING: Long = 0 // SWBConfigurationStatus.pending
+internal const val SWB_CONFIGURATION_STATUS_CONFIGURED: Long = 1 // SWBConfigurationStatus.configured
+internal const val SWB_CONFIGURATION_STATUS_FAILED: Long = 2 // SWBConfigurationStatus.failed

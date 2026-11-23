@@ -16,7 +16,7 @@ Kotlin Multiplatform SDK wrapping the native Superwall SDKs behind one common AP
 implementation("com.superwall.sdk:superwall-kmp:<version>")
 ```
 
-**iOS** — two steps, and both are required:
+**iOS** (iOS 15+, built with Xcode 26 or later) — two steps, and both are required:
 
 1. The same Gradle dependency in your shared module, with the framework exported
    as **static**:
@@ -65,6 +65,12 @@ scope.launch {
 - **`configure` runs once per process.** Repeat calls are no-ops whose completion
   fires with the first call's outcome; options and the purchase controller are
   installed only by the first one.
+  The one exception is Android's development-only `Superwall.teardown()`, after
+  which `configure` runs again; iOS has no teardown.
+- **Purchase controllers get the whole product.** The SDK calls the
+  `PurchaseController` overloads that take a `StoreProduct`; their defaults
+  forward to the product-id methods. Override them to handle custom store
+  products (`isCustomProduct`, `customTransactionId`).
 
 ---
 
@@ -101,9 +107,22 @@ the prebuilt binary and the transitively resolved SuperwallKit cannot drift.
 
 - `explicitApi()` is on. Every public declaration needs explicit visibility and
   an explicit return type.
-- **The public API lives entirely in `commonMain`.** No platform types in public
+- **The public API lives in `commonMain`.** No platform types in its
   signatures, and `configure` has an identical signature on both platforms.
 - Anything platform-specific goes behind the internal `SuperwallBridge`.
+- **The one exception: platform accessors.** Where the native API itself takes
+  or returns a platform object, a public extension may be declared in
+  `androidMain` (`SuperwallAndroid.kt`) or `iosMain` (`SuperwallIos.kt`), so
+  common code still never sees a platform type. Keep it as small as it can be:
+  model the feature in `commonMain` first and add only the accessor that hands
+  the platform object over. An embedded paywall is a common `EmbeddedPaywall`
+  from the common `Superwall.getPaywall`; the only platform API is
+  `EmbeddedPaywall.view` (Android `View`) and `EmbeddedPaywall.viewController`
+  (iOS `UIViewController`). The rest of the list is short and should stay so:
+  `androidSetup(Application)`, the Play Billing overloads of `observePurchase*`,
+  `dispatchKeyEvent` / `dispatchMotionEvent`, and on iOS `gamepadValueChanged`,
+  `presentedViewController` and `customerCenterViewController`. Don't use the
+  exception for anything a common type can express.
 - Event/enum mappers are exhaustive by design — an unmapped native case falling
   through to a params-fallback is a bug, and there are tests that assert this.
 
@@ -117,8 +136,9 @@ the prebuilt binary and the transitively resolved SuperwallKit cannot drift.
 ```
 
 **Bridge tests do not run under `swift test`.** `bridge/Package.swift` declares
-`platforms: [.iOS(.v14)]`, so `swift test` builds for the macOS host where the
-iOS-only SuperwallKit (`import UIKit`) cannot compile. Use a simulator:
+only `platforms: [.iOS(.v15)]`, so `swift test` builds for the macOS host, which
+the bridge does not target. Use a simulator (Xcode 26 or later — SuperwallKit
+4.18+ needs Swift 6.2):
 
 ```bash
 cd bridge && xcodebuild test -scheme SuperwallKMPBridge \

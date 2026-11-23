@@ -21,6 +21,8 @@ import SuperwallKit
 public protocol SWBPaywallPresentationHandler: AnyObject {
   /// The paywall presented.
   @objc func onPresent(_ paywallInfo: SWBPaywallInfo)
+  /// The paywall is about to be dismissed with a result.
+  @objc func onWillDismiss(_ paywallInfo: SWBPaywallInfo, result: SWBPaywallResult)
   /// The paywall dismissed with a result.
   @objc func onDismiss(_ paywallInfo: SWBPaywallInfo, result: SWBPaywallResult)
   /// Presentation failed. No further callbacks are expected after this
@@ -55,6 +57,10 @@ final class PresentationHandlerWrapper {
 
     nativeHandler.onPresent { [bridgeHandler] paywallInfo in
       bridgeHandler.onPresent(SWBPaywallInfo(paywallInfo))
+    }
+
+    nativeHandler.onWillDismiss { [bridgeHandler] paywallInfo, result in
+      bridgeHandler.onWillDismiss(SWBPaywallInfo(paywallInfo), result: SWBPaywallResult(result))
     }
 
     nativeHandler.onDismiss { [weak self, bridgeHandler] paywallInfo, result in

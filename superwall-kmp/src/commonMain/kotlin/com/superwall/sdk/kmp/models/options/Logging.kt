@@ -4,8 +4,12 @@ package com.superwall.sdk.kmp.models.options
  * Configuration for printing to the console.
  */
 public data class Logging(
-    /** The minimum log level to print to the console. Defaults to [LogLevel.INFO]. */
-    val level: LogLevel = LogLevel.INFO,
+    /**
+     * The minimum log level to print to the console. `null`, the default,
+     * leaves each native SDK's own default in place: [LogLevel.INFO] on iOS
+     * and [LogLevel.WARN] on Android.
+     */
+    val level: LogLevel? = null,
     /** The scope of logs to print to the console. Defaults to [LogScope.ALL]. */
     val scopes: Set<LogScope> = setOf(LogScope.ALL),
 ) {
@@ -20,7 +24,8 @@ public data class Logging(
         message: String,
         error: Throwable? = null,
     ) {
-        if (level.ordinal < this.level.ordinal) {
+        // An unset level prints from INFO up, as it did when INFO was the default.
+        if (level.ordinal < (this.level ?: LogLevel.INFO).ordinal) {
             return
         }
         println("[$level] $message")

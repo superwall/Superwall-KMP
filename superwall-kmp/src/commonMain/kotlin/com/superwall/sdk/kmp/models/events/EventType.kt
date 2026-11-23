@@ -224,4 +224,67 @@ public enum class EventType {
 
     /** A permission was denied. */
     PERMISSION_DENIED,
+
+    /**
+     * Install attribution was resolved, or failed to resolve. The match
+     * details are in [SuperwallEventInfo.params] under `"attributionMatch"`.
+     */
+    ATTRIBUTION_MATCH,
+
+    /**
+     * A page of a multi-page paywall was viewed. The page details are in
+     * [SuperwallEventInfo.params] under `"pageViewData"`.
+     */
+    PAYWALL_PAGE_VIEW,
+
+    /** The test mode modal was opened. */
+    TEST_MODE_MODAL_OPEN,
+
+    /** The test mode modal was closed. */
+    TEST_MODE_MODAL_CLOSE,
+
+    /** The user granted an app store review request (Android only). */
+    REVIEW_GRANTED,
+
+    /** The user denied an app store review request (Android only). */
+    REVIEW_DENIED,
+
+    /** A Stripe checkout started (iOS only). */
+    STRIPE_CHECKOUT_START,
+
+    /** A Stripe checkout was submitted (iOS only). */
+    STRIPE_CHECKOUT_SUBMIT,
+
+    /** A Stripe checkout completed (iOS only). */
+    STRIPE_CHECKOUT_COMPLETE,
+
+    /** A Stripe checkout failed (iOS only). */
+    STRIPE_CHECKOUT_FAIL,
+
+    /**
+     * A paywall sent the user to a web flow in the browser, such as its
+     * checkout page (iOS only).
+     */
+    TELEPORT_OPEN,
+
+    /**
+     * A return link brought the user back to the app from a web flow (iOS
+     * only). [SuperwallEventInfo.paywallInfo] is the presented paywall, if any.
+     */
+    TELEPORT_RETURN,
+
+    /** The Customer Center was presented. */
+    CUSTOMER_CENTER_OPEN,
+
+    /** The Customer Center was dismissed. */
+    CUSTOMER_CENTER_CLOSE,
+
+    /** The user selected an action in the Customer Center. */
+    CUSTOMER_CENTER_ACTION,
+
+    /** The user answered a Customer Center survey. */
+    CUSTOMER_CENTER_SURVEY_RESPONSE,
+
+    /** A refund request started from the Customer Center completed. */
+    CUSTOMER_CENTER_REFUND_REQUEST,
 }

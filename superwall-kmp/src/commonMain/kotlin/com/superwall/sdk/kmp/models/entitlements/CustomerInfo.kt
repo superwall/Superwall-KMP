@@ -15,7 +15,11 @@ public data class CustomerInfo(
     val nonSubscriptions: List<NonSubscriptionTransaction>,
     val entitlements: List<Entitlement>,
     val userId: String,
-)
+) {
+    /** The product ids of the user's active subscriptions, as the native SDKs compute them. */
+    val activeSubscriptionProductIds: Set<String>
+        get() = subscriptions.filter { it.isActive }.map { it.productId }.toSet()
+}
 
 /**
  * A subscription transaction.

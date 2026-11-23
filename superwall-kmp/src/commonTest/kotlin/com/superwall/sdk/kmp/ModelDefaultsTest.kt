@@ -1,5 +1,17 @@
 package com.superwall.sdk.kmp
 
+import com.superwall.sdk.kmp.models.callbacks.CustomCallback
+import com.superwall.sdk.kmp.models.paywall.PaywallOverrides
+import kotlinx.coroutines.test.runTest
+import com.superwall.sdk.kmp.models.redemption.StoreIdentifiers
+import com.superwall.sdk.kmp.models.redemption.RedemptionResult
+import com.superwall.sdk.kmp.models.redemption.RedemptionInfo
+import com.superwall.sdk.kmp.models.redemption.PurchaserInfo
+import com.superwall.sdk.kmp.models.redemption.Ownership
+import com.superwall.sdk.kmp.models.options.Logging
+import com.superwall.sdk.kmp.models.options.CustomNetworkEnvironment
+import com.superwall.sdk.kmp.models.events.SuperwallEventInfo
+import com.superwall.sdk.kmp.models.events.EventType
 import com.superwall.sdk.kmp.models.callbacks.CustomCallbackResult
 import com.superwall.sdk.kmp.models.callbacks.CustomCallbackResultStatus
 import com.superwall.sdk.kmp.models.entitlements.Entitlement
@@ -209,5 +221,101 @@ class ModelDefaultsTest {
         assertNull(info.featureGatingBehavior)
         assertNull(info.closeReason)
         assertNull(info.state)
+    }
+
+    // ---- 0.2.0 additions ---------------------------------------------------------------
+
+    @Test
+    fun loggingLevelIsUnsetByDefaultAndPrintsFromInfoUp() {
+        // null leaves each native SDK's own default in place.
+        assertNull(Logging().level)
+        assertNull(SuperwallOptions().logging.level)
+    }
+
+    @Test
+    fun newOptionsDefaultToOff() {
+        val options = SuperwallOptions()
+        assertTrue(options.localResources.isEmpty())
+        assertNull(options.devServer)
+        assertNull(options.customNetworkEnvironment)
+        assertEquals("https", CustomNetworkEnvironment(baseHost = "api.example.com").scheme)
+    }
+
+    @Test
+    fun redemptionSubscriptionIdsComeFromASuccessfulRedemptionOfThatStore() {
+        fun success(identifiers: StoreIdentifiers) =
+            RedemptionResult.Success(
+                code = "code",
+                redemptionInfo =
+                    RedemptionInfo(
+                        ownership = Ownership.AppUser("user"),
+                        purchaserInfo = PurchaserInfo(appUserId = "user", storeIdentifiers = identifiers),
+                        entitlements = emptySet(),
+                    ),
+            )
+
+        val stripe = success(StoreIdentifiers.Stripe(customerId = "cus_1", subscriptionIds = listOf("sub_1", "sub_2")))
+        assertEquals(listOf("sub_1", "sub_2"), stripe.stripeSubscriptionIds)
+        assertNull(stripe.paddleSubscriptionIds)
+
+        val paddle = success(StoreIdentifiers.Paddle(customerId = "ctm_1", subscriptionIds = listOf("sub_3")))
+        assertEquals(listOf("sub_3"), paddle.paddleSubscriptionIds)
+        assertNull(paddle.stripeSubscriptionIds)
+
+        val invalid: RedemptionResult = RedemptionResult.InvalidCode("code")
+        assertNull(invalid.stripeSubscriptionIds)
+        assertNull(invalid.paddleSubscriptionIds)
+    }
+
+    @Test
+    fun newModelFieldsDefaultToAbsent() {
+        val product = storeProduct("annual")
+        assertFalse(product.isCustomProduct)
+        assertNull(product.customTransactionId)
+        assertNull(product.introductoryDiscount)
+        assertTrue(product.discounts.isEmpty())
+        assertNull(product.billingPlanType)
+        assertFalse(product.isBillingPlanAvailable)
+        assertNull(product.introOfferToken)
+
+        val paywallInfo = PaywallInfo()
+        assertNull(paywallInfo.databaseId)
+        assertNull(paywallInfo.customerInfo)
+
+        val event = SuperwallEventInfo(eventType = EventType.TRANSACTION_COMPLETE)
+        assertNull(event.transactionType)
+        assertNull(event.transactionProduct)
+        assertNull(event.customerCenter)
+    }
+
+    @Test
+    fun paywallViewCallbackDefaultsAreNoOpsAndACustomCallbackFails() =
+        runTest {
+            val finished = mutableListOf<Triple<PaywallInfo, PaywallResult, Boolean>>()
+            val callback =
+                object : PaywallViewCallback {
+                    override fun onFinished(
+                        paywallInfo: PaywallInfo,
+                        result: PaywallResult,
+                        shouldDismiss: Boolean,
+                    ) {
+                        finished += Triple(paywallInfo, result, shouldDismiss)
+                    }
+                }
+
+            callback.onPresent(PaywallInfo())
+            callback.onSkip(PaywallSkippedReason.NoAudienceMatch)
+            callback.onError("boom")
+            callback.onFinished(PaywallInfo(identifier = "pw"), PaywallResult.Declined, shouldDismiss = true)
+
+            assertEquals(listOf(Triple(PaywallInfo(identifier = "pw"), PaywallResult.Declined as PaywallResult, true)), finished)
+            assertEquals(CustomCallbackResultStatus.FAILURE, callback.onCustomCallback(CustomCallback("name")).status)
+        }
+
+    @Test
+    fun paywallOverridesAndLoadingColorDefaultToNothing() {
+        assertTrue(PaywallOverrides().productIdsByName.isEmpty())
+        assertFalse(PaywallOverrides().ignoreSubscriptionStatus)
+        assertNull(SuperwallOptions().paywalls.loadingColor)
     }
 }

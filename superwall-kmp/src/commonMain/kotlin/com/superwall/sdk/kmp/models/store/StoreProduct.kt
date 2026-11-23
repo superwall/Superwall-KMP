@@ -7,7 +7,11 @@ import kotlin.time.Instant
  * A wrapper around a store product.
  */
 public data class StoreProduct(
-    /** The entitlements associated with this product. */
+    /**
+     * The entitlements associated with this product. Always empty on Android,
+     * where the native store product carries none; use
+     * `Superwall.getEntitlementsByProductIds` there.
+     */
     val entitlements: Set<Entitlement>,
     /** The product's identifier. */
     val productIdentifier: String,
@@ -73,11 +77,14 @@ public data class StoreProduct(
     val trialPeriodText: String,
     /** The locale of the product's price formatting. */
     val locale: String,
-    /** Whether the product is family shareable (App Store). */
+    /** Whether the product is family shareable (App Store; always `false` on Android). */
     val isFamilyShareable: Boolean,
     /** The price of the product in the local currency. */
     val price: Double,
-    /** The identifier of the subscription group the product belongs to (App Store). */
+    /**
+     * The identifier of the subscription group the product belongs to (App
+     * Store; always `null` on Android).
+     */
     val subscriptionGroupIdentifier: String? = null,
     /** The date the trial period ends. */
     val trialPeriodEndDate: Instant? = null,
@@ -89,4 +96,69 @@ public data class StoreProduct(
     val currencyCode: String? = null,
     /** The region code of the product's locale (e.g. `US`). */
     val regionCode: String? = null,
+    /** The subscription period, or `null` for a product that isn't a subscription. */
+    val subscriptionPeriod: SubscriptionPeriod? = null,
+    /**
+     * The full identifier, `productId:basePlanId:offerId` as set in the
+     * Superwall dashboard. Android only; `null` on iOS.
+     */
+    val fullIdentifier: String? = null,
+    /** The Play product type (`subs` or `inapp`). Android only; `null` on iOS. */
+    val productType: String? = null,
+    /**
+     * The country code of the store the product is sold through, for products
+     * that carry their own storefront (e.g. test mode products). Android
+     * only; `null` on iOS and for Play products.
+     */
+    val storeFrontCountryCode: String? = null,
+    /**
+     * Whether this is a custom store product, bought through your
+     * `PurchaseController` rather than the store. Android knows this for every
+     * product. SuperwallKit doesn't expose it, so on iOS it is `true` only
+     * while [customTransactionId] is set: on the product handed to your
+     * `PurchaseController`.
+     */
+    val isCustomProduct: Boolean = false,
+    /**
+     * The transaction id the SDK generates for a purchase of a custom store
+     * product; `null` for other products and outside a purchase. Set on the
+     * product handed to your `PurchaseController`, and reported as the
+     * original transaction id of the purchase's `TRANSACTION_COMPLETE` event.
+     */
+    val customTransactionId: String? = null,
+    /** The product's introductory offer, if it has one. iOS only; `null` on Android. */
+    val introductoryDiscount: StoreProductDiscount? = null,
+    /** The product's introductory and promotional offers. iOS only; empty on Android. */
+    val discounts: List<StoreProductDiscount> = emptyList(),
+    /**
+     * The App Store billing plan that will be applied at purchase on this
+     * device, or `null` when none is configured or the configured one isn't
+     * available here. iOS only; `null` on Android.
+     */
+    val billingPlanType: BillingPlanType? = null,
+    /**
+     * Whether a billing plan is configured for the product and available on
+     * this device. iOS only; `false` on Android.
+     */
+    val isBillingPlanAvailable: Boolean = false,
+    /**
+     * The token overriding Apple's introductory offer eligibility check, set
+     * when purchasing from a Superwall paywall on iOS 18.2+. iOS only; `null`
+     * on Android.
+     */
+    val introOfferToken: IntroOfferToken? = null,
 )
+
+/** The length of a subscription period: [value] [unit]s, e.g. 3 months. */
+public data class SubscriptionPeriod(
+    val value: Int,
+    val unit: SubscriptionPeriodUnit,
+)
+
+/** The unit of a [SubscriptionPeriod]. */
+public enum class SubscriptionPeriodUnit {
+    DAY,
+    WEEK,
+    MONTH,
+    YEAR,
+}

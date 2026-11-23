@@ -19,9 +19,10 @@ import SuperwallKit
 /// (blocking the main queue here deadlocks the SDK).
 @objc(SWBPurchaseController)
 public protocol SWBPurchaseController: AnyObject {
-  /// Purchase the App Store product with the given identifier.
+  /// Purchase the given product: an App Store product, or a custom store
+  /// product, for which `product.customTransactionId` is set.
   /// Invoke `completion` exactly once with the outcome.
-  @objc func purchase(productId: String, completion: @escaping (SWBPurchaseResult) -> Void)
+  @objc func purchase(product: SWBStoreProduct, completion: @escaping (SWBPurchaseResult) -> Void)
 
   /// Restore purchases. Invoke `completion` exactly once with the outcome.
   @objc func restorePurchases(completion: @escaping (SWBRestorationResult) -> Void)
@@ -41,7 +42,7 @@ final class BridgePurchaseControllerForwarder: PurchaseController {
       // Guard against double-resume from a misbehaving Kotlin impl:
       // only the first completion counts (degrade, never crash).
       let once = OnceGate()
-      bridgeController.purchase(productId: product.productIdentifier) { result in
+      bridgeController.purchase(product: SWBStoreProduct(product)) { result in
         guard once.tryPass() else { return }
         continuation.resume(returning: result.native)
       }

@@ -164,6 +164,15 @@ internal fun RestorationResult.toSWB(): SWBRestorationResult =
         is RestorationResult.Failed -> SWBRestorationResult(SWBRestorationResultCaseFailed, error)
     }
 
+/** `Superwall.purchase` results (SWB -> common); the reverse of [toSWB]. */
+internal fun SWBPurchaseResult.toModel(): PurchaseResult =
+    when (result()) {
+        SWBPurchaseResultCasePurchased -> PurchaseResult.Purchased
+        SWBPurchaseResultCasePending -> PurchaseResult.Pending
+        SWBPurchaseResultCaseCancelled -> PurchaseResult.Cancelled
+        else -> PurchaseResult.Failed(errorMessage() ?: "Unknown purchase error")
+    }
+
 internal fun PurchaseResult.toSWB(): SWBPurchaseResult =
     when (this) {
         PurchaseResult.Purchased -> SWBPurchaseResult(SWBPurchaseResultCasePurchased, null)

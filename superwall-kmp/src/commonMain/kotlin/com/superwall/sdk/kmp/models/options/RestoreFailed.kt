@@ -3,6 +3,9 @@ package com.superwall.sdk.kmp.models.options
 /**
  * Defines the messaging of the alert presented to the user when restoring a
  * transaction fails.
+ *
+ * On Android, a field left at its default is shown in the device's language
+ * (superwall-android localizes it); on iOS the defaults are shown as written.
  */
 public data class RestoreFailed(
     /**
