@@ -488,7 +488,7 @@ internal class IosSuperwallBridge : SuperwallBridge {
                 productIdsByName,
                 adapter,
             ) { paywall, skippedReason, error ->
-                val embedded = paywall?.let { IosEmbeddedPaywall(placement, it) }
+                val embedded = paywall?.let { IosEmbeddedPaywall(placement, it, adapter) }
                 if (embedded == null) {
                     val reason = skippedReason?.toModel()
                     try {

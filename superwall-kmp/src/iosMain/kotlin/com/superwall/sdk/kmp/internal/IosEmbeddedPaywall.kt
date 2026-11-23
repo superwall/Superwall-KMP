@@ -28,6 +28,7 @@ import platform.darwin.NSObject
 internal class IosEmbeddedPaywall(
     override val placement: String,
     swbPaywall: SWBEmbeddedPaywall,
+    private val delegateAdapter: PaywallViewDelegateAdapter,
 ) : EmbeddedPaywall {
     private var swbPaywall: SWBEmbeddedPaywall? = swbPaywall
 
@@ -45,12 +46,20 @@ internal class IosEmbeddedPaywall(
         get() = swbPaywall?.currentInfo()?.toModel()?.also { lastInfo = it } ?: lastInfo
 
     /**
-     * Lets go of the controller and, with it, of the delegate forwarder, so
-     * nothing more is reported. Taking the controller off screen is left to
-     * whatever put it there (Compose's `UIKitViewController` does it itself).
+     * Stops reporting to the callback and lets go of the controller. Taking
+     * the controller off screen is left to whatever put it there (Compose's
+     * `UIKitViewController` does it itself).
+     *
+     * The adapter is detached explicitly because dropping the reference is
+     * not enough: the Swift `SWBEmbeddedPaywall`, and the delegate forwarder
+     * it keeps alive, are only released when Kotlin/Native's GC gets to them.
+     * Until then SuperwallKit still reaches the delegate, and it does report
+     * once more: taking the controller off screen after destroy() makes it
+     * call `didFinishWith: .declined, shouldDismiss: false`.
      */
     override fun destroy() {
         val paywall = swbPaywall ?: return
+        delegateAdapter.detach()
         lastInfo = paywall.currentInfo().toModel()
         swbPaywall = null
     }
@@ -68,6 +77,14 @@ internal class PaywallViewDelegateAdapter(
     private val scope: CoroutineScope,
     private val log: (message: String, error: Throwable?) -> Unit,
 ) : NSObject(), SWBPaywallViewDelegateProtocol {
+    // Main thread only, like every call into this adapter.
+    private var isDetached = false
+
+    /** After this the app's callback hears nothing more; see [IosEmbeddedPaywall.destroy]. */
+    fun detach() {
+        isDetached = true
+    }
+
     override fun paywallDidFinish(
         paywallInfo: SWBPaywallInfo,
         result: SWBPaywallResult,
@@ -76,6 +93,7 @@ internal class PaywallViewDelegateAdapter(
         val info = paywallInfo.toModel()
         val paywallResult = result.toModel()
         scope.launch {
+            if (isDetached) return@launch
             try {
                 callback.onFinished(info, paywallResult, shouldDismiss)
             } catch (throwable: Throwable) {
@@ -90,6 +108,11 @@ internal class PaywallViewDelegateAdapter(
     ) {
         val model = callback.toModel()
         scope.launch {
+            if (isDetached) {
+                // Same answer the bridge gives once the delegate is gone.
+                completion(CustomCallbackResult.failure().toSWB())
+                return@launch
+            }
             val result = try {
                 this@PaywallViewDelegateAdapter.callback.onCustomCallback(model)
             } catch (throwable: Throwable) {
