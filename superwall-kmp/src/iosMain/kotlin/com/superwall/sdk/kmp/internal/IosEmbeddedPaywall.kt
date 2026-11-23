@@ -27,10 +27,16 @@ import platform.darwin.NSObject
  */
 internal class IosEmbeddedPaywall(
     override val placement: String,
-    swbPaywall: SWBEmbeddedPaywall,
+    swbPaywall: NativeEmbeddedPaywall,
     private val delegateAdapter: PaywallViewDelegateAdapter,
 ) : EmbeddedPaywall {
-    private var swbPaywall: SWBEmbeddedPaywall? = swbPaywall
+    constructor(
+        placement: String,
+        swbPaywall: SWBEmbeddedPaywall,
+        delegateAdapter: PaywallViewDelegateAdapter,
+    ) : this(placement, SwbNativeEmbeddedPaywall(swbPaywall), delegateAdapter)
+
+    private var swbPaywall: NativeEmbeddedPaywall? = swbPaywall
 
     // Kept past destroy(), so `info` still answers once the paywall is let go.
     private var lastInfo: PaywallInfo = swbPaywall.currentInfo().toModel()
@@ -63,6 +69,26 @@ internal class IosEmbeddedPaywall(
         lastInfo = paywall.currentInfo().toModel()
         swbPaywall = null
     }
+}
+
+/**
+ * What [IosEmbeddedPaywall] uses of the bridge's `SWBEmbeddedPaywall`. It
+ * exists for the tests: `SWBEmbeddedPaywall` has no ObjC initializer (the
+ * bridge builds it around a live SuperwallKit controller), so a test can only
+ * stand in for it through this.
+ */
+internal interface NativeEmbeddedPaywall {
+    fun viewController(): Any?
+
+    fun currentInfo(): SWBPaywallInfo
+}
+
+private class SwbNativeEmbeddedPaywall(
+    private val swbPaywall: SWBEmbeddedPaywall,
+) : NativeEmbeddedPaywall {
+    override fun viewController(): Any? = swbPaywall.viewController()
+
+    override fun currentInfo(): SWBPaywallInfo = swbPaywall.currentInfo()
 }
 
 /**
