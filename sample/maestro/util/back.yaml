@@ -11,4 +11,11 @@ appId: ${APP_ID}
 # absent. It used to, and the two branches are evaluated in sequence: after the
 # tap succeeded, "Back" was gone, the fallback's condition became true, and
 # Android pressed hardware back as well — leaving the app.
-- tapOn: "Back"
+#
+# `index: 0` because "Back" is not unique on an Android device using 3-button
+# navigation: the system Back button carries the same accessibility text, and
+# without an index Maestro taps that one, which exits the app. The app's own
+# button is the first match.
+- tapOn:
+    text: "Back"
+    index: 0

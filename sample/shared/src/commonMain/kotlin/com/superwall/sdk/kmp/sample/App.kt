@@ -42,6 +42,7 @@ enum class Screen {
     DelegateTest,
     HandlerTest,
     NewApiTest,
+    DeviceChecks,
 }
 
 /**
@@ -66,6 +67,7 @@ fun App() {
             Screen.DelegateTest -> DelegateTestScreen(onBack = goHome)
             Screen.HandlerTest -> HandlerTestScreen(onBack = goHome)
             Screen.NewApiTest -> NewApiTestScreen(onBack = goHome)
+            Screen.DeviceChecks -> DeviceChecksScreen(onBack = goHome)
         }
     }
 }
@@ -79,6 +81,7 @@ private fun HomeScreen(onNavigate: (Screen) -> Unit) {
         SampleButton("Delegate Test") { onNavigate(Screen.DelegateTest) }
         SampleButton("Handler Test") { onNavigate(Screen.HandlerTest) }
         SampleButton("New API Test") { onNavigate(Screen.NewApiTest) }
+        SampleButton("Device Checks") { onNavigate(Screen.DeviceChecks) }
     }
 }
 

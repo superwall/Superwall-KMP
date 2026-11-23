@@ -1,0 +1,82 @@
+# APP_ID must be passed in — see sample/maestro/README.md.
+appId: ${APP_ID}
+---
+# Superwall.getProducts and Superwall.purchase in SDK test mode. Not ported
+# from Flutter.
+- launchApp: ${APP_ID}
+- runFlow: "../util/dismiss_storekit_signin.yaml"
+- tapOn: "Device Checks"
+- tapOn: "Configure Test Mode"
+- runFlow: "../util/dismiss_storekit_signin.yaml"
+
+# The SDK's "Test Mode Active" sheet; see purchasecontroller/test_mode_purchases.yaml
+# for why the title is matched loosely and the button differs by platform.
+- extendedWaitUntil:
+    visible: ".*Test Mode Active.*"
+    timeout: 30000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Continue"
+          direction: DOWN
+      - tapOn: "Continue"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "OK"
+
+- tapOn: "Load Product Ids"
+- extendedWaitUntil:
+    visible: "Result: productIds: loaded [1-9].*"
+    timeout: 30000
+# Android resolves test-mode products from Superwall's servers, so both calls
+# work with no store. SuperwallKit's `products(for:)` still asks StoreKit in
+# test mode, and a Maestro-launched simulator has no StoreKit configuration
+# (see ../README.md), so iOS can only show the no-store outcome: nothing
+# returned, and a purchase that comes back Failed instead of throwing.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Get Products"
+      - extendedWaitUntil:
+          visible: "Result: getProducts: got 0 of 1, unknown left out=true, .*"
+          timeout: 20000
+      - tapOn: "Purchase First Product"
+      - extendedWaitUntil:
+          visible: "Result: purchase: Failed.*not found.*"
+          timeout: 20000
+
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn: "Get Products"
+      - extendedWaitUntil:
+          visible: "Result: getProducts: got 1 of 1, unknown left out=true, .*"
+          timeout: 20000
+      - scrollUntilVisible:
+          element: "Purchase First Product"
+          direction: DOWN
+          centerElement: true
+      # The SDK's simulated-purchase drawer.
+      - tapOn: "Purchase First Product"
+      - extendedWaitUntil:
+          visible: "Simulate Failure"
+          timeout: 15000
+      - tapOn: "Simulate Failure"
+      - extendedWaitUntil:
+          visible: "Result: purchase: Failed.*"
+          timeout: 15000
+      - tapOn: "Purchase First Product"
+      - extendedWaitUntil:
+          visible: "Simulate Failure"
+          timeout: 15000
+      - tapOn: "Confirm Purchase|Start Free Trial"
+      - extendedWaitUntil:
+          visible: "Result: purchase: Purchased"
+          timeout: 15000

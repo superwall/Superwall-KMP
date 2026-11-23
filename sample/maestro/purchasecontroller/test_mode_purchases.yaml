@@ -45,9 +45,11 @@ appId: ${APP_ID}
     commands:
       - tapOn: "OK"
 
-# NOTE ON THE DRAWER — why the taps below use coordinates.
+# NOTE ON THE DRAWER — why the iOS taps below use coordinates.
 #
-# The simulated-purchase drawer is invisible to Maestro: with the drawer plainly
+# On Android the drawer is an ordinary view and its buttons are tapped by
+# text; its layout also differs, so the iOS percentages miss them there.
+# On iOS the simulated-purchase drawer is invisible to Maestro: with the drawer plainly
 # on screen, `maestro hierarchy` contains none of its labels ("Simulate Failure",
 # "Start Free Trial", the product id, the footer). Both `assertVisible` and
 # `tapOn` by text therefore fail on it. Same class of problem as an iOS system
@@ -74,8 +76,20 @@ appId: ${APP_ID}
 # The drawer is fetched/animated in; give it time before reaching for a button.
 - waitForAnimationToEnd:
     timeout: 8000
-- tapOn:
-    point: "50%,94%"   # "Simulate Failure"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          point: "50%,94%"   # "Simulate Failure"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn: "Simulate Failure"
+      # superwall-android reports the failure in an alert over the paywall
+      # ("An error occurred"), which swallows every tap until it is closed.
+      - tapOn: "(?i)done"
 # Do NOT use util/back.yaml here. After a simulated failure the paywall stays up
 # on the simulator but dismisses itself on a device, and back.yaml taps whatever
 # "Back" it finds — on the device that was the app's own Back button, popping to
@@ -87,8 +101,26 @@ appId: ${APP_ID}
     when:
       notVisible: "Trigger Paywall"
     commands:
-      - tapOn:
-          point: "8%,9%"   # paywall close (X)
+      # The paywall's X sits a little higher on Android (as in
+      # util/dismiss_paywall.yaml), and it is small enough to miss.
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - tapOn:
+                point: "8%,9%"   # paywall close (X)
+      - runFlow:
+          when:
+            platform: Android
+          commands:
+            - tapOn:
+                point: "8%,8%"   # paywall close (✕)
+# The placement is not gated, so closing the paywall by hand runs the feature
+# block and raises the app's "Feature triggered" dialog. On Android a dialog is
+# its own window and hides the screen under it from Maestro, so dismiss it.
+- tapOn:
+    text: "OK"
+    optional: true
 - assertVisible: "Trigger Paywall"
 
 # Success path: confirming grants the entitlement and runs the feature block.
@@ -99,8 +131,17 @@ appId: ${APP_ID}
 - tapOn: "Continue"
 - waitForAnimationToEnd:
     timeout: 8000
-- tapOn:
-    point: "50%,87%"   # "Start Free Trial" / "Confirm Purchase"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          point: "50%,87%"   # "Start Free Trial" / "Confirm Purchase"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn: "Confirm Purchase|Start Free Trial"
 - assertVisible: "Feature triggered"
 - tapOn: "OK"
 

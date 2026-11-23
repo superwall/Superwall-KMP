@@ -51,14 +51,23 @@ e.g. `/opt/homebrew/Cellar/maestro/<version>/bin/maestro`.
 | `handler/flow.yaml` — presentation handler | passes | passes |
 | `delegate/flow.yaml` — delegate callbacks | passes | passes |
 | `newapi/flow.yaml` — embedded paywall, status/events flows, assignments | passes | passes |
-| `purchasecontroller/test_mode_purchases.yaml` — simulated purchases | passes | **blocked** — see below |
+| `devicechecks/observer_mode.yaml` — ad consent, notification calls, game controller input, teardown; on Android also `getProducts`, `purchase`, observer mode and `showAlert` | passes | passes — the product steps need Play access, see below |
+| `devicechecks/test_mode.yaml` — `getProducts` and `purchase` in test mode | passes — no-store outcome only, see below | passes |
+| `purchasecontroller/test_mode_purchases.yaml` — simulated purchases | passes | passes |
 | `purchasecontroller/test_pc_purchases.yaml` | blocked — needs StoreKit products | not run — needs Play Billing sandbox |
 | `purchasecontroller/no_pc_purchases.yaml` | blocked — needs a purchase sandbox | not run — needs Play Billing sandbox |
 
-On Android, test mode activates (the "Test Mode Active" sheet appears and reports
-products come from the dashboard), but tapping the paywall's CONTINUE produces no
-simulated-purchase drawer — 10s later the paywall is unchanged. The flow's
-purchase steps therefore cannot run there.
+`devicechecks/observer_mode.yaml` asks Play Billing for the dashboard's real
+products on Android, so its product steps need an emulator signed in to Google
+Play with access to the `com.superwall.superapp` test products (a licence-tester
+account). It opens the Play purchase sheet and backs out of it; nothing is
+bought. Without that access, `getProducts` returns nothing and those steps fail.
+
+On iOS, `Superwall.getProducts` and `Superwall.purchase(productId)` ask StoreKit
+even in test mode, so on a Maestro-launched simulator (no StoreKit
+configuration, see below) `devicechecks/test_mode.yaml` can only check that an
+unknown product is left out and that the purchase comes back `Failed`. On
+Android the same flow buys through the simulated-purchase drawer.
 
 ### Buying without a store: test mode
 
@@ -80,11 +89,14 @@ Two quirks worth knowing, both handled in the flow:
 - Entering test mode raises the SDK's own **"🧪 Test Mode Active"** sheet, which
   must be dismissed with OK. Maestro matches the *whole* string, so the assertion
   has to allow for the emoji (`.*Test Mode Active.*`).
-- The **simulated-purchase drawer is invisible to Maestro** — with it plainly on
-  screen, `maestro hierarchy` contains none of its labels, so neither
+- On iOS the **simulated-purchase drawer is invisible to Maestro** — with it
+  plainly on screen, `maestro hierarchy` contains none of its labels, so neither
   `assertVisible` nor `tapOn` by text works on it. Its buttons are tapped by
   position instead, and every assertion is made against the app's own UI
-  afterwards.
+  afterwards. On Android the drawer is an ordinary view, laid out differently,
+  and its buttons are tapped by text.
+- On Android a simulated failure raises the SDK's **"An error occurred" alert**
+  over the paywall, which swallows every tap until its DONE is pressed.
 
 ### Why the other two purchase flows are blocked
 

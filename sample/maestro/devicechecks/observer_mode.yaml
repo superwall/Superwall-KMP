@@ -1,0 +1,128 @@
+# APP_ID must be passed in — see sample/maestro/README.md.
+appId: ${APP_ID}
+---
+# The "Device Checks" screen, configured with observer mode, game controller
+# forwarding, an ad consent and a local resource. Not ported from Flutter.
+#
+# Covers ad consent, the notification calls, game controller forwarding and
+# teardown on both platforms, and on Android also getProducts, purchase,
+# observer-mode tracking and showAlert.
+#
+# The Android product steps need what the Play Billing sandbox flows need: an
+# emulator signed in to Google Play with access to the com.superwall.superapp
+# test products. On a bare iOS simulator there is no store behind the same
+# calls, so they are left to test_mode.yaml there.
+- launchApp: ${APP_ID}
+- runFlow: "../util/dismiss_storekit_signin.yaml"
+- tapOn: "Device Checks"
+- tapOn: "Configure Observer Mode"
+- runFlow: "../util/dismiss_storekit_signin.yaml"
+- extendedWaitUntil:
+    visible: "Result: configure: done testMode=false"
+    timeout: 30000
+
+# The consent passed in SuperwallOptions is readable, and so is the one set after.
+- tapOn: "Check Ad Consent"
+- assertVisible: "Result: adConsent: options=DENIED/GRANTED set=GRANTED/DENIED"
+
+- tapOn: "Call Notification APIs"
+- assertVisible: "Result: notifications: ok"
+
+- tapOn: "Load Product Ids"
+- extendedWaitUntil:
+    visible: "Result: productIds: loaded [1-9].*"
+    timeout: 30000
+
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn: "Get Products"
+      - extendedWaitUntil:
+          visible: "Result: getProducts: got 1 of 1, unknown left out=true, .*"
+          timeout: 20000
+      - scrollUntilVisible:
+          element: "Purchase Unknown Product"
+          direction: DOWN
+          centerElement: true
+      - tapOn: "Purchase Unknown Product"
+      - extendedWaitUntil:
+          visible: "Result: purchaseUnknown: Failed.*"
+          timeout: 20000
+      # A real Play purchase sheet, backed out of: the call has to come back
+      # Cancelled rather than hang.
+      - tapOn: "Purchase First Product"
+      - extendedWaitUntil:
+          visible: ".*Subscribe.*"
+          timeout: 20000
+      - back
+      - extendedWaitUntil:
+          visible: "Result: purchase: Cancelled"
+          timeout: 20000
+      # Two reported attempts: one that failed, one the user cancelled.
+      - scrollUntilVisible:
+          element: "Observe Purchase"
+          direction: DOWN
+          centerElement: true
+      - tapOn: "Observe Purchase"
+      - extendedWaitUntil:
+          visible: "Result: observe: tracked TRANSACTION_START, TRANSACTION_FAIL, TRANSACTION_START, TRANSACTION_ABANDON, errors=0"
+          timeout: 30000
+      # showAlert goes over a presented paywall; its action comes back to the app.
+      - scrollUntilVisible:
+          element: "Paywall Then Alert"
+          direction: DOWN
+          centerElement: true
+      - tapOn: "Paywall Then Alert"
+      - extendedWaitUntil:
+          visible: "KMP alert"
+          timeout: 30000
+      - assertVisible: "Shown over the paywall"
+      - tapOn: "(?i)KMP action"
+      # Only close the paywall if it is still up: its close button sits where
+      # the app's own Back does, so an unconditional tap leaves this screen.
+      - runFlow:
+          when:
+            notVisible: "Result: showAlert: action tapped"
+          file: "../util/dismiss_paywall.yaml"
+      - extendedWaitUntil:
+          visible: "Result: showAlert: action tapped"
+          timeout: 10000
+
+- scrollUntilVisible:
+    element: "Send Gamepad Input"
+    direction: DOWN
+    centerElement: true
+- tapOn: "Send Gamepad Input"
+- assertVisible: "Result: gamepad: sent .*"
+
+- scrollUntilVisible:
+    element: "Read Platform Members"
+    direction: DOWN
+    centerElement: true
+- tapOn: "Read Platform Members"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible: "Result: platform: presentedViewController=null, customerCenterViewController=.*"
+
+# Last, because on Android it resets the SDK.
+- scrollUntilVisible:
+    element: "Teardown And Reconfigure"
+    direction: DOWN
+    centerElement: true
+- tapOn: "Teardown And Reconfigure"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible: "Result: teardown: returned true, configured after teardown=false, after reconfigure=true"
+          timeout: 30000
+      - assertVisible: "Configuration status: CONFIGURED"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible: "Result: teardown: returned false"
