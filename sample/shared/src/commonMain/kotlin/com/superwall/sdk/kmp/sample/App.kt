@@ -41,6 +41,7 @@ enum class Screen {
     PurchaseControllerTest,
     DelegateTest,
     HandlerTest,
+    NewApiTest,
 }
 
 /**
@@ -64,6 +65,7 @@ fun App() {
             Screen.PurchaseControllerTest -> PurchaseControllerTestScreen(onBack = goHome)
             Screen.DelegateTest -> DelegateTestScreen(onBack = goHome)
             Screen.HandlerTest -> HandlerTestScreen(onBack = goHome)
+            Screen.NewApiTest -> NewApiTestScreen(onBack = goHome)
         }
     }
 }
@@ -76,6 +78,7 @@ private fun HomeScreen(onNavigate: (Screen) -> Unit) {
         SampleButton("Purchase Controller Test") { onNavigate(Screen.PurchaseControllerTest) }
         SampleButton("Delegate Test") { onNavigate(Screen.DelegateTest) }
         SampleButton("Handler Test") { onNavigate(Screen.HandlerTest) }
+        SampleButton("New API Test") { onNavigate(Screen.NewApiTest) }
     }
 }
 

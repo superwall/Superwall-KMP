@@ -1,0 +1,99 @@
+# APP_ID must be passed in — see sample/maestro/README.md.
+appId: ${APP_ID}
+---
+# The API with no Flutter test_app counterpart: embedded paywalls
+# (Superwall.getPaywall), the configuration-status and events flows,
+# assignments and configuration refresh. Not ported from Flutter.
+- launchApp: ${APP_ID}
+- runFlow: "../util/dismiss_storekit_signin.yaml"
+- tapOn: "Configuration test"
+- tapOn: "Just configure"
+- runFlow: "../util/dismiss_storekit_signin.yaml"
+- runFlow: "../util/back.yaml"
+- tapOn: "New API Test"
+
+- extendedWaitUntil:
+    visible: "Configuration status: CONFIGURED"
+    timeout: 30000
+
+# Done before embedding: with the paywall in the column these buttons are
+# pushed below the fold.
+- tapOn: "Get Assignments"
+- assertVisible: "Last result: getAssignments: ok, .* assignments"
+- tapOn: "Refresh Configuration"
+- assertVisible: "Last result: refreshConfiguration: requested"
+
+# Retrieve a paywall and show it inside the app's own layout. The screen title
+# stays visible throughout, so this is not a Superwall-presented paywall.
+- tapOn: "Get Embedded Paywall"
+- extendedWaitUntil:
+    visible: "Last result: getPaywall: returned .* for non_gated_paywall"
+    timeout: 30000
+- assertVisible: "New API Test"
+# The paywall's own content can only be asserted on Android. On iOS, Compose
+# Multiplatform does not expose what is inside a UIKitViewController to the
+# accessibility tree, so `maestro hierarchy` has none of the paywall's text
+# while it is plainly on screen — the screenshot is the evidence there.
+# "Redeem Code" rather than CONTINUE: the 420dp host clips the paywall above
+# its button. onPresent is Android only (PaywallViewCallback.onPresent).
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible: "Redeem Code"
+          timeout: 30000
+      - assertVisible: "Embedded paywall: presented"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible: "Embedded paywall: retrieved"
+      - waitForAnimationToEnd:
+          timeout: 6000
+- assertVisible: "Events seen: some .*"
+- takeScreenshot: embedded_paywall
+
+- scrollUntilVisible:
+    element: "Destroy Embedded Paywall"
+    direction: DOWN
+- tapOn: "Destroy Embedded Paywall"
+- assertVisible: "Embedded paywall: destroyed"
+- assertNotVisible: "Destroy Embedded Paywall"
+
+# Retrieve it a second time. Android caches paywalls and must be told a
+# presentation ended before the same one can be shown again, so this is the
+# check that destroy() really released it.
+- tapOn: "Get Embedded Paywall"
+- extendedWaitUntil:
+    visible: "Embedded paywall: (retrieved|presented)"
+    timeout: 30000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible: "Redeem Code"
+          timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 6000
+
+# Close it with the paywall's own X, which has to come back through
+# PaywallViewCallback.onFinished. Tapped by position because of the iOS
+# limitation above; the two layouts put it at different heights.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          point: "14%,45%"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          point: "14%,52%"
+- extendedWaitUntil:
+    visible: "Embedded paywall: finished Declined shouldDismiss=.*"
+    timeout: 10000
+- takeScreenshot: embedded_paywall_finished
